@@ -1,45 +1,11 @@
-import { useEffect, useState } from "react";
-import { getSeasonByYear, getWhiskeysForSeason } from "./api/whiskeys";
+// WhiskeyList.tsx
+// NOTE: The original list + stats logic has been split between Home.tsx (calendar grid)
+// and Stats.tsx (season statistics). This component is currently not used directly,
+// but is left here as a harmless placeholder to avoid build errors if it is imported
+// anywhere in the app.
 
-function WhiskeyList() {
-  const [loading, setLoading] = useState(true);
-  const [whiskeys, setWhiskeys] = useState<any[]>([]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      // 1. Fetch the 2026 season
-      const season = await getSeasonByYear(2026);
-      if (!season) {
-        console.error("Season not found");
-        setLoading(false);
-        return;
-      }
-
-      // 2. Fetch all whiskey days for that season
-      const days = await getWhiskeysForSeason(season.id);
-      setWhiskeys(days);
-      setLoading(false);
-    };
-
-    loadData();
-  }, []);
-
-  if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
-
-  return (
-    <div style={{ padding: 24 }}>
-      <h2>2026 Advent (Debug List)</h2>
-      <ul>
-        {whiskeys.map((w) => (
-          <li key={w.id} style={{ marginBottom: "12px" }}>
-            <strong>Day {w.day_number}</strong>: {w.name}  
-            <br />
-            <span>{w.type} — {w.country} ({w.region})</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+export default function WhiskeyList() {
+  // If you ever want a dedicated list view again, you can wire it up here using
+  // getSeasonByYear + getWhiskeysForSeason from ./api/whiskeys.
+  return null;
 }
-
-export default WhiskeyList;
