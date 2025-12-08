@@ -1,5 +1,7 @@
 import { useAppTheme } from "../theme";
 import type { ThemeMode } from "../theme";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import ModeNightIcon from "@mui/icons-material/ModeNight";
 
 type AppHeaderProps = {
   currentYear: number;
@@ -9,9 +11,6 @@ type AppHeaderProps = {
 
 function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
   const { mode, setMode } = useAppTheme();
-
-  const headerThemeIcon =
-    mode === "dark" ? "🌙" : mode === "system" ? "🖥️" : "☀️";
 
   const toggleHeaderTheme = () => {
     const next: ThemeMode = mode === "dark" ? "light" : "dark";
@@ -33,7 +32,11 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "12px 0",
+        padding: "12px 24px",
+        // Break out of the main content padding so the header runs full-width
+        marginLeft: "-16px",
+        marginRight: "-16px",
+        marginTop: "-16px",
         background: "var(--mui-palette-background-paper)",
       }}
     >
@@ -68,7 +71,11 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
           }}
           aria-label="Toggle theme"
         >
-          {headerThemeIcon}
+          {mode === "dark" ? (
+            <ModeNightIcon fontSize="small" />
+          ) : (
+            <LightModeIcon fontSize="small" />
+          )}
         </button>
 
         {profileType && (

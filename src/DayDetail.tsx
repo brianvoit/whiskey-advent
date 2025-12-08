@@ -8,6 +8,21 @@ import {
   type TastingSliderValues,
   defaultTastingSliders,
 } from "./api/tastings";
+import Divider from "@mui/material/Divider";
+import Snackbar from "@mui/material/Snackbar";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useTheme } from "@mui/material/styles";
+import Typography from "@mui/material/Typography";
+import Slider from "@mui/material/Slider";
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
+import StarHalfRoundedIcon from "@mui/icons-material/StarHalfRounded";
+import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
+import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
+import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
+import WaterDropRoundedIcon from "@mui/icons-material/WaterDropRounded";
+import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
+import ParkRoundedIcon from "@mui/icons-material/ParkRounded";
+import FitnessCenterRoundedIcon from "@mui/icons-material/FitnessCenterRounded";
 
 type WhiskeyDay = {
   id: number;
@@ -22,6 +37,7 @@ type WhiskeyDay = {
   abv: number | null;
   blurb: string | null;
   info_url: string | null;
+  image_url?: string | null;
 };
 
 type DayDetailProps = {
@@ -36,6 +52,7 @@ type StarRatingProps = {
 };
 
 function StarRating({ value, onChange }: StarRatingProps) {
+  const theme = useTheme();
   const rating = value ?? 0; // 0 = no rating yet
 
   const handleClick = (index: number) => {
@@ -56,9 +73,15 @@ function StarRating({ value, onChange }: StarRatingProps) {
 
   const stars = [];
   for (let i = 1; i <= 5; i++) {
-    // For now, visually just show full or empty stars.
-    // We'll represent halves only in the numeric label.
-    const symbol = rating >= i ? "★" : "☆";
+    // Determine full / half / empty state for each star
+    const isFull = rating >= i;
+    const isHalf = !isFull && rating >= i - 0.5;
+
+    const IconComponent = isFull
+      ? StarRoundedIcon
+      : isHalf
+      ? StarHalfRoundedIcon
+      : StarBorderRoundedIcon;
 
     stars.push(
       <button
@@ -69,27 +92,38 @@ function StarRating({ value, onChange }: StarRatingProps) {
           border: "none",
           background: "transparent",
           cursor: "pointer",
-          fontSize: "1.5rem",
           padding: 0,
           lineHeight: 1,
+          flex: 1,
+          textAlign: "center",
+          color: isFull || isHalf
+            ? theme.palette.primary.main
+            : theme.palette.text.disabled,
         }}
       >
-        {symbol}
+        <IconComponent style={{ fontSize: "2.4rem" }} />
       </button>
     );
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 0,
+        width: "100%",
+        justifyContent: "space-between",
+      }}
+    >
       {stars}
-      <span style={{ fontSize: "0.9rem" }}>
-        {value !== null ? `${value.toFixed(1)} / 5` : "No rating"}
-      </span>
     </div>
   );
 }
 
 function DayDetail({ isAdmin, userId }: DayDetailProps) {
+  const theme = useTheme();
+
   const { year, dayNumber } = useParams();
   const navigate = useNavigate();
 
@@ -105,6 +139,8 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -156,6 +192,7 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         }
       }
 
+      setIsDirty(false);
       setTastingLoading(false);
     };
 
@@ -168,21 +205,37 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
     setSaving(true);
     setSaveMessage("");
 
+    // If the user has given a rating, automatically reveal on save
+    let nextRevealed = revealed;
+    if (!revealed && rating !== null) {
+      nextRevealed = true;
+      setRevealed(true);
+    }
+
     const result = await saveTasting({
       userId,
       whiskeyDayId: whiskey.id,
       rating, // 1–5 with 0.5 steps, or null
       notes,
-      revealed,
+      revealed: nextRevealed,
       tastingSliders,
     });
 
     setSaving(false);
-    setSaveMessage(result.success ? "Saved!" : "Error saving tasting");
+
+    if (result.success) {
+      setSaveMessage("Saved!");
+      setIsDirty(false);
+    } else {
+      setSaveMessage("Error saving tasting");
+    }
+
+    setSnackbarOpen(true);
   };
 
   const handleReveal = () => {
     setRevealed(true);
+    setIsDirty(true);
   };
 
   const updateSlider = (key: keyof TastingSliderValues, value: number) => {
@@ -190,16 +243,21 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
       ...prev,
       [key]: value,
     }));
+    setIsDirty(true);
   };
 
   if (loading || tastingLoading) {
-    return <div style={{ padding: 24 }}>Loading day…</div>;
+    return (
+      <div style={{ padding: 24 }}>
+        <Typography variant="body1">Loading day…</Typography>
+      </div>
+    );
   }
 
   if (!whiskey) {
     return (
       <div style={{ padding: 24 }}>
-        <p>Could not find this day.</p>
+        <Typography variant="body1">Could not find this day.</Typography>
         <button onClick={() => navigate(-1)}>Back</button>
       </div>
     );
@@ -207,92 +265,287 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
 
   const showDetails = revealed;
 
-  const sliderDefs: { key: keyof TastingSliderValues; label: string }[] = [
-    { key: "sweetness", label: "Sweetness" },
-    { key: "fruit", label: "Fruit" },
-    { key: "spice", label: "Spice" },
-    { key: "smoke", label: "Smoke" },
-    { key: "oak", label: "Oak" },
-    { key: "body", label: "Body" },
+  const sliderDefs: {
+    key: keyof TastingSliderValues;
+    label: string;
+    Icon:
+      | typeof LocalBarRoundedIcon
+      | typeof RestaurantRoundedIcon
+      | typeof WaterDropRoundedIcon
+      | typeof LocalFireDepartmentRoundedIcon
+      | typeof ParkRoundedIcon
+      | typeof FitnessCenterRoundedIcon;
+  }[] = [
+    { key: "sweetness", label: "Sweetness", Icon: LocalBarRoundedIcon },
+    { key: "fruit", label: "Fruit", Icon: RestaurantRoundedIcon },
+    { key: "spice", label: "Spice", Icon: WaterDropRoundedIcon },
+    { key: "smoke", label: "Smoke", Icon: LocalFireDepartmentRoundedIcon },
+    { key: "oak", label: "Oak", Icon: ParkRoundedIcon },
+    { key: "body", label: "Body", Icon: FitnessCenterRoundedIcon },
   ];
 
   return (
     <div style={{ paddingTop: 16 }}>
-      <button onClick={() => navigate(-1)} style={{ marginBottom: 16 }}>
-        ← Back
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 12,
+          border: "none",
+          background: "none",
+          padding: 0,
+          cursor: "pointer",
+          color: theme.palette.primary.main,
+          font: "inherit",
+          fontWeight: 500,
+        }}
+      >
+        <ArrowBackIcon fontSize="small" />
+        <span>Back</span>
       </button>
 
-      <h2>Day {whiskey.day_number}</h2>
+      {/* Hero image with H1 overlay */}
+      <div
+        style={{
+          position: "relative",
+          marginBottom: 24,
+          borderRadius: theme.shape.borderRadius,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            height: 180,
+            backgroundImage: whiskey.image_url
+              ? `url(${whiskey.image_url})`
+              : "linear-gradient(135deg, #d7ccc8, #bcaaa4)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <Typography
+          variant="h3"
+          component="h1"
+          style={{
+            position: "absolute",
+            left: 16,
+            bottom: 16,
+            margin: 0,
+            color: theme.palette.text.primary,
+            textShadow: "0 1px 3px rgba(255,255,255,0.8)",
+          }}
+        >
+          Day {whiskey.day_number}
+        </Typography>
+        {(whiskey.region || whiskey.country) && (
+          <Typography
+            variant="subtitle1"
+            component="h3"
+            style={{
+              position: "absolute",
+              right: 16,
+              bottom: 16,
+              margin: 0,
+              color: theme.palette.text.primary,
+              textShadow: "0 1px 3px rgba(255,255,255,0.8)",
+              textAlign: "right",
+            }}
+          >
+            {whiskey.region ?? ""}
+            {whiskey.region && whiskey.country ? ", " : ""}
+            {whiskey.country ?? ""}
+          </Typography>
+        )}
+      </div>
 
       {!showDetails && (
-        <p style={{ marginTop: 8 }}>
+        <Typography variant="body2" style={{ marginTop: 8 }}>
           Whiskey details are hidden until you hit Reveal.
-        </p>
+        </Typography>
       )}
 
       {showDetails && (
         <>
-          <h3 style={{ marginTop: 8 }}>{whiskey.name}</h3>
-          <p>
-            {whiskey.type} · {whiskey.country} ({whiskey.region})
-          </p>
-          <p>
-            {whiskey.distillery && (
-              <span>Distillery: {whiskey.distillery} · </span>
-            )}
-            {whiskey.age && <span>Age: {whiskey.age} · </span>}
-            {whiskey.abv !== null && <span>ABV: {whiskey.abv}%</span>}
-          </p>
+          <Typography
+            variant="h4"
+            component="h2"
+            style={{
+              marginTop: 8,
+              marginBottom: 4,
+            }}
+          >
+            {whiskey.name}
+          </Typography>
+
+          {whiskey.type && (
+            <Typography
+              variant="subtitle1"
+              component="h3"
+              style={{
+                marginTop: 4,
+                marginBottom: 4,
+                color: theme.palette.text.secondary,
+                fontWeight: 500,
+              }}
+            >
+              {whiskey.type}
+            </Typography>
+          )}
+
+          {(whiskey.distillery || whiskey.age || whiskey.abv !== null) && (
+            <Typography
+              variant="body2"
+              component="div"
+              style={{
+                color: theme.palette.text.secondary,
+                marginBottom: 8,
+              }}
+            >
+              {whiskey.distillery && (
+                <span>
+                  <strong>Distillery:</strong> {whiskey.distillery}
+                </span>
+              )}
+              {whiskey.age && (
+                <span>
+                  {whiskey.distillery ? " · " : ""} <strong>Age:</strong>{" "}
+                  {whiskey.age}
+                </span>
+              )}
+              {whiskey.abv !== null && (
+                <span>
+                  {(whiskey.distillery || whiskey.age) ? " · " : ""}{" "}
+                  <strong>ABV:</strong> {whiskey.abv}%
+                </span>
+              )}
+            </Typography>
+          )}
 
           {whiskey.blurb && (
-            <p style={{ marginTop: 16 }}>{whiskey.blurb}</p>
+            <Typography variant="body1" style={{ marginTop: 12 }}>
+              {whiskey.blurb}
+            </Typography>
           )}
 
           {whiskey.info_url && (
-            <p style={{ marginTop: 8 }}>
-              <a href={whiskey.info_url} target="_blank" rel="noreferrer">
+            <Typography variant="body2" style={{ marginTop: 8 }}>
+              <a
+                href={whiskey.info_url}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: theme.palette.primary.main }}
+              >
                 More info
               </a>
-            </p>
+            </Typography>
           )}
         </>
       )}
 
-      <hr style={{ margin: "24px 0" }} />
+      <Divider style={{ margin: "24px 0" }} />
 
-      <h3>Your tasting</h3>
-
-      <div style={{ marginTop: 12, maxWidth: 520 }}>
+      <div
+        style={{
+          marginTop: 12,
+          maxWidth: 520,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
+      >
         {/* Star rating block */}
-        <label style={{ display: "block", marginBottom: 8 }}>
-          Overall rating (out of 5 stars)
-        </label>
-        <StarRating value={rating} onChange={setRating} />
+        <StarRating
+          value={rating}
+          onChange={(val) => {
+            setRating(val);
+            setIsDirty(true);
+          }}
+        />
 
         {/* Tasting attribute sliders */}
         <div style={{ marginTop: 24 }}>
-          {sliderDefs.map(({ key, label }) => (
+          {sliderDefs.map(({ key, label, Icon }) => (
             <div
               key={key}
               style={{
                 marginBottom: 16,
               }}
             >
-              <label style={{ display: "block", marginBottom: 4 }}>
+              <Typography
+                variant="subtitle2"
+                component="label"
+                style={{ display: "block", marginBottom: 4 }}
+              >
                 {label}
-              </label>
+              </Typography>
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <input
-                  type="range"
-                  min={1}
-                  max={5}
-                  step={0.5}
-                  value={tastingSliders[key]}
-                  onChange={(e) =>
-                    updateSlider(key, parseFloat(e.target.value))
-                  }
-                  style={{ flex: 1 }}
-                />
+                <div
+                  style={{
+                    position: "relative",
+                    flex: 1,
+                    paddingInline: 4,
+                    minHeight: 40,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <Slider
+                    min={1}
+                    max={5}
+                    step={0.5}
+                    marks={[
+                      { value: 1 },
+                      { value: 2 },
+                      { value: 3 },
+                      { value: 4 },
+                      { value: 5 },
+                    ]}
+                    value={tastingSliders[key]}
+                    onChange={(_, newValue) =>
+                      updateSlider(key, newValue as number)
+                    }
+                    valueLabelDisplay="off"
+                    sx={{
+                      marginLeft: 3.5, // ~28px
+                      "& .MuiSlider-thumb": {
+                        height: 24,
+                        width: 12,
+                        borderRadius: 999,
+                      },
+                      "& .MuiSlider-track": {
+                        height: 6,
+                        borderRadius: 999,
+                      },
+                      "& .MuiSlider-rail": {
+                        height: 6,
+                        borderRadius: 999,
+                      },
+                      "& .MuiSlider-mark": {
+                        height: 10,
+                        width: 3,
+                        borderRadius: 999,
+                      },
+                      "& .MuiSlider-markActive": {
+                        backgroundColor: theme.palette.primary.main,
+                        height: 12,
+                        width: 4,
+                      },
+                    }}
+                  />
+                  <Icon
+                    fontSize="small"
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: theme.palette.primary.main,
+                    }}
+                  />
+                </div>
                 <span style={{ width: 36, textAlign: "right" }}>
                   {tastingSliders[key].toFixed(1)}
                 </span>
@@ -302,14 +555,29 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         </div>
 
         {/* Notes */}
-        <label style={{ display: "block", marginTop: 16, marginBottom: 8 }}>
+        <Typography
+          variant="subtitle2"
+          component="label"
+          style={{ display: "block", marginTop: 16, marginBottom: 8 }}
+        >
           Notes
-        </label>
+        </Typography>
         <textarea
           rows={4}
-          style={{ width: "100%", padding: 8, fontFamily: "inherit" }}
+          style={{
+            width: "100%",
+            padding: 8,
+            fontFamily: "inherit",
+            borderRadius: 8,
+            border: `1px solid ${theme.palette.divider}`,
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
+          }}
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={(e) => {
+            setNotes(e.target.value);
+            setIsDirty(true);
+          }}
           placeholder="What did you taste? Sweet, smoky, fruity, spicy, etc."
         />
 
@@ -327,19 +595,58 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
             type="button"
             onClick={handleReveal}
             disabled={revealed}
+            style={{
+              border: "none",
+              background: "none",
+              padding: "8px 12px",
+              margin: 0,
+              cursor: revealed ? "default" : "pointer",
+              color: revealed
+                ? theme.palette.text.disabled
+                : theme.palette.primary.main,
+              textDecoration: revealed ? "none" : "underline",
+              font: "inherit",
+              fontWeight: 500,
+              borderRadius: "4px",
+            }}
           >
-            {revealed ? "Revealed" : "Reveal Whiskey"}
+            {revealed ? "Revealed" : "Reveal whiskey"}
           </button>
 
-          <button type="button" onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save tasting"}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !isDirty}
+            style={{
+              padding: "8px 16px",
+              backgroundColor:
+                saving || !isDirty
+                  ? theme.palette.action.disabledBackground
+                  : theme.palette.primary.main,
+              color:
+                saving || !isDirty
+                  ? theme.palette.text.disabled
+                  : theme.palette.primary.contrastText,
+              border: "none",
+              borderRadius: "6px",
+              cursor: saving || !isDirty ? "default" : "pointer",
+              fontWeight: 600
+            }}
+          >
+            {saving ? "Saving..." : "Save"}
           </button>
-
-          {saveMessage && (
-            <span style={{ fontSize: "0.85rem" }}>{saveMessage}</span>
-          )}
         </div>
       </div>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={(_, reason) => {
+          if (reason === "clickaway") return;
+          setSnackbarOpen(false);
+        }}
+        message={saveMessage || "Saved"}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
     </div>
   );
 }

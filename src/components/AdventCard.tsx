@@ -1,4 +1,7 @@
 import React from "react";
+import { useTheme } from "@mui/material/styles";
+import Typography from "@mui/material/Typography";
+import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
 
 type AdventCardProps = {
   dayNumber: number;
@@ -35,7 +38,11 @@ const AdventCard: React.FC<AdventCardProps> = ({
   hideDetails,
   onClick,
 }) => {
-  const background = isToday ? "#fffbea" : "#fafafa";
+  const theme = useTheme();
+
+  const background = isToday
+    ? theme.palette.background.paper
+    : theme.palette.background.default;
 
   const handleClick = () => {
     if (isDisabled) return;
@@ -95,14 +102,19 @@ const AdventCard: React.FC<AdventCardProps> = ({
         width: "100%",
         height: "100%",
         borderRadius: 6,
-        background: "#e0e0e0",
+        background: theme.palette.background.paper,
+        border: `1px solid ${theme.palette.divider}`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: "1.5rem",
       }}
     >
-      🥃
+      <LocalBarRoundedIcon
+        style={{
+          fontSize: "1.8rem",
+          color: theme.palette.primary.main,
+        }}
+      />
     </div>
   );
 
@@ -113,8 +125,8 @@ const AdventCard: React.FC<AdventCardProps> = ({
       onClick={handleClick}
       style={{
         position: "relative",
-        borderRadius: 12,
-        border: "1px solid #ddd",
+        borderRadius: theme.shape.borderRadius,
+        border: `1px solid ${theme.palette.divider}`,
         background,
         cursor: isDisabled ? "default" : "pointer",
         padding: 8,
@@ -182,9 +194,9 @@ const AdventCard: React.FC<AdventCardProps> = ({
             }}
           >
             {displayHeadline ? (
-              <div
+              <Typography
+                variant="body1"
                 style={{
-                  fontSize: "0.9rem",
                   fontWeight: 600,
                   marginBottom: displaySubhead ? 2 : 0,
                   whiteSpace: "nowrap",
@@ -193,20 +205,20 @@ const AdventCard: React.FC<AdventCardProps> = ({
                 }}
               >
                 {displayHeadline}
-              </div>
+              </Typography>
             ) : null}
             {displaySubhead ? (
-              <div
+              <Typography
+                variant="body2"
                 style={{
-                  fontSize: "0.8rem",
-                  color: "#555",
+                  color: theme.palette.text.secondary,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                 }}
               >
                 {displaySubhead}
-              </div>
+              </Typography>
             ) : null}
           </div>
 
@@ -221,15 +233,15 @@ const AdventCard: React.FC<AdventCardProps> = ({
           >
             {/* Rating text (bottom-left) */}
             {!hideDetails && ratingText && (
-              <div
+              <Typography
+                variant="caption"
                 style={{
-                  fontSize: "0.75rem",
-                  color: "#333",
+                  color: theme.palette.text.secondary,
                   fontVariantNumeric: "tabular-nums",
                 }}
               >
                 {ratingText}
-              </div>
+              </Typography>
             )}
 
             {/* Action "button" (bottom-right) */}
@@ -238,11 +250,15 @@ const AdventCard: React.FC<AdventCardProps> = ({
                 marginLeft: "auto",
                 padding: "4px 10px",
                 borderRadius: 999,
-                border: "1px solid rgba(0,0,0,0.18)",
+                border: `1px solid ${theme.palette.divider}`,
                 fontSize: "0.75rem",
                 fontWeight: 600,
-                background: isDisabled ? "#f1f1f1" : "#ffffff",
-                color: isDisabled ? "#888" : "#333",
+                background: isDisabled
+                  ? theme.palette.action.disabledBackground
+                  : theme.palette.background.paper,
+                color: isDisabled
+                  ? theme.palette.text.disabled
+                  : theme.palette.text.primary,
               }}
             >
               {actionLabel}
@@ -257,7 +273,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
           style={{
             position: "absolute",
             inset: 0,
-            borderRadius: 12,
+            borderRadius: theme.shape.borderRadius,
             background: "rgba(255, 255, 255, 0.7)",
             display: "flex",
             alignItems: "center",

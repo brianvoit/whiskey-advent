@@ -3,6 +3,7 @@ import { supabase } from "./supabaseClient";
 import type { Profile, RevealPreferences } from "./api/profiles";
 import { useAppTheme } from "./theme";
 import type { ThemeMode } from "./theme";
+import { useTheme } from "@mui/material/styles";
 import {
   Avatar,
   Button,
@@ -17,6 +18,9 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import ModeNightIcon from "@mui/icons-material/ModeNight";
+import DesktopWindowsRoundedIcon from "@mui/icons-material/DesktopWindowsRounded";
 
 type ProfileScreenProps = {
   profile: Profile;
@@ -25,6 +29,7 @@ type ProfileScreenProps = {
 };
 
 function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenProps) {
+  const theme = useTheme();
   const [firstName, setFirstName] = useState(profile.first_name ?? "");
   const [lastName, setLastName] = useState(profile.last_name ?? "");
   const [seeGroupAverages, setSeeGroupAverages] = useState<boolean>(
@@ -37,6 +42,18 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
 
   // THEME MODE STATE (global, via context)
   const { mode, setMode } = useAppTheme();
+
+  const initialFirstName = profile.first_name ?? "";
+  const initialLastName = profile.last_name ?? "";
+  const initialSeeGroupAverages =
+    profile.reveal_preferences?.see_group_averages_pre_reveal ?? true;
+  const initialThemeMode = (profile.theme_mode as ThemeMode | null) ?? "light";
+
+  const isDirty =
+    firstName !== initialFirstName ||
+    lastName !== initialLastName ||
+    seeGroupAverages !== initialSeeGroupAverages ||
+    mode !== initialThemeMode;
 
   const handleThemeChange = (event: ChangeEvent<HTMLInputElement>) => {
     setMode((event.target as HTMLInputElement).value as ThemeMode);
@@ -90,15 +107,18 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 640, mx: "auto", pt: 1, pb: 4 }}>
-      <Typography variant="h5" component="h2">
-        Profile
-      </Typography>
-
-      {/* ACCOUNT SECTION */}
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={2}>
           <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar sx={{ width: 56, height: 56 }}>
+            <Avatar
+              sx={{
+                width: 56,
+                height: 56,
+                bgcolor: theme.palette.primary.main,
+                color: theme.palette.primary.contrastText,
+                fontWeight: 600,
+              }}
+            >
               {displayName.charAt(0)}
             </Avatar>
             <Stack>
@@ -135,18 +155,73 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
         <FormControl component="fieldset" fullWidth>
           <FormLabel component="legend">Theme</FormLabel>
           <RadioGroup
-            row
             aria-label="theme"
             name="theme-mode"
             value={mode}
             onChange={handleThemeChange}
           >
-            <FormControlLabel value="light" control={<Radio />} label="Day" />
-            <FormControlLabel value="dark" control={<Radio />} label="Night" />
+            <FormControlLabel
+              value="light"
+              labelPlacement="end"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                width: "100%",
+                ml: 0,
+                pr: 1,
+                "& .MuiFormControlLabel-label": {
+                  flex: 1,
+                },
+              }}
+              control={<Radio sx={{ ml: "auto" }} />}
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <LightModeIcon fontSize="small" />
+                  <span>Day</span>
+                </Stack>
+              }
+            />
+            <FormControlLabel
+              value="dark"
+              labelPlacement="end"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                width: "100%",
+                ml: 0,
+                pr: 1,
+                "& .MuiFormControlLabel-label": {
+                  flex: 1,
+                },
+              }}
+              control={<Radio sx={{ ml: "auto" }} />}
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <ModeNightIcon fontSize="small" />
+                  <span>Night</span>
+                </Stack>
+              }
+            />
             <FormControlLabel
               value="system"
-              control={<Radio />}
-              label="System"
+              labelPlacement="end"
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                width: "100%",
+                ml: 0,
+                pr: 1,
+                "& .MuiFormControlLabel-label": {
+                  flex: 1,
+                },
+              }}
+              control={<Radio sx={{ ml: "auto" }} />}
+              label={
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <DesktopWindowsRoundedIcon fontSize="small" />
+                  <span>System</span>
+                </Stack>
+              }
             />
           </RadioGroup>
         </FormControl>
@@ -155,7 +230,9 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
       {/* SPOILER PREFERENCES SECTION */}
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={1.5}>
-          <Typography variant="subtitle1">Spoiler preferences</Typography>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Spoiler preferences
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             Purist mode hides whiskey details for current and future seasons
             until you reveal that day.
@@ -184,7 +261,7 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
         </Typography>
       )}
       {success && (
-        <Typography variant="body2" color="success.main">
+        <Typography variant="body2" sx={{ color: "success.main" }}>
           {success}
         </Typography>
       )}
@@ -193,14 +270,14 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !isDirty}
           size="small"
         >
-          {saving ? "Saving..." : "Save changes"}
+          {saving ? "Saving..." : "Save"}
         </Button>
 
         <Button
-          variant="outlined"
+          variant="text"
           color="error"
           onClick={handleSignOut}
           disabled={signingOut}

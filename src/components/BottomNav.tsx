@@ -1,3 +1,9 @@
+import type { ReactNode } from "react";
+import { useTheme } from "@mui/material/styles";
+import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
+import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
+import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
+
 type BottomNavProps = {
   currentPath: string;
   onNavigate: (path: string) => void;
@@ -9,10 +15,14 @@ type NavItemProps = {
   active: boolean;
   onClick: () => void;
   avatarUrl?: string;
-  icon?: string;
+  icon?: ReactNode;
 };
 
 function NavItem({ label, active, onClick, avatarUrl, icon }: NavItemProps) {
+  const theme = useTheme();
+  const activeColor = theme.palette.primary.main;
+  const inactiveColor = theme.palette.text.secondary;
+
   return (
     <button
       onClick={onClick}
@@ -24,7 +34,7 @@ function NavItem({ label, active, onClick, avatarUrl, icon }: NavItemProps) {
         flexDirection: "column",
         alignItems: "center",
         fontSize: "0.8rem",
-        color: active ? "#2563eb" : "#444",
+        color: active ? activeColor : inactiveColor,
         cursor: "pointer",
       }}
     >
@@ -56,7 +66,9 @@ function NavItem({ label, active, onClick, avatarUrl, icon }: NavItemProps) {
             height: 8,
             borderRadius: "999px",
             marginBottom: 2,
-            border: active ? "4px solid #2563eb" : "4px solid #aaa",
+            border: active
+              ? `4px solid ${activeColor}`
+              : `4px solid ${theme.palette.divider}`,
           }}
         />
       )}
@@ -66,6 +78,8 @@ function NavItem({ label, active, onClick, avatarUrl, icon }: NavItemProps) {
 }
 
 function BottomNav({ currentPath, onNavigate, avatarUrl }: BottomNavProps) {
+  const theme = useTheme();
+
   const goTo = (path: string) => {
     if (currentPath !== path) {
       onNavigate(path);
@@ -79,8 +93,8 @@ function BottomNav({ currentPath, onNavigate, avatarUrl }: BottomNavProps) {
         left: 0,
         right: 0,
         bottom: 0,
-        borderTop: "1px solid #ddd",
-        background: "#fff",
+        borderTop: `1px solid ${theme.palette.divider}`,
+        background: theme.palette.background.paper,
         padding: "6px 16px 10px",
         display: "flex",
         justifyContent: "space-around",
@@ -89,13 +103,13 @@ function BottomNav({ currentPath, onNavigate, avatarUrl }: BottomNavProps) {
     >
       <NavItem
         label="Home"
-        icon="🏠"
+        icon={<HomeRoundedIcon fontSize="small" />}
         active={currentPath === "/"}
         onClick={() => goTo("/")}
       />
       <NavItem
         label="Stats"
-        icon="📊"
+        icon={<QueryStatsRoundedIcon fontSize="small" />}
         active={currentPath === "/stats"}
         onClick={() => goTo("/stats")}
       />
@@ -104,6 +118,7 @@ function BottomNav({ currentPath, onNavigate, avatarUrl }: BottomNavProps) {
         active={currentPath === "/profile"}
         onClick={() => goTo("/profile")}
         avatarUrl={avatarUrl}
+        icon={!avatarUrl ? <AccountCircleRoundedIcon fontSize="small" /> : undefined}
       />
     </nav>
   );

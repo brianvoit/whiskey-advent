@@ -17,6 +17,7 @@ import Onboarding from "./Onboarding";
 import AppHeader from "./components/AppHeader";
 import BottomNav from "./components/BottomNav";
 import { Menu, MenuItem } from "@mui/material";
+import { useTheme } from "@mui/material/styles";
 
 type RevealMode = "PURIST" | "EXPLORER" | "RELAXED";
 
@@ -27,6 +28,7 @@ type ProfileRecord = {
   role: "admin" | "user" | null;
   reveal_mode: RevealMode | null;
   see_group_averages_pre_reveal: boolean | null;
+  onboarding_complete?: boolean | null;
 };
 
 type RevealPreferences = {
@@ -35,6 +37,8 @@ type RevealPreferences = {
 } | null;
 
 function App() {
+  const theme = useTheme();
+
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,7 +168,20 @@ function App() {
   };
 
   if (loading) {
-    return <div style={{ padding: 24 }}>Loading…</div>;
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: theme.palette.background.default,
+          color: theme.palette.text.primary,
+        }}
+      >
+        Loading…
+      </div>
+    );
   }
 
   // ---------------------------------------------------------
@@ -178,6 +195,13 @@ function App() {
           margin: "0 auto",
           padding: "40px 16px",
           textAlign: "center",
+          minHeight: "100vh",
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          backgroundColor: theme.palette.background.default,
+          color: theme.palette.text.primary,
         }}
       >
         <h1 style={{ marginBottom: 8 }}>Whiskey Advent</h1>
@@ -192,9 +216,11 @@ function App() {
             width: "100%",
             padding: "10px 12px",
             borderRadius: 8,
-            border: "1px solid #ddd",
+            border: `1px solid ${theme.palette.divider}`,
             marginBottom: 16,
             cursor: "pointer",
+            backgroundColor: theme.palette.background.paper,
+            color: theme.palette.text.primary,
           }}
         >
           Continue with Google
@@ -204,7 +230,7 @@ function App() {
           style={{
             margin: "16px 0",
             fontSize: "0.8rem",
-            color: "#666",
+            color: theme.palette.text.secondary,
             textTransform: "uppercase",
             letterSpacing: "0.06em",
           }}
@@ -223,7 +249,9 @@ function App() {
               padding: "8px 10px",
               marginBottom: 8,
               borderRadius: 6,
-              border: "1px solid #ccc",
+              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              color: theme.palette.text.primary,
             }}
           />
           <input
@@ -236,7 +264,9 @@ function App() {
               padding: "8px 10px",
               marginBottom: 12,
               borderRadius: 6,
-              border: "1px solid #ccc",
+              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              color: theme.palette.text.primary,
             }}
           />
           <button
@@ -245,8 +275,10 @@ function App() {
               width: "100%",
               padding: "10px 12px",
               borderRadius: 8,
-              border: "1px solid #ddd",
+              border: "none",
               cursor: "pointer",
+              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.primary.contrastText,
             }}
           >
             Continue with Email
@@ -257,7 +289,7 @@ function App() {
           <div
             style={{
               marginTop: 12,
-              color: "#c00",
+              color: theme.palette.error.main,
               fontSize: "0.85rem",
             }}
           >
@@ -269,7 +301,38 @@ function App() {
   }
 
   // ---------------------------------------------------------
-  // Authenticated view (router shell)
+  // Logged-in but profile not yet loaded
+  // ---------------------------------------------------------
+  if (!profile) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: theme.palette.background.default,
+          color: theme.palette.text.primary,
+        }}
+      >
+        Loading profile…
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------
+  // Logged-in but onboarding not complete
+  // (for now we treat missing reveal_mode as "needs onboarding")
+  // ---------------------------------------------------------
+  const needsOnboarding =
+    !profile.onboarding_complete && !profile.reveal_mode;
+
+  if (needsOnboarding) {
+    return <Onboarding profile={profile} />;
+  }
+
+  // ---------------------------------------------------------
+  // Authenticated + onboarding complete (router shell)
   // ---------------------------------------------------------
   return (
     <BrowserRouter>
@@ -314,10 +377,9 @@ function AppShell({
   onProfileUpdated,
   onYearChange,
 }: AppShellProps) {
+  const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
-
-  const isOnboarding = location.pathname === "/onboarding";
 
   const [yearMenuAnchorEl, setYearMenuAnchorEl] = useState<null | HTMLElement>(null);
   const isYearMenuOpen = Boolean(yearMenuAnchorEl);
@@ -346,104 +408,102 @@ function AppShell({
   return (
     <div
       style={{
-        maxWidth: 900,
-        margin: "0 auto",
-        padding: "16px 16px 72px",
         minHeight: "100vh",
         boxSizing: "border-box",
+        backgroundColor: theme.palette.background.default,
       }}
     >
       {/* Top header + year menu */}
-      {!isOnboarding && (
-        <>
-          <AppHeader
-            currentYear={currentYear}
-            profileType={profileType}
-            onYearClick={handleYearClick}
-          />
+      <AppHeader
+        currentYear={currentYear}
+        profileType={profileType}
+        onYearClick={handleYearClick}
+      />
 
-          <Menu
-            anchorEl={yearMenuAnchorEl}
-            open={isYearMenuOpen}
-            onClose={handleYearMenuClose}
+      <Menu
+        anchorEl={yearMenuAnchorEl}
+        open={isYearMenuOpen}
+        onClose={handleYearMenuClose}
+      >
+        {availableYears.map((year) => (
+          <MenuItem
+            key={year}
+            selected={year === currentYear}
+            onClick={() => handleYearSelect(year)}
           >
-            {availableYears.map((year) => (
-              <MenuItem
-                key={year}
-                selected={year === currentYear}
-                onClick={() => handleYearSelect(year)}
-              >
-                {year}
-              </MenuItem>
-            ))}
-          </Menu>
-        </>
-      )}
+            {year}
+          </MenuItem>
+        ))}
+      </Menu>
 
-      {/* Main content */}
-      <main style={{ paddingBottom: 16 }}>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Home
-                isAdmin={isAdmin}
-                userId={userId}
-                revealPreferences={revealPreferences}
-                currentYear={currentYear}
-              />
-            }
-          />
-          <Route
-            path="/year/:year/day/:dayNumber"
-            element={
-              <DayDetail
-                isAdmin={isAdmin}
-                userId={userId}
-                revealPreferences={revealPreferences}
-              />
-            }
-          />
-          <Route
-            path="/stats"
-            element={
-              <Stats
-                isAdmin={isAdmin}
-                userId={userId}
-                revealPreferences={revealPreferences}
-              />
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              profile && (
-                <Profile
-                  profile={profile as any}
-                  userEmail={userEmail}
-                  onProfileUpdated={(updated) =>
-                    onProfileUpdated(updated as ProfileRecord)
-                  }
+      <div
+        style={{
+          maxWidth: 900,
+          margin: "0 auto",
+          padding: "16px 16px 72px",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Main content */}
+        <main style={{ paddingBottom: 16 }}>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <Home
+                  isAdmin={isAdmin}
+                  userId={userId}
+                  revealPreferences={revealPreferences}
+                  currentYear={currentYear}
                 />
-              )
-            }
-          />
-          <Route
-            path="/onboarding"
-            element={<Onboarding profile={profile} />}
-          />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+              }
+            />
+            <Route
+              path="/year/:year/day/:dayNumber"
+              element={
+                <DayDetail
+                  isAdmin={isAdmin}
+                  userId={userId}
+                  revealPreferences={revealPreferences}
+                  currentYear={currentYear}
+                />
+              }
+            />
+            <Route
+              path="/stats"
+              element={
+                <Stats
+                  isAdmin={isAdmin}
+                  userId={userId}
+                  revealPreferences={revealPreferences}
+                />
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                profile && (
+                  <Profile
+                    profile={profile as any}
+                    userEmail={userEmail}
+                    onProfileUpdated={(updated) =>
+                      onProfileUpdated(updated as ProfileRecord)
+                    }
+                  />
+                )
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
 
-      {/* Bottom navigation bar */}
-      {!isOnboarding && (
+        {/* Bottom navigation bar */}
         <BottomNav
           currentPath={location.pathname}
           onNavigate={goTo}
           avatarUrl={avatarUrl}
         />
-      )}
+      </div>
     </div>
   );
 }
