@@ -2,17 +2,19 @@ import React from "react";
 import { useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
+import PersonIcon from "@mui/icons-material/Person";
+import GroupIcon from "@mui/icons-material/Group";
 
 type AdventCardProps = {
   dayNumber: number;
-  // New semantic fields for the card
+  // Semantic fields for the card
   headline?: string | null; // whiskey name
   subhead?: string | null; // distiller
   averageRating?: number | null; // average across all users
   userRating?: number | null; // this user's rating
   imageUrl?: string | null; // optional whiskey image URL (placeholder if not revealed)
 
-  // Legacy fields (kept so existing callers don't break, but not used in layout)
+  // Legacy fields (kept so existing callers don't break)
   regionText?: string | null;
   typeText?: string | null;
 
@@ -56,18 +58,16 @@ const AdventCard: React.FC<AdventCardProps> = ({
     averageRating !== null &&
     !Number.isNaN(averageRating);
 
-  let ratingText: string | null = null;
-  if (!hideDetails) {
-    if (!hasUserRating && !hasAverageRating) {
-      ratingText = "no ratings";
-    } else if (hasUserRating && hasAverageRating) {
-      ratingText = `${userRating!.toFixed(1)} | ${averageRating!.toFixed(1)}`;
-    } else if (hasUserRating) {
-      ratingText = `${userRating!.toFixed(1)} | no average`;
-    } else if (hasAverageRating) {
-      ratingText = averageRating!.toFixed(1);
-    }
-  }
+  const showRatingsRow =
+    !hideDetails && (hasUserRating || hasAverageRating);
+
+  const userRatingText =
+    hasUserRating && userRating !== null ? userRating.toFixed(1) : "—";
+
+  const avgRatingText =
+    hasAverageRating && averageRating !== null
+      ? averageRating.toFixed(1)
+      : "—";
 
   const actionLabel = hasUserRating ? "View" : "Rate";
 
@@ -199,8 +199,13 @@ const AdventCard: React.FC<AdventCardProps> = ({
                 style={{
                   fontWeight: 600,
                   marginBottom: displaySubhead ? 2 : 0,
-                  whiteSpace: "nowrap",
+                  whiteSpace: "normal",
                   overflow: "hidden",
+                  display: "-webkit-box",
+                  WebkitBoxOrient: "vertical",
+                  WebkitLineClamp: 2,
+                  lineHeight: 1.25,
+                  
                   textOverflow: "ellipsis",
                 }}
               >
@@ -231,17 +236,66 @@ const AdventCard: React.FC<AdventCardProps> = ({
               marginTop: 6,
             }}
           >
-            {/* Rating text (bottom-left) */}
-            {!hideDetails && ratingText && (
-              <Typography
-                variant="caption"
-                style={{
-                  color: theme.palette.text.secondary,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {ratingText}
-              </Typography>
+            {/* Rating row (bottom-left) */}
+            {!hideDetails && (
+              showRatingsRow ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    fontSize: "0.75rem",
+                    color: theme.palette.text.secondary,
+                  }}
+                >
+                  {/* User rating */}
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 2,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    <PersonIcon
+                      style={{
+                        fontSize: "1rem",
+                        opacity: hasUserRating ? 0.9 : 0.4,
+                      }}
+                    />
+                    <span>{userRatingText}</span>
+                  </div>
+
+                  <span>|</span>
+
+                  {/* Group average rating */}
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 2,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    <GroupIcon
+                      style={{
+                        fontSize: "1rem",
+                        opacity: hasAverageRating ? 0.9 : 0.4,
+                      }}
+                    />
+                    <span>{avgRatingText}</span>
+                  </div>
+                </div>
+              ) : (
+                <Typography
+                  variant="caption"
+                  style={{
+                    color: theme.palette.text.secondary,
+                  }}
+                >
+                  no ratings
+                </Typography>
+              )
             )}
 
             {/* Action "button" (bottom-right) */}
@@ -280,9 +334,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
             justifyContent: "center",
             pointerEvents: "none",
           }}
-        >
-          <span style={{ fontSize: "1.5rem" }}>🔒</span>
-        </div>
+        />
       )}
     </button>
   );

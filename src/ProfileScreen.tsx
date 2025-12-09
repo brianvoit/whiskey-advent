@@ -1,13 +1,14 @@
 import { useState, type ChangeEvent } from "react";
 import { supabase } from "./supabaseClient";
-import type { Profile, RevealPreferences } from "./api/profiles";
+import type { Profile, RevealPreferences, TastingMode } from "./api/profiles";
 import { useAppTheme } from "./theme";
 import type { ThemeMode } from "./theme";
+import { modeCopy, isMoreRelaxed } from "./modes";
+import { ModeCard } from "./components/ModeCard";
 import { useTheme } from "@mui/material/styles";
 import {
   Avatar,
   Button,
-  Checkbox,
   FormControl,
   FormControlLabel,
   FormLabel,
@@ -17,6 +18,11 @@ import {
   Stack,
   TextField,
   Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Switch,
 } from "@mui/material";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import ModeNightIcon from "@mui/icons-material/ModeNight";
@@ -43,6 +49,18 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
   // THEME MODE STATE (global, via context)
   const { mode, setMode } = useAppTheme();
 
+  const initialTastingMode: TastingMode =
+    (profile.tasting_mode as TastingMode | null) ?? "purist";
+
+  const [pendingMode, setPendingMode] = useState<TastingMode>(
+    initialTastingMode
+  );
+
+  const [modeDialogOpen, setModeDialogOpen] = useState(false);
+  const [modeDialogTarget, setModeDialogTarget] = useState<TastingMode | null>(
+    null
+  );
+
   const initialFirstName = profile.first_name ?? "";
   const initialLastName = profile.last_name ?? "";
   const initialSeeGroupAverages =
@@ -53,10 +71,23 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
     firstName !== initialFirstName ||
     lastName !== initialLastName ||
     seeGroupAverages !== initialSeeGroupAverages ||
-    mode !== initialThemeMode;
+    mode !== initialThemeMode ||
+    pendingMode !== initialTastingMode;
 
   const handleThemeChange = (event: ChangeEvent<HTMLInputElement>) => {
     setMode((event.target as HTMLInputElement).value as ThemeMode);
+  };
+
+  const handleModeSelect = (nextMode: TastingMode) => {
+    if (nextMode === pendingMode) return;
+
+    // Use the *saved* initial mode to decide if this is more relaxed
+    if (isMoreRelaxed(initialTastingMode, nextMode)) {
+      setModeDialogTarget(nextMode);
+      setModeDialogOpen(true);
+    } else {
+      setPendingMode(nextMode);
+    }
   };
 
   const handleSave = async () => {
@@ -76,10 +107,11 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
         last_name: lastName || null,
         reveal_preferences: prefs,
         theme_mode: mode, // persist theme preference in profile
+        tasting_mode: pendingMode,
       })
       .eq("id", profile.id)
       .select(
-        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, theme_mode"
+        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, theme_mode, tasting_mode"
       )
       .single();
 
@@ -227,6 +259,40 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
         </FormControl>
       </Paper>
 
+      {/* TASTING MODE SECTION */}
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Stack spacing={1.5}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Tasting mode
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Choose how much information you see before revealing each day.
+          </Typography>
+
+          <Stack
+            direction="row"
+            spacing={2}
+            sx={{
+              overflowX: { xs: "auto", md: "visible" },
+              py: 1,
+            }}
+          >
+            {(Object.keys(modeCopy) as TastingMode[]).map((key) => {
+              const { title, bullets } = modeCopy[key];
+              return (
+                <ModeCard
+                  key={key}
+                  title={title}
+                  bullets={bullets}
+                  isActive={pendingMode === key}
+                  onSelect={() => handleModeSelect(key)}
+                />
+              );
+            })}
+          </Stack>
+        </Stack>
+      </Paper>
+
       {/* SPOILER PREFERENCES SECTION */}
       <Paper variant="outlined" sx={{ p: 2 }}>
         <Stack spacing={1.5}>
@@ -240,7 +306,7 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
 
           <FormControlLabel
             control={
-              <Checkbox
+              <Switch
                 checked={seeGroupAverages}
                 onChange={(e) => setSeeGroupAverages(e.target.checked)}
               />
@@ -254,6 +320,47 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
           </Typography>
         </Stack>
       </Paper>
+
+      <Dialog
+        open={modeDialogOpen}
+        onClose={() => {
+          setModeDialogOpen(false);
+          setModeDialogTarget(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Change tasting mode?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Switching to a more relaxed mode can reveal more details for
+            upcoming days. Anything you&apos;ve already seen can&apos;t be
+            undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setModeDialogOpen(false);
+              setModeDialogTarget(null);
+            }}
+          >
+            Keep current mode
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              if (modeDialogTarget) {
+                setPendingMode(modeDialogTarget);
+              }
+              setModeDialogOpen(false);
+              setModeDialogTarget(null);
+            }}
+          >
+            Switch mode
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {error && (
         <Typography variant="body2" color="error">

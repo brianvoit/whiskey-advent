@@ -9,8 +9,11 @@ import {
   defaultTastingSliders,
 } from "./api/tastings";
 import Divider from "@mui/material/Divider";
+import { supabase } from "./supabaseClient";
+import type { TastingMode } from "./api/profiles";
 import Snackbar from "@mui/material/Snackbar";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import { useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import Slider from "@mui/material/Slider";
@@ -137,6 +140,8 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
   const [tastingSliders, setTastingSliders] =
     useState<TastingSliderValues>(defaultTastingSliders);
 
+  const [tastingMode, setTastingMode] = useState<TastingMode>("purist");
+
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [isDirty, setIsDirty] = useState(false);
@@ -152,6 +157,22 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
 
       const seasonYear = parseInt(year, 10);
       const dayNum = parseInt(dayNumber, 10);
+
+      // Load the user's profile to get tasting mode
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("tasting_mode, reveal_preferences")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error("Error loading profile for tasting mode:", profileError);
+      }
+
+      if (profile) {
+        const mode = (profile.tasting_mode as TastingMode | null) ?? "purist";
+        setTastingMode(mode);
+      }
 
       const season = await getSeasonByYear(seasonYear);
       if (!season) {
@@ -202,14 +223,21 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
   const handleSave = async () => {
     if (!whiskey) return;
 
+    // Require a star rating before saving
+    if (rating === null) {
+      setSaveMessage("Please add a star rating before saving.");
+      setSnackbarOpen(true);
+      return;
+    }
+
     setSaving(true);
     setSaveMessage("");
 
-    // If the user has given a rating, automatically reveal on save
-    let nextRevealed = revealed;
-    if (!revealed && rating !== null) {
-      nextRevealed = true;
-      setRevealed(true);
+    // If the user has given a rating, automatically reveal on save (all modes)
+    const willReveal = revealed || rating !== null;
+
+    if (willReveal !== revealed) {
+      setRevealed(willReveal);
     }
 
     const result = await saveTasting({
@@ -217,7 +245,7 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
       whiskeyDayId: whiskey.id,
       rating, // 1–5 with 0.5 steps, or null
       notes,
-      revealed: nextRevealed,
+      revealed: willReveal,
       tastingSliders,
     });
 
@@ -233,9 +261,35 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
     setSnackbarOpen(true);
   };
 
-  const handleReveal = () => {
+  const handleReveal = async () => {
+    if (!whiskey) return;
+
+    // Reveal immediately in the UI
     setRevealed(true);
-    setIsDirty(true);
+
+    // Persist reveal state without treating it as an unsaved change
+    setSaving(true);
+    setSaveMessage("");
+
+    const result = await saveTasting({
+      userId,
+      whiskeyDayId: whiskey.id,
+      rating,
+      notes,
+      revealed: true,
+      tastingSliders,
+    });
+
+    setSaving(false);
+
+    if (result.success) {
+      setSaveMessage("Revealed");
+      setIsDirty(false);
+    } else {
+      setSaveMessage("Error revealing whiskey");
+    }
+
+    setSnackbarOpen(true);
   };
 
   const updateSlider = (key: keyof TastingSliderValues, value: number) => {
@@ -263,7 +317,22 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
     );
   }
 
-  const showDetails = revealed;
+  const isPurist = tastingMode === "purist";
+  const isAdventurer = tastingMode === "adventurer";
+  const isRelaxed = tastingMode === "relaxed";
+
+  // Visibility rules:
+  // - Purist: nothing until reveal
+  // - Adventurer: type/region before reveal, full details after reveal
+  // - Relaxed: full details even before reveal
+  const showName = revealed || isRelaxed;
+  const showType = revealed || isAdventurer || isRelaxed;
+  const showMeta = revealed || isRelaxed; // distillery / age / ABV
+  const showBlurb = revealed || isRelaxed;
+  const showInfoLink = revealed || isRelaxed;
+
+  const hasAnyDetailBeforeReveal =
+    showName || showType || showMeta || showBlurb || showInfoLink;
 
   const sliderDefs: {
     key: keyof TastingSliderValues;
@@ -362,89 +431,153 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         )}
       </div>
 
-      {!showDetails && (
-        <Typography variant="body2" style={{ marginTop: 8 }}>
-          Whiskey details are hidden until you hit Reveal.
-        </Typography>
-      )}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "stretch",
+          gap: 16,
+          marginTop: 16,
+        }}
+      >
+        {/* Left: whiskey info or placeholder */}
+        <div
+          style={{
+            flex: "1 1 80%",
+            minWidth: 0,
+          }}
+        >
+          {!revealed && !hasAnyDetailBeforeReveal ? (
+            <Typography variant="body2">
+              Whiskey details are hidden until you hit Reveal.
+            </Typography>
+          ) : (
+            <>
+              {showName && whiskey.name && (
+                <Typography
+                  variant="h4"
+                  component="h2"
+                  style={{
+                    marginTop: 0,
+                    marginBottom: 4,
+                  }}
+                >
+                  {whiskey.name}
+                </Typography>
+              )}
 
-      {showDetails && (
-        <>
-          <Typography
-            variant="h4"
-            component="h2"
+              {showType && whiskey.type && (
+                <Typography
+                  variant="subtitle1"
+                  component="h3"
+                  style={{
+                    marginTop: 4,
+                    marginBottom: 4,
+                    color: theme.palette.text.secondary,
+                    fontWeight: 500,
+                  }}
+                >
+                  {whiskey.type}
+                </Typography>
+              )}
+
+              {showMeta &&
+                (whiskey.distillery || whiskey.age || whiskey.abv !== null) && (
+                  <Typography
+                    variant="body2"
+                    component="div"
+                    style={{
+                      color: theme.palette.text.secondary,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {whiskey.distillery && (
+                      <span>
+                        <strong>Distillery:</strong> {whiskey.distillery}
+                      </span>
+                    )}
+                    {whiskey.age && (
+                      <span>
+                        {whiskey.distillery ? " · " : ""}{" "}
+                        <strong>Age:</strong> {whiskey.age}
+                      </span>
+                    )}
+                    {whiskey.abv !== null && (
+                      <span>
+                        {(whiskey.distillery || whiskey.age) ? " · " : ""}{" "}
+                        <strong>ABV:</strong> {whiskey.abv}%
+                      </span>
+                    )}
+                  </Typography>
+                )}
+
+              {showBlurb && whiskey.blurb && (
+                <Typography variant="body1" style={{ marginTop: 12 }}>
+                  {whiskey.blurb}
+                </Typography>
+              )}
+
+              {showInfoLink && whiskey.info_url && (
+                <Typography variant="body2" style={{ marginTop: 8 }}>
+                  <a
+                    href={whiskey.info_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: theme.palette.primary.main }}
+                  >
+                    More info
+                  </a>
+                </Typography>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Divider */}
+        <Divider
+          orientation="vertical"
+          flexItem
+          style={{ alignSelf: "stretch" }}
+        />
+
+        {/* Right: chevron button linking to WhiskeyDetail */}
+        <div
+          style={{
+            flex: "0 0 20%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => navigate(`/whiskey/${whiskey.id}`)}
+            disabled={!revealed}
             style={{
-              marginTop: 8,
-              marginBottom: 4,
+              border: "none",
+              backgroundColor: !revealed
+                ? "transparent"
+                : theme.palette.background.paper,
+              padding: 12,
+              margin: 0,
+              cursor: !revealed ? "default" : "pointer",
+              color: !revealed
+                ? theme.palette.text.disabled
+                : theme.palette.primary.main,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "50%",
+              boxShadow: revealed
+                ? "0 2px 6px rgba(0,0,0,0.18)"
+                : "none",
             }}
           >
-            {whiskey.name}
-          </Typography>
-
-          {whiskey.type && (
-            <Typography
-              variant="subtitle1"
-              component="h3"
-              style={{
-                marginTop: 4,
-                marginBottom: 4,
-                color: theme.palette.text.secondary,
-                fontWeight: 500,
-              }}
-            >
-              {whiskey.type}
-            </Typography>
-          )}
-
-          {(whiskey.distillery || whiskey.age || whiskey.abv !== null) && (
-            <Typography
-              variant="body2"
-              component="div"
-              style={{
-                color: theme.palette.text.secondary,
-                marginBottom: 8,
-              }}
-            >
-              {whiskey.distillery && (
-                <span>
-                  <strong>Distillery:</strong> {whiskey.distillery}
-                </span>
-              )}
-              {whiskey.age && (
-                <span>
-                  {whiskey.distillery ? " · " : ""} <strong>Age:</strong>{" "}
-                  {whiskey.age}
-                </span>
-              )}
-              {whiskey.abv !== null && (
-                <span>
-                  {(whiskey.distillery || whiskey.age) ? " · " : ""}{" "}
-                  <strong>ABV:</strong> {whiskey.abv}%
-                </span>
-              )}
-            </Typography>
-          )}
-
-          {whiskey.blurb && (
-            <Typography variant="body1" style={{ marginTop: 12 }}>
-              {whiskey.blurb}
-            </Typography>
-          )}
-
-          {whiskey.info_url && (
-            <Typography variant="body2" style={{ marginTop: 8 }}>
-              <a
-                href={whiskey.info_url}
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: theme.palette.primary.main }}
-              >
-                More info
-              </a>
-            </Typography>
-          )}
-        </>
-      )}
+            <ChevronRightRoundedIcon
+              style={{ fontSize: "2rem" }}
+            />
+          </button>
+        </div>
+      </div>
 
       <Divider style={{ margin: "24px 0" }} />
 
@@ -585,40 +718,18 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         <div
           style={{
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            gap: 12,
+            gap: 8,
             marginTop: 16,
-            flexWrap: "wrap",
           }}
         >
-          <button
-            type="button"
-            onClick={handleReveal}
-            disabled={revealed}
-            style={{
-              border: "none",
-              background: "none",
-              padding: "8px 12px",
-              margin: 0,
-              cursor: revealed ? "default" : "pointer",
-              color: revealed
-                ? theme.palette.text.disabled
-                : theme.palette.primary.main,
-              textDecoration: revealed ? "none" : "underline",
-              font: "inherit",
-              fontWeight: 500,
-              borderRadius: "4px",
-            }}
-          >
-            {revealed ? "Revealed" : "Reveal whiskey"}
-          </button>
-
           <button
             type="button"
             onClick={handleSave}
             disabled={saving || !isDirty}
             style={{
-              padding: "8px 16px",
+              padding: "8px 24px",
               backgroundColor:
                 saving || !isDirty
                   ? theme.palette.action.disabledBackground
@@ -628,13 +739,34 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
                   ? theme.palette.text.disabled
                   : theme.palette.primary.contrastText,
               border: "none",
-              borderRadius: "6px",
+              borderRadius: theme.shape.borderRadius,
               cursor: saving || !isDirty ? "default" : "pointer",
-              fontWeight: 600
+              fontWeight: 600,
+              minWidth: 160,
             }}
           >
             {saving ? "Saving..." : "Save"}
           </button>
+
+          {!revealed && (
+            <button
+              type="button"
+              onClick={handleReveal}
+              style={{
+                border: "none",
+                background: "none",
+                padding: "4px 8px",
+                margin: 0,
+                cursor: "pointer",
+                color: theme.palette.primary.main,
+                textDecoration: "underline",
+                font: "inherit",
+                fontWeight: 500,
+              }}
+            >
+              Reveal whiskey
+            </button>
+          )}
         </div>
       </div>
       <Snackbar

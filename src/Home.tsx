@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import { getWhiskeysForSeason, type Season } from "./api/whiskeys";
+import { getSeasonStats } from "./api/stats";
 import AdventCard from "./components/AdventCard";
 
 type WhiskeyDay = {
@@ -10,6 +11,8 @@ type WhiskeyDay = {
   type: string | null;
   country: string | null;
   region: string | null;
+  name?: string | null;
+  distillery?: string | null;
 };
 
 type RevealPreferences = {
@@ -38,6 +41,9 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
     new Map()
   );
   const [ratingsMap, setRatingsMap] = useState<Map<number, number | null>>(
+    new Map()
+  );
+  const [avgRatingsMap, setAvgRatingsMap] = useState<Map<number, number | null>>(
     new Map()
   );
   const [loading, setLoading] = useState(true);
@@ -99,6 +105,18 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
     const fetchReveals = async () => {
       if (whiskeyDays.length === 0) return;
 
+      // Load season-level average ratings using the same helper as Stats
+      const avgMap = new Map<number, number | null>();
+      try {
+        const seasonStats = await getSeasonStats(seasonYear);
+        seasonStats.forEach((row: any) => {
+          avgMap.set(row.whiskey_day_id, row.avg_rating);
+        });
+      } catch (statsError) {
+        console.error("Error loading season stats", statsError);
+      }
+      setAvgRatingsMap(avgMap);
+
       const dayIds = whiskeyDays.map((d) => d.id);
 
       const { data, error } = await supabase
@@ -150,7 +168,8 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
         style={{
           display: "grid",
           gap: 8,
-          gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+          paddingTop: 24,
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
         }}
       >
         {whiskeyDays.map((day) => {
@@ -187,15 +206,20 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
           const regionText =
             [day.region, day.country].filter(Boolean).join(", ") || null;
           const typeText = day.type ?? null;
-          const rating = ratingsMap.get(day.id) ?? null;
+
+          const headline = hideDetails ? null : day.name ?? null;
+          const subhead = hideDetails ? null : day.distillery ?? null;
 
           return (
             <AdventCard
               key={day.id}
               dayNumber={day.day_number}
+              headline={headline}
+              subhead={subhead}
+              averageRating={avgRatingsMap.get(day.id) ?? null}
+              userRating={ratingsMap.get(day.id) ?? null}
               regionText={regionText}
               typeText={typeText}
-              rating={rating}
               isToday={isToday}
               isDisabled={isDisabled}
               showOverlay={showOverlay}

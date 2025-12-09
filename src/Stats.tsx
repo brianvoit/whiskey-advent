@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
 import { getSeasonByYear, getWhiskeysForSeason } from "./api/whiskeys";
+import LockIcon from "@mui/icons-material/Lock";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import PersonIcon from "@mui/icons-material/Person";
+import GroupIcon from "@mui/icons-material/Group";
 
 export type DayStats = {
   whiskey_day_id: number;
@@ -11,6 +16,7 @@ export type DayStats = {
 };
 
 async function getSeasonStats(year: number): Promise<DayStats[]> {
+  console.log("the year is", year);
   if (!year) {
     console.warn("getSeasonStats called without a valid year");
     return [];
@@ -100,8 +106,12 @@ type StatsProps = {
 };
 
 function Stats({ isAdmin, userId, currentYear }: StatsProps) {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DayStats[]>([]);
   const [revealedMap, setRevealedMap] = useState<Map<number, boolean>>(
+    () => new Map()
+  );
+  const [userRatings, setUserRatings] = useState<Map<number, number | null>>(
     () => new Map()
   );
   const [loading, setLoading] = useState(true);
@@ -123,34 +133,50 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
         const s = await getSeasonStats(currentYear);
         setStats(s);
 
-        // 2) Build reveal map only for the *current* real-world season
+        // 2) Build reveal map and user rating map
         const today = new Date();
         const todayYear = today.getFullYear();
 
-        if (!isAdmin && currentYear === todayYear && s.length > 0) {
+        if (s.length > 0) {
           const ids = s.map((d) => d.whiskey_day_id);
 
           const { data, error: tError } = await supabase
             .from("tastings")
-            .select("whiskey_day_id, revealed")
+            .select("whiskey_day_id, revealed, rating")
             .eq("user_id", userId)
             .in("whiskey_day_id", ids);
 
           if (tError) {
-            console.error("Error loading user reveal map:", tError);
+            console.error("Error loading user reveal/rating map:", tError);
             setRevealedMap(new Map());
+            setUserRatings(new Map());
           } else {
-            const map = new Map<number, boolean>();
+            const revealed = new Map<number, boolean>();
+            const ratings = new Map<number, number | null>();
+
             (data ?? []).forEach((row: any) => {
+              const id = row.whiskey_day_id as number;
               if (row.revealed) {
-                map.set(row.whiskey_day_id as number, true);
+                revealed.set(id, true);
+              }
+              if (row.rating != null) {
+                ratings.set(id, row.rating as number);
               }
             });
-            setRevealedMap(map);
+
+            // For admins and non-current seasons, we don't need per-user reveal gating,
+            // but we still keep ratings for the "User" column.
+            if (!isAdmin && currentYear === todayYear) {
+              setRevealedMap(revealed);
+            } else {
+              setRevealedMap(new Map());
+            }
+
+            setUserRatings(ratings);
           }
         } else {
-          // For admins and non-current seasons, we don't need per-user reveal
           setRevealedMap(new Map());
+          setUserRatings(new Map());
         }
       } catch (e) {
         console.error(e);
@@ -169,16 +195,6 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
 
   return (
     <div style={{ paddingTop: 8 }}>
-      <h2
-        style={{
-          margin: 0,
-          marginBottom: 8,
-          fontSize: "1.25rem",
-          fontWeight: 600,
-        }}
-      >
-        Stats
-      </h2>
 
       {loading && (
         <p style={{ fontSize: "0.9rem", color: "#666" }}>Loading stats…</p>
@@ -215,7 +231,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
               style={{
                 display: "flex",
                 alignItems: "center",
-                padding: "8px 12px",
+                padding: "8px 12px 8px 8px",
                 fontSize: "0.8rem",
                 fontWeight: 600,
                 textTransform: "uppercase",
@@ -223,32 +239,71 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                 opacity: 0.7,
               }}
             >
-              <div style={{ width: 56, flexShrink: 0 }}>Day</div>
+              <div
+                style={{
+                  width: 56,
+                  flexShrink: 0,
+                  textAlign: "center",
+                }}
+              >
+                Day
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>Whiskey</div>
               <div
                 style={{
-                  width: 90,
-                  textAlign: "right",
+                  width: 50,
+                  textAlign: "center",
                   flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
               >
-                Avg
+                <PersonIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
+              </div>
+              <div
+                style={{
+                  width: 70,
+                  textAlign: "right",
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <GroupIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
               </div>
               <div
                 style={{
                   width: 90,
-                  textAlign: "right",
+                  textAlign: "center",
                   flexShrink: 0,
                 }}
               >
                 Count
               </div>
+              <div
+                style={{
+                  width: 1,
+                  alignSelf: "stretch",
+                  backgroundColor: "rgba(0,0,0,0.08)",
+                  marginLeft: 4,
+                  marginRight: 4,
+                }}
+              />
+              <div
+                style={{
+                  width: 40,
+                  flexShrink: 0,
+                }}
+              />
             </div>
 
             {/* List items */}
             <div>
               {stats.map((d) => {
-                let displayName: string;
+                let displayName: string | null = null;
+                let locked = false;
 
                 if (isAdmin) {
                   // Admins always see names, any year
@@ -260,11 +315,26 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                   // Current or future seasons: use per-user reveal rules
                   const hasRevealed =
                     revealedMap.get(d.whiskey_day_id) ?? false;
-                  displayName = hasRevealed ? d.name ?? "" : "Locked";
+                  if (hasRevealed) {
+                    displayName = d.name ?? "";
+                  } else {
+                    locked = true;
+                  }
                 }
 
                 const trailingRating =
-                  d.avg_rating !== null ? d.avg_rating.toFixed(2) : "—";
+                  d.avg_rating !== null ? d.avg_rating.toFixed(1) : "—";
+
+                const hasRevealed =
+                  revealedMap.get(d.whiskey_day_id) ?? false;
+
+                // Admins and past seasons can always view details.
+                // For the current season, non-admins need the day revealed.
+                const canViewDetails =
+                  isAdmin || currentYear < todayYear || hasRevealed;
+
+                const userRating =
+                  userRatings.get(d.whiskey_day_id) ?? null;
 
                 return (
                   <div
@@ -273,7 +343,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      padding: "10px 12px",
+                      padding: "10px 12px 10px 8px",
                       borderTop: "1px solid rgba(0,0,0,0.04)",
                     }}
                   >
@@ -284,12 +354,13 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                         flexShrink: 0,
                         fontVariantNumeric: "tabular-nums",
                         fontSize: "0.9rem",
+                        textAlign: "center",
                       }}
                     >
                       {d.day_number}
                     </div>
 
-                    {/* Primary text: whiskey name (or Locked) */}
+                    {/* Primary text: whiskey name or lock glyph */}
                     <div
                       style={{
                         flex: 1,
@@ -298,15 +369,37 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
                       }}
                     >
-                      {displayName}
+                      {locked ? (
+                        <LockIcon
+                          style={{ fontSize: "1rem", opacity: 0.7 }}
+                        />
+                      ) : (
+                        displayName
+                      )}
+                    </div>
+
+                    {/* Trailing: user rating */}
+                    <div
+                      style={{
+                        width: 50,
+                        textAlign: "center",
+                        flexShrink: 0,
+                        fontVariantNumeric: "tabular-nums",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      {userRating !== null ? userRating.toFixed(1) : "—"}
                     </div>
 
                     {/* Trailing: average rating */}
                     <div
                       style={{
-                        width: 90,
+                        width: 70,
                         textAlign: "right",
                         flexShrink: 0,
                         fontVariantNumeric: "tabular-nums",
@@ -320,13 +413,57 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                     <div
                       style={{
                         width: 90,
-                        textAlign: "right",
+                        textAlign: "center",
                         flexShrink: 0,
                         fontVariantNumeric: "tabular-nums",
                         fontSize: "0.9rem",
                       }}
                     >
                       {d.rating_count}
+                    </div>
+
+                    {/* Vertical divider before chevron */}
+                    <div
+                      style={{
+                        width: 1,
+                        alignSelf: "stretch",
+                        backgroundColor: "rgba(0,0,0,0.08)",
+                        marginLeft: 4,
+                        marginRight: 4,
+                      }}
+                    />
+
+                    {/* Trailing: chevron to whiskey details */}
+                    <div
+                      style={{
+                        width: 40,
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          navigate(`/whiskey/${d.whiskey_day_id}`)
+                        }
+                        disabled={!canViewDetails}
+                        style={{
+                          border: "none",
+                          background: "none",
+                          padding: 0,
+                          margin: 0,
+                          cursor: canViewDetails ? "pointer" : "default",
+                          opacity: canViewDetails ? 1 : 0.4,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        aria-label="View whiskey details"
+                      >
+                        <KeyboardArrowRightIcon fontSize="small" />
+                      </button>
                     </div>
                   </div>
                 );

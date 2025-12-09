@@ -35,20 +35,28 @@ export const ModeCard: React.FC<ModeCardProps> = ({
       variant="outlined"
       elevation={isActive ? 3 : 0}
       sx={{
-        borderRadius: theme.shape.borderRadius,
+        borderRadius: 16,
         borderColor,
         backgroundColor,
         opacity,
-        transition: "box-shadow 150ms ease, border-color 150ms ease, opacity 150ms ease",
+        transition:
+          "box-shadow 150ms ease, border-color 150ms ease, opacity 150ms ease",
         p: 2,
         minWidth: 220,
+        maxWidth: 260,
         display: "flex",
         flexDirection: "column",
         gap: 1.5,
+        cursor: "pointer",
       }}
+      onClick={onSelect}
     >
       {/* Title */}
-      <Typography variant="h5" component="h3" sx={{ fontWeight: 600 }}>
+      <Typography
+        variant="subtitle1"
+        component="h3"
+        sx={{ fontWeight: 600, mb: 0.5 }}
+      >
         {title}
       </Typography>
 
@@ -69,12 +77,15 @@ export const ModeCard: React.FC<ModeCardProps> = ({
       {/* Spacer to push button to bottom */}
       <div style={{ flex: 1 }} />
 
-      {/* Choose button */}
+      {/* Choose / Selected button */}
       <Button
         variant={isActive ? "contained" : "outlined"}
         size="small"
         fullWidth
-        onClick={onSelect}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
         disabled={isActive}
       >
         {isActive ? "Selected" : "Choose"}

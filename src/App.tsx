@@ -11,6 +11,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
 import Home from "./Home";
 import DayDetail from "./DayDetail";
+import WhiskeyDetail from "./WhiskeyDetail";
 import Stats from "./Stats";
 import Profile from "./ProfileScreen";
 import Onboarding from "./Onboarding";
@@ -438,7 +439,7 @@ function AppShell({
 
       <div
         style={{
-          maxWidth: 900,
+          maxWidth: 1500,
           margin: "0 auto",
           padding: "16px 16px 72px",
           boxSizing: "border-box",
@@ -476,8 +477,17 @@ function AppShell({
                   isAdmin={isAdmin}
                   userId={userId}
                   revealPreferences={revealPreferences}
+                  currentYear={currentYear}
                 />
               }
+            />
+            <Route 
+              path="/whiskey/:whiskeyDayId" 
+              element={
+                <WhiskeyDetail 
+
+                />
+              } 
             />
             <Route
               path="/profile"
