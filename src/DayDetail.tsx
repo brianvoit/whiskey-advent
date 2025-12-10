@@ -318,15 +318,25 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
   }
 
   const isPurist = tastingMode === "purist";
-  const isAdventurer = tastingMode === "adventurer";
+  const isExplorer = tastingMode === "explorer";
   const isRelaxed = tastingMode === "relaxed";
+
+  const hasUserRating = rating !== null;
+  const seasonYear = year ? parseInt(year, 10) : null;
+  const currentYear = new Date().getFullYear();
+  const isPastSeason = seasonYear !== null && seasonYear < currentYear;
+
+  const canSeeComments =
+    isRelaxed ||
+    isPastSeason ||
+    (hasUserRating && (isPurist || isExplorer));
 
   // Visibility rules:
   // - Purist: nothing until reveal
-  // - Adventurer: type/region before reveal, full details after reveal
+  // - Explorer: type/region before reveal, full details after reveal
   // - Relaxed: full details even before reveal
   const showName = revealed || isRelaxed;
-  const showType = revealed || isAdventurer || isRelaxed;
+  const showType = revealed || isExplorer || isRelaxed;
   const showMeta = revealed || isRelaxed; // distillery / age / ABV
   const showBlurb = revealed || isRelaxed;
   const showInfoLink = revealed || isRelaxed;

@@ -8,13 +8,13 @@ import type { TastingMode } from "./api/profiles";
  */
 export const modeRank: Record<TastingMode, number> = {
   purist: 0,
-  adventurer: 1,
+  explorer: 1,
   relaxed: 2,
 };
 
 /**
  * Returns true if `to` is a more relaxed mode than `from`.
- * Example: purist -> adventurer, purist -> relaxed, adventurer -> relaxed.
+ * Example: purist -> explorer, purist -> relaxed, explorer -> relaxed.
  */
 export function isMoreRelaxed(from: TastingMode, to: TastingMode): boolean {
   return modeRank[to] > modeRank[from];
@@ -39,8 +39,8 @@ export const modeCopy: Record<
       "Best if you want a true blind tasting",
     ],
   },
-  adventurer: {
-    title: "Adventurer",
+  explorer: {
+    title: "Explorer",
     bullets: [
       "Shows region and broad style hints before you reveal a day",
       "Keeps detailed notes and blurb hidden until reveal",

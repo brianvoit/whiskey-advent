@@ -1,7 +1,7 @@
 import { supabase } from "../supabaseClient";
 import type { ThemeMode } from "../theme";
 
-export type TastingMode = "purist" | "adventurer" | "relaxed";
+export type TastingMode = "purist" | "explorer" | "relaxed";
 
 export type RevealPreferences = {
   // Legacy mode field; kept for backward compatibility if present in the DB.
