@@ -26,6 +26,7 @@ import WaterDropRoundedIcon from "@mui/icons-material/WaterDropRounded";
 import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
 import ParkRoundedIcon from "@mui/icons-material/ParkRounded";
 import FitnessCenterRoundedIcon from "@mui/icons-material/FitnessCenterRounded";
+import CommentsSection from "./components/CommentsSection";
 
 type WhiskeyDay = {
   id: number;
@@ -132,6 +133,7 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
 
   const [loading, setLoading] = useState(true);
   const [whiskey, setWhiskey] = useState<WhiskeyDay | null>(null);
+  const [seasonId, setSeasonId] = useState<number | null>(null);
 
   const [tastingLoading, setTastingLoading] = useState(true);
   const [rating, setRating] = useState<number | null>(null);
@@ -141,6 +143,11 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
     useState<TastingSliderValues>(defaultTastingSliders);
 
   const [tastingMode, setTastingMode] = useState<TastingMode>("purist");
+  const [currentUserProfile, setCurrentUserProfile] = useState<{
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  } | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -161,7 +168,7 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
       // Load the user's profile to get tasting mode
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("tasting_mode, reveal_preferences")
+        .select("tasting_mode, reveal_preferences, first_name, last_name, avatar_url")
         .eq("id", userId)
         .maybeSingle();
 
@@ -172,6 +179,12 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
       if (profile) {
         const mode = (profile.tasting_mode as TastingMode | null) ?? "purist";
         setTastingMode(mode);
+
+        setCurrentUserProfile({
+          first_name: profile.first_name ?? null,
+          last_name: profile.last_name ?? null,
+          avatar_url: profile.avatar_url ?? null,
+        });
       }
 
       const season = await getSeasonByYear(seasonYear);
@@ -180,6 +193,8 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         setTastingLoading(false);
         return;
       }
+
+      setSeasonId(season.id);
 
       const days = (await getWhiskeysForSeason(season.id)) as WhiskeyDay[];
       const match = days.find((d) => d.day_number === dayNum) || null;
@@ -779,6 +794,23 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
           )}
         </div>
       </div>
+      {seasonId !== null && canSeeComments && (
+        <CommentsSection
+          seasonId={seasonId}
+          whiskeyDayId={whiskey.id}
+          userId={userId}
+          isAdmin={isAdmin}
+          currentUser={
+            currentUserProfile
+              ? {
+                  first_name: currentUserProfile.first_name,
+                  last_name: currentUserProfile.last_name,
+                  avatar_url: currentUserProfile.avatar_url,
+                }
+              : undefined
+          }
+        />
+      )}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}
