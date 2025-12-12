@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "@mui/material/styles";
-import Avatar from "@mui/material/Avatar";
+import UserAvatar from "./UserAvatar";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
@@ -43,15 +43,6 @@ function formatDisplayName(
   return combined || "Anonymous";
 }
 
-function getInitials(
-  firstName: string | null | undefined,
-  lastName: string | null | undefined
-): string {
-  const firstInitial = (firstName ?? "").trim().charAt(0).toUpperCase();
-  const lastInitial = (lastName ?? "").trim().charAt(0).toUpperCase();
-  const joined = `${firstInitial}${lastInitial}`.trim();
-  return joined || "?";
-}
 
 function formatDateTimeLabel(iso: string): string {
   const d = new Date(iso);
@@ -99,10 +90,6 @@ function CommentComposer({
   const isSendDisabled = posting || value.trim().length === 0;
   const composerBorder = `1px solid ${theme.palette.divider}`;
 
-  const initials = currentUser
-    ? getInitials(currentUser.first_name, currentUser.last_name)
-    : "•";
-
   return (
     <div
       style={{
@@ -116,18 +103,13 @@ function CommentComposer({
         marginBottom: 16,
       }}
     >
-      <Avatar
-        src={currentUser?.avatar_url ?? undefined}
-        sx={{
-          width: 36,
-          height: 36,
-          fontSize: 14,
-          backgroundColor: theme.palette.primary.main,
-          color: theme.palette.primary.contrastText,
-        }}
-      >
-        {currentUser?.avatar_url ? "" : initials}
-      </Avatar>
+      <UserAvatar
+        size="md"
+        firstName={currentUser?.first_name ?? null}
+        lastName={currentUser?.last_name ?? null}
+        avatarUrl={currentUser?.avatar_url ?? null}
+        label="Your profile"
+      />
 
       <div style={{ flex: 1 }}>
         <TextField
@@ -260,7 +242,6 @@ function CommentThread({
 
   const author = comment.author;
   const displayName = formatDisplayName(author?.first_name, author?.last_name);
-  const initials = getInitials(author?.first_name, author?.last_name);
   const createdLabel = formatDateTimeLabel(comment.created_at);
 
   const userReactionSet = new Set(comment.userReactions);
@@ -291,18 +272,13 @@ function CommentThread({
           gap: 8,
         }}
       >
-        <Avatar
-          src={author?.avatar_url ?? undefined}
-          sx={{
-            width: 32,
-            height: 32,
-            fontSize: 13,
-            backgroundColor: theme.palette.secondary.main,
-            color: theme.palette.secondary.contrastText,
-          }}
-        >
-          {initials}
-        </Avatar>
+        <UserAvatar
+          size="sm"
+          firstName={author?.first_name ?? null}
+          lastName={author?.last_name ?? null}
+          avatarUrl={author?.avatar_url ?? null}
+          label={`${displayName} profile`}
+        />
 
         <div style={{ flex: 1 }}>
           <div
@@ -431,10 +407,6 @@ function CommentThread({
                   replyAuthor?.first_name,
                   replyAuthor?.last_name
                 );
-                const replyInitials = getInitials(
-                  replyAuthor?.first_name,
-                  replyAuthor?.last_name
-                );
                 const replyCreatedLabel = formatDateTimeLabel(reply.created_at);
 
                 const replyUserReactionSet = new Set(reply.userReactions);
@@ -457,18 +429,13 @@ function CommentThread({
                       gap: 8,
                     }}
                   >
-                    <Avatar
-                      src={replyAuthor?.avatar_url ?? undefined}
-                      sx={{
-                        width: 28,
-                        height: 28,
-                        fontSize: 12,
-                        backgroundColor: theme.palette.secondary.main,
-                        color: theme.palette.secondary.contrastText,
-                      }}
-                    >
-                      {replyInitials}
-                    </Avatar>
+                    <UserAvatar
+                      size="xs"
+                      firstName={replyAuthor?.first_name ?? null}
+                      lastName={replyAuthor?.last_name ?? null}
+                      avatarUrl={replyAuthor?.avatar_url ?? null}
+                      label={`${replyName} profile`}
+                    />
 
                     <div style={{ flex: 1 }}>
                       <div

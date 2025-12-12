@@ -435,7 +435,7 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         >
           Day {whiskey.day_number}
         </Typography>
-        {(whiskey.region || whiskey.country) && (
+        {(whiskey.region || whiskey.country) && (revealed || isExplorer || isRelaxed) && (
           <Typography
             variant="subtitle1"
             component="h3"
@@ -473,7 +473,7 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         >
           {!revealed && !hasAnyDetailBeforeReveal ? (
             <Typography variant="body2">
-              Whiskey details are hidden until you hit Reveal.
+              Whiskey details are hidden until you Rate or hit Reveal.
             </Typography>
           ) : (
             <>
@@ -784,12 +784,11 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
                 margin: 0,
                 cursor: "pointer",
                 color: theme.palette.primary.main,
-                textDecoration: "underline",
                 font: "inherit",
                 fontWeight: 500,
               }}
             >
-              Reveal whiskey
+              Reveal
             </button>
           )}
         </div>

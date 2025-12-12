@@ -106,12 +106,13 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
         first_name: firstName || null,
         last_name: lastName || null,
         reveal_preferences: prefs,
-        theme_mode: mode, // persist theme preference in profile
+        // Temporarily disable DB persistence for theme_mode
+        // theme_mode: mode,
         tasting_mode: pendingMode,
       })
       .eq("id", profile.id)
       .select(
-        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, theme_mode, tasting_mode"
+        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, tasting_mode"
       )
       .single();
 

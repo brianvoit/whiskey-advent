@@ -27,9 +27,16 @@ type ProfileRecord = {
   full_name: string | null;
   avatar_url: string | null;
   role: "admin" | "user" | null;
+  // Existing reveal-mode fields
   reveal_mode: RevealMode | null;
   see_group_averages_pre_reveal: boolean | null;
-  onboarding_complete?: boolean | null;
+  onboarding_complete: boolean | null;
+  // Additional fields to align with generated Profile type
+  first_name: string | null;
+  last_name: string | null;
+  reveal_preferences: RevealPreferences | null;
+  theme_mode: string | null;
+  tasting_mode: RevealMode | null;
 };
 
 type RevealPreferences = {
@@ -57,6 +64,9 @@ function App() {
     ((session?.user?.user_metadata as any)?.avatar_url ||
       (session?.user?.user_metadata as any)?.picture ||
       undefined);
+
+  const firstName = profile?.first_name ?? ((session?.user?.user_metadata as any)?.given_name || (session?.user?.user_metadata as any)?.first_name || undefined);
+  const lastName = profile?.last_name ?? ((session?.user?.user_metadata as any)?.family_name || (session?.user?.user_metadata as any)?.last_name || undefined);
 
   const effectiveMode: RevealMode =
     profile?.reveal_mode === "PURIST" ||
@@ -348,6 +358,8 @@ function App() {
         userEmail={session.user.email ?? ""}
         onProfileUpdated={(updated) => setProfile(updated)}
         onYearChange={(year) => setSelectedYear(year)}
+        firstName={firstName}
+        lastName={lastName}
       />
     </BrowserRouter>
   );
@@ -364,6 +376,8 @@ type AppShellProps = {
   userEmail: string;
   onProfileUpdated: (profile: ProfileRecord) => void;
   onYearChange: (year: number) => void;
+  firstName?: string;
+  lastName?: string;
 };
 
 function AppShell({
@@ -377,6 +391,8 @@ function AppShell({
   userEmail,
   onProfileUpdated,
   onYearChange,
+  firstName,
+  lastName,
 }: AppShellProps) {
   const theme = useTheme();
   const location = useLocation();
@@ -399,6 +415,10 @@ function AppShell({
   };
 
   const availableYears = [2024, 2025, 2026];
+
+  const tastingMode = revealPreferences?.mode ?? "PURIST";
+  const seeGroupAveragesPreReveal =
+    revealPreferences?.see_group_averages_pre_reveal ?? false;
 
   const goTo = (path: string) => {
     if (location.pathname !== path) {
@@ -465,8 +485,8 @@ function AppShell({
                 <DayDetail
                   isAdmin={isAdmin}
                   userId={userId}
-                  revealPreferences={revealPreferences}
-                  currentYear={currentYear}
+                  tastingMode={tastingMode}
+                  seeGroupAveragesPreReveal={seeGroupAveragesPreReveal}
                 />
               }
             />
@@ -512,6 +532,9 @@ function AppShell({
           currentPath={location.pathname}
           onNavigate={goTo}
           avatarUrl={avatarUrl}
+          avatarFirstName={firstName}
+          avatarLastName={lastName}
+          avatarEmail={userEmail}
         />
       </div>
     </div>

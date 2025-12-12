@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import WhiskeyChart from "./components/WhiskeyChart";
+import UserAvatar from "./components/UserAvatar";
 import { supabase } from "./supabaseClient";
 
 type WhiskeyDayInfo = {
@@ -32,36 +36,50 @@ type WhiskeyTastingDetail = {
   profile_last_name: string | null;
   profile_avatar_url: string | null;
   sliders: WhiskeyTastingSliders | null;
+  revealed: boolean | null;
 };
 
 type WhiskeyDetailRouteParams = {
   whiskeyDayId?: string;
 };
 
-function getInitials(name: string | null | undefined): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) {
-    return parts[0].charAt(0).toUpperCase();
+type SortColumn =
+  | "name"
+  | "rating"
+  | "sweetness"
+  | "fruit"
+  | "spice"
+  | "smoke"
+  | "oak"
+  | "body";
+
+type SortDirection = "asc" | "desc";
+
+function getFullNameFromTasting(t: WhiskeyTastingDetail): string {
+  if (t.profile_first_name && t.profile_last_name) {
+    return `${t.profile_first_name} ${t.profile_last_name}`;
   }
-  return (
-    parts[0].charAt(0).toUpperCase() +
-    parts[parts.length - 1].charAt(0).toUpperCase()
-  );
+  if (t.profile_first_name) return t.profile_first_name;
+  return "Unknown taster";
 }
 
-const RATING_BUCKETS: number[] = [
-  1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0,
-];
 
 function WhiskeyDetail() {
   const { whiskeyDayId } = useParams<WhiskeyDetailRouteParams>();
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const [whiskey, setWhiskey] = useState<WhiskeyDayInfo | null>(null);
   const [tastings, setTastings] = useState<WhiskeyTastingDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [tastingMode, setTastingMode] = useState<string | null>(null);
+  const [isRevealedForMe, setIsRevealedForMe] = useState<boolean>(false);
+
+  const [sortColumn, setSortColumn] = useState<SortColumn>("rating");
+  const [sortDirection, setSortDirection] =
+    useState<SortDirection>("desc");
 
   useEffect(() => {
     const load = async () => {
@@ -82,6 +100,30 @@ function WhiskeyDetail() {
       setError(null);
 
       try {
+        const { data: authData, error: authErr } = await supabase.auth.getUser();
+        if (authErr) {
+          console.error("Error loading auth user:", authErr);
+        }
+        const meId = authData?.user?.id ?? null;
+        setCurrentUserId(meId);
+
+        if (meId) {
+          const { data: meProfile, error: meProfileErr } = await supabase
+            .from("profiles")
+            .select("tasting_mode")
+            .eq("id", meId)
+            .maybeSingle();
+
+          if (meProfileErr) {
+            console.error("Error loading my profile:", meProfileErr);
+            setTastingMode(null);
+          } else {
+            setTastingMode((meProfile as any)?.tasting_mode ?? null);
+          }
+        } else {
+          setTastingMode(null);
+        }
+
         // 1) Load the whiskey day info
         const { data: whiskeyRows, error: whiskeyError } = await supabase
           .from("whiskey_days")
@@ -110,7 +152,7 @@ function WhiskeyDetail() {
         // 2) Load all tastings for this whiskey (no join yet)
         const { data: tastingRows, error: tastingError } = await supabase
           .from("tastings")
-          .select("user_id, rating, notes, tasting_sliders")
+          .select("user_id, rating, notes, tasting_sliders, revealed")
           .eq("whiskey_day_id", dayId);
 
         if (tastingError) {
@@ -129,7 +171,11 @@ function WhiskeyDetail() {
 
         let profilesById = new Map<
           string,
-          { first_name: string | null; last_name: string | null; avatar_url: string | null }
+          {
+            first_name: string | null;
+            last_name: string | null;
+            avatar_url: string | null;
+          }
         >();
 
         if (userIds.length > 0) {
@@ -198,7 +244,11 @@ function WhiskeyDetail() {
                     : Number(parsed.sweetness),
               };
             } catch (e) {
-              console.error("Error parsing tasting_sliders", e, row.tasting_sliders);
+              console.error(
+                "Error parsing tasting_sliders",
+                e,
+                row.tasting_sliders
+              );
               sliders = null;
             }
           }
@@ -214,18 +264,22 @@ function WhiskeyDetail() {
             profile_last_name: profile.last_name,
             profile_avatar_url: profile.avatar_url,
             sliders,
+            revealed:
+              row.revealed === null || row.revealed === undefined
+                ? null
+                : Boolean(row.revealed),
           };
         });
 
-        // Sort highest rating first; nulls go last
-        mapped.sort((a, b) => {
-          if (a.rating == null && b.rating == null) return 0;
-          if (a.rating == null) return 1;
-          if (b.rating == null) return -1;
-          return b.rating - a.rating;
-        });
-
         setTastings(mapped);
+
+        if (meId) {
+          const mine = mapped.find((t) => t.user_id === meId);
+          setIsRevealedForMe(Boolean(mine?.revealed));
+        } else {
+          setIsRevealedForMe(false);
+        }
+
         setLoading(false);
       } catch (e) {
         console.error(e);
@@ -237,35 +291,124 @@ function WhiskeyDetail() {
     void load();
   }, [whiskeyDayId]);
 
-  const distribution = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const bucket of RATING_BUCKETS) {
-      counts.set(bucket, 0);
-    }
-
-    for (const t of tastings) {
-      if (t.rating == null) continue;
-      const bucket = t.rating;
-      if (counts.has(bucket)) {
-        counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
-      }
-    }
-
-    const maxCount = Math.max(
-      1,
-      ...Array.from(counts.values()).map((c) => (c > 0 ? c : 0))
-    );
-
-    return {
-      maxCount,
-      buckets: RATING_BUCKETS.map((bucket) => ({
-        rating: bucket,
-        count: counts.get(bucket) ?? 0,
-      })),
-    };
-  }, [tastings]);
 
   const hasTastings = tastings.length > 0;
+
+  const sortedTastings = useMemo(() => {
+    const copy = [...tastings];
+
+    const getSliderVal = (
+      t: WhiskeyTastingDetail,
+      key: keyof WhiskeyTastingSliders
+    ): number | null => {
+      if (!t.sliders) return null;
+      const val = t.sliders[key];
+      return val == null ? null : Number(val);
+    };
+
+    copy.sort((a, b) => {
+      const dir = sortDirection === "asc" ? 1 : -1;
+
+      if (sortColumn === "name") {
+        const aName = getFullNameFromTasting(a);
+        const bName = getFullNameFromTasting(b);
+        return aName.localeCompare(bName) * dir;
+      }
+
+      let aVal: number | null = null;
+      let bVal: number | null = null;
+
+      if (sortColumn === "rating") {
+        aVal = a.rating;
+        bVal = b.rating;
+      } else if (sortColumn === "sweetness") {
+        aVal = getSliderVal(a, "sweetness");
+        bVal = getSliderVal(b, "sweetness");
+      } else if (sortColumn === "fruit") {
+        aVal = getSliderVal(a, "fruit");
+        bVal = getSliderVal(b, "fruit");
+      } else if (sortColumn === "spice") {
+        aVal = getSliderVal(a, "spice");
+        bVal = getSliderVal(b, "spice");
+      } else if (sortColumn === "smoke") {
+        aVal = getSliderVal(a, "smoke");
+        bVal = getSliderVal(b, "smoke");
+      } else if (sortColumn === "oak") {
+        aVal = getSliderVal(a, "oak");
+        bVal = getSliderVal(b, "oak");
+      } else if (sortColumn === "body") {
+        aVal = getSliderVal(a, "body");
+        bVal = getSliderVal(b, "body");
+      }
+
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+
+      if (aVal === bVal) return 0;
+      return aVal < bVal ? -1 * dir : 1 * dir;
+    });
+
+    return copy;
+  }, [tastings, sortColumn, sortDirection]);
+
+  const handleSort = (column: SortColumn) => {
+    setSortColumn((prevCol) => {
+      if (prevCol === column) {
+        // toggle direction
+        setSortDirection((prevDir) =>
+          prevDir === "asc" ? "desc" : "asc"
+        );
+        return prevCol;
+      } else {
+        setSortDirection("desc");
+        return column;
+      }
+    });
+  };
+
+  const renderSortLabel = (label: string, column: SortColumn) => {
+    const isActive = sortColumn === column;
+    const arrow = !isActive
+      ? ""
+      : sortDirection === "asc"
+      ? "▲"
+      : "▼";
+
+    return (
+      <button
+        type="button"
+        onClick={() => handleSort(column)}
+        style={{
+          border: "none",
+          background: "transparent",
+          padding: 0,
+          margin: 0,
+          cursor: "pointer",
+          fontSize: "0.8rem",
+          fontWeight: 600,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "rgba(0,0,0,0.7)",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+        }}
+      >
+        <span>{label}</span>
+        {arrow && (
+          <span
+            style={{
+              fontSize: "0.7rem",
+              opacity: 0.8,
+            }}
+          >
+            {arrow}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   if (loading) {
     return (
@@ -332,19 +475,20 @@ function WhiskeyDetail() {
         type="button"
         onClick={() => navigate(-1)}
         style={{
-          border: "none",
-          background: "transparent",
-          color: "#8B4513",
-          cursor: "pointer",
-          fontSize: "0.9rem",
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          padding: "4px 0",
           marginBottom: 12,
+          border: "none",
+          background: "none",
+          padding: 0,
+          cursor: "pointer",
+          color: theme.palette.primary.main,
+          font: "inherit",
+          fontWeight: 500,
         }}
       >
-        <span style={{ fontSize: "1rem" }}>←</span>
+        <ArrowBackIcon fontSize="small" />
         <span>Back</span>
       </button>
 
@@ -456,98 +600,21 @@ function WhiskeyDetail() {
         >
           Rating distribution
         </h3>
+
         {!hasTastings ? (
           <p style={{ fontSize: "0.9rem", color: "#666" }}>
             No ratings recorded yet for this whiskey.
           </p>
         ) : (
-          <div
-            style={{
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.08)",
-              padding: "12px 12px 10px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-end",
-                justifyContent: "space-between",
-                gap: 6,
-                height: 120,
-                marginBottom: 8,
-              }}
-            >
-              {distribution.buckets.map((bucket) => {
-                const percentage =
-                  bucket.count === 0
-                    ? 0
-                    : Math.round((bucket.count / distribution.maxCount) * 100);
-
-                return (
-                  <div
-                    key={bucket.rating}
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      fontSize: "0.75rem",
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: `${percentage}%`,
-                        width: "70%",
-                        minHeight: bucket.count > 0 ? 6 : 0,
-                        borderRadius: 999,
-                        background:
-                          bucket.count > 0
-                            ? "rgba(139,69,19,0.9)"
-                            : "transparent",
-                        transition: "height 0.2s ease-out",
-                      }}
-                    />
-                    <div
-                      style={{
-                        marginTop: 4,
-                        fontVariantNumeric: "tabular-nums",
-                        color: "#555",
-                      }}
-                    >
-                      {bucket.count > 0 ? bucket.count : ""}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                fontSize: "0.75rem",
-                color: "#666",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {distribution.buckets.map((bucket) => (
-                <div
-                  key={bucket.rating}
-                  style={{
-                    flex: 1,
-                    textAlign: "center",
-                  }}
-                >
-                  {bucket.rating.toFixed(1)}
-                </div>
-              ))}
-            </div>
-          </div>
+          <WhiskeyChart
+            tastings={tastings}
+            tastingMode={tastingMode}
+            isRevealedForMe={isRevealedForMe}
+          />
         )}
       </section>
 
-      {/* Taster list */}
+      {/* Taster table */}
       <section>
         <h3
           style={{
@@ -572,112 +639,251 @@ function WhiskeyDetail() {
               overflow: "hidden",
             }}
           >
-            {tastings.map((tasting) => {
-              const fullName =
-                tasting.profile_first_name && tasting.profile_last_name
-                  ? `${tasting.profile_first_name} ${tasting.profile_last_name}`
-                  : tasting.profile_first_name ?? "Unknown taster";
-              const initials = getInitials(fullName);
+            {/* Header row */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "auto minmax(0, 2fr) 90px 90px 90px 90px 90px 90px 90px",
+                columnGap: 10,
+                padding: "8px 12px 8px 8px",
+                background: "rgba(0,0,0,0.02)",
+                borderBottom: "1px solid rgba(0,0,0,0.04)",
+                fontSize: "0.8rem",
+              }}
+            >
+              {/* Empty avatar column header to align with rows */}
+              <div style={{ gridColumn: "1 / 2" }} />
+
+              {/* User column header */}
+              <div
+                style={{
+                  gridColumn: "2 / 3",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                {renderSortLabel("User", "name")}
+              </div>
+
+              <div
+                style={{
+                  gridColumn: "3 / 4",
+                  textAlign: "center",
+                }}
+              >
+                {renderSortLabel("Overall", "rating")}
+              </div>
+              <div
+                style={{
+                  gridColumn: "4 / 5",
+                  textAlign: "center",
+                }}
+              >
+                {renderSortLabel("Sweet", "sweetness")}
+              </div>
+              <div
+                style={{
+                  gridColumn: "5 / 6",
+                  textAlign: "center",
+                }}
+              >
+                {renderSortLabel("Fruit", "fruit")}
+              </div>
+              <div
+                style={{
+                  gridColumn: "6 / 7",
+                  textAlign: "center",
+                }}
+              >
+                {renderSortLabel("Spice", "spice")}
+              </div>
+              <div
+                style={{
+                  gridColumn: "7 / 8",
+                  textAlign: "center",
+                }}
+              >
+                {renderSortLabel("Smoke", "smoke")}
+              </div>
+              <div
+                style={{
+                  gridColumn: "8 / 9",
+                  textAlign: "center",
+                }}
+              >
+                {renderSortLabel("Oak", "oak")}
+              </div>
+              <div
+                style={{
+                  gridColumn: "9 / 10",
+                  textAlign: "center",
+                }}
+              >
+                {renderSortLabel("Body", "body")}
+              </div>
+            </div>
+
+            {/* Rows */}
+            {sortedTastings.map((tasting) => {
+              const fullName = getFullNameFromTasting(tasting);
+              const sliders = tasting.sliders;
+
+              const fmt = (val: number | null | undefined) =>
+                val == null ? "—" : Number(val).toFixed(1);
 
               return (
                 <div
                   key={tasting.user_id}
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    padding: "10px 12px",
+                    display: "grid",
+                    gridTemplateColumns:
+                      "auto minmax(0, 2fr) 90px 90px 90px 90px 90px 90px 90px",
+                    gridTemplateRows: "auto auto",
+                    columnGap: 10,
+                    rowGap: 4,
+                    padding: "10px 12px 10px 8px",
                     borderTop: "1px solid rgba(0,0,0,0.04)",
-                    gap: 6,
+                    fontSize: "0.9rem",
+                    alignItems: "center",
                   }}
                 >
+                  {/* Avatar spanning both rows */}
                   <div
                     style={{
+                      gridRow: "1 / span 2",
+                      gridColumn: "1 / 2",
                       display: "flex",
                       alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
                     }}
                   >
-                    {/* Avatar */}
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: "rgba(0,0,0,0.06)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        marginRight: 12,
-                        overflow: "hidden",
-                        flexShrink: 0,
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {tasting.profile_avatar_url ? (
-                        <img
-                          src={tasting.profile_avatar_url}
-                          alt={fullName}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            borderRadius: "50%",
-                          }}
-                        />
-                      ) : (
-                        <span>{initials}</span>
-                      )}
-                    </div>
-
-                    {/* Name */}
-                    <div
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        fontSize: "0.95rem",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {fullName}
-                    </div>
-
-                    {/* Overall Rating */}
-                    <div
-                      style={{
-                        width: 56,
-                        textAlign: "right",
-                        fontVariantNumeric: "tabular-nums",
-                        fontSize: "0.95rem",
-                        marginLeft: 8,
-                      }}
-                    >
-                      {tasting.rating != null ? tasting.rating.toFixed(1) : "—"}
-                    </div>
+                    <UserAvatar
+                      size="md"
+                      firstName={tasting.profile_first_name}
+                      lastName={tasting.profile_last_name}
+                      avatarUrl={tasting.profile_avatar_url}
+                      ariaLabel={fullName}
+                      tooltip={fullName}
+                      userId={tasting.user_id}
+                    />
                   </div>
 
-                  {/* Slider breakdown */}
-                  {tasting.sliders && (
+                  {/* Name on first row */}
+                  <div
+                    style={{
+                      gridRow: "1 / 2",
+                      gridColumn: "2 / 3",
+                      minWidth: 0,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {fullName}
+                  </div>
+
+                  {/* Overall rating spanning both rows */}
+                  <div
+                    style={{
+                      gridRow: "1 / span 2",
+                      gridColumn: "3 / 4",
+                      textAlign: "center",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {tasting.rating != null
+                      ? tasting.rating.toFixed(1)
+                      : "—"}
+                  </div>
+
+                  {/* Sweetness spanning both rows */}
+                  <div
+                    style={{
+                      gridRow: "1 / span 2",
+                      gridColumn: "4 / 5",
+                      textAlign: "center",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {fmt(sliders?.sweetness ?? null)}
+                  </div>
+
+                  {/* Fruit spanning both rows */}
+                  <div
+                    style={{
+                      gridRow: "1 / span 2",
+                      gridColumn: "5 / 6",
+                      textAlign: "center",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {fmt(sliders?.fruit ?? null)}
+                  </div>
+
+                  {/* Spice spanning both rows */}
+                  <div
+                    style={{
+                      gridRow: "1 / span 2",
+                      gridColumn: "6 / 7",
+                      textAlign: "center",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {fmt(sliders?.spice ?? null)}
+                  </div>
+
+                  {/* Smoke spanning both rows */}
+                  <div
+                    style={{
+                      gridRow: "1 / span 2",
+                      gridColumn: "7 / 8",
+                      textAlign: "center",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {fmt(sliders?.smoke ?? null)}
+                  </div>
+
+                  {/* Oak spanning both rows */}
+                  <div
+                    style={{
+                      gridRow: "1 / span 2",
+                      gridColumn: "8 / 9",
+                      textAlign: "center",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {fmt(sliders?.oak ?? null)}
+                  </div>
+
+                  {/* Body spanning both rows */}
+                  <div
+                    style={{
+                      gridRow: "1 / span 2",
+                      gridColumn: "9 / 10",
+                      textAlign: "center",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {fmt(sliders?.body ?? null)}
+                  </div>
+
+                  {/* Notes row under the name, spanning all non-avatar columns */}
+                  {tasting.notes && tasting.notes.trim().length > 0 && (
                     <div
                       style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 8,
-                        paddingLeft: 52,
+                        gridRow: "2 / 3",
+                        gridColumn: "2 / 10",
                         fontSize: "0.8rem",
                         color: "#555",
-                        fontVariantNumeric: "tabular-nums",
+                        whiteSpace: "normal",
+                        wordBreak: "break-word",
                       }}
                     >
-                      <span>Oak {tasting.sliders.oak?.toFixed(1) ?? "—"}</span>
-                      <span>Body {tasting.sliders.body?.toFixed(1) ?? "—"}</span>
-                      <span>Fruit {tasting.sliders.fruit?.toFixed(1) ?? "—"}</span>
-                      <span>Smoke {tasting.sliders.smoke?.toFixed(1) ?? "—"}</span>
-                      <span>Spice {tasting.sliders.spice?.toFixed(1) ?? "—"}</span>
-                      <span>
-                        Sweet {tasting.sliders.sweetness?.toFixed(1) ?? "—"}
-                      </span>
+                      {tasting.notes}
                     </div>
                   )}
                 </div>

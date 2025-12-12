@@ -2,26 +2,44 @@ import type { ReactNode } from "react";
 import { useTheme } from "@mui/material/styles";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
-import AccountCircleRoundedIcon from "@mui/icons-material/AccountCircleRounded";
+import UserAvatar from "./UserAvatar";
 
 type BottomNavProps = {
   currentPath: string;
   onNavigate: (path: string) => void;
-  avatarUrl?: string;
+  avatarFirstName?: string;
+  avatarLastName?: string;
+  avatarUrl?: string | null;
+  avatarEmail?: string | null;
 };
 
 type NavItemProps = {
   label: string;
   active: boolean;
   onClick: () => void;
-  avatarUrl?: string;
+  avatarFirstName?: string;
+  avatarLastName?: string;
+  avatarUrl?: string | null;
+  avatarEmail?: string | null;
   icon?: ReactNode;
 };
 
-function NavItem({ label, active, onClick, avatarUrl, icon }: NavItemProps) {
+function NavItem({ label, active, onClick, avatarFirstName, avatarLastName, avatarUrl, avatarEmail, icon }: NavItemProps) {
   const theme = useTheme();
   const activeColor = theme.palette.primary.main;
   const inactiveColor = theme.palette.text.secondary;
+
+  const initialsFromEmail = (email?: string | null) => {
+    if (!email) return "";
+    const local = email.split("@")[0] || "";
+    const letters = local.replace(/[^a-zA-Z]/g, "");
+    if (letters.length >= 2) return (letters[0] + letters[1]).toUpperCase();
+    if (letters.length === 1) return letters[0].toUpperCase();
+    return "";
+  };
+
+  const initialsOverride =
+    !avatarFirstName && !avatarLastName ? initialsFromEmail(avatarEmail) : "";
 
   return (
     <button
@@ -38,16 +56,15 @@ function NavItem({ label, active, onClick, avatarUrl, icon }: NavItemProps) {
         cursor: "pointer",
       }}
     >
-      {avatarUrl ? (
-        <img
-          src={avatarUrl}
-          alt={label}
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: "50%",
-            marginBottom: 2,
-          }}
+      {label === "Profile" ? (
+        <UserAvatar
+          size="sm"
+          firstName={avatarFirstName}
+          lastName={avatarLastName}
+          avatarUrl={avatarUrl}
+          ariaLabel="Your profile"
+          tooltip="Profile"
+          initialsOverride={initialsOverride}
         />
       ) : icon ? (
         <span
@@ -77,7 +94,7 @@ function NavItem({ label, active, onClick, avatarUrl, icon }: NavItemProps) {
   );
 }
 
-function BottomNav({ currentPath, onNavigate, avatarUrl }: BottomNavProps) {
+function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, avatarUrl, avatarEmail }: BottomNavProps) {
   const theme = useTheme();
 
   const goTo = (path: string) => {
@@ -117,8 +134,10 @@ function BottomNav({ currentPath, onNavigate, avatarUrl }: BottomNavProps) {
         label="Profile"
         active={currentPath === "/profile"}
         onClick={() => goTo("/profile")}
+        avatarFirstName={avatarFirstName}
+        avatarLastName={avatarLastName}
         avatarUrl={avatarUrl}
-        icon={!avatarUrl ? <AccountCircleRoundedIcon fontSize="small" /> : undefined}
+        avatarEmail={avatarEmail}
       />
     </nav>
   );

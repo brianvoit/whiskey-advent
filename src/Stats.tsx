@@ -6,6 +6,7 @@ import LockIcon from "@mui/icons-material/Lock";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import PersonIcon from "@mui/icons-material/Person";
 import GroupIcon from "@mui/icons-material/Group";
+import StatsChart from "./components/StatsChart";
 
 export type DayStats = {
   whiskey_day_id: number;
@@ -117,6 +118,10 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [tastingMode, setTastingMode] = useState<string | null>(null);
+  const [seeGroupAveragesPreReveal, setSeeGroupAveragesPreReveal] =
+    useState<boolean>(true);
+
   useEffect(() => {
     // If we don't have a valid year yet, don't try to load anything
     if (!currentYear) {
@@ -129,6 +134,28 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
       setError(null);
 
       try {
+        // 0) Load the current user's profile for tasting mode + reveal preferences
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("tasting_mode, reveal_preferences")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error("Error loading profile for stats:", profileError);
+        } else if (profile) {
+          setTastingMode(profile.tasting_mode ?? null);
+
+          const prefs = (profile.reveal_preferences as any) || {};
+          if (typeof prefs.see_group_averages_pre_reveal === "boolean") {
+            setSeeGroupAveragesPreReveal(
+              prefs.see_group_averages_pre_reveal
+            );
+          } else {
+            setSeeGroupAveragesPreReveal(true);
+          }
+        }
+
         // 1) Season stats for the selected year
         const s = await getSeasonStats(currentYear);
         setStats(s);
@@ -193,6 +220,32 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
   const todayYear = today.getFullYear();
   const hasStats = stats.length > 0;
 
+  const canSeeGroupAverage = (d: DayStats): boolean => {
+    if (d.avg_rating == null || d.rating_count === 0) {
+      return false;
+    }
+
+    if (isAdmin || currentYear < todayYear) {
+      return true;
+    }
+
+    const hasRevealed = revealedMap.get(d.whiskey_day_id) ?? false;
+
+    if (hasRevealed) {
+      return true;
+    }
+
+    if (!seeGroupAveragesPreReveal) {
+      return false;
+    }
+
+    if (tastingMode === "RELAXED") {
+      return true;
+    }
+
+    return false;
+  };
+
   return (
     <div style={{ paddingTop: 8 }}>
 
@@ -218,6 +271,22 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
             marginTop: 8,
           }}
         >
+          {/* Group average line chart */}
+          <div
+            style={{
+              marginBottom: 16,
+            }}
+          >
+            <StatsChart
+              stats={stats}
+              isAdmin={isAdmin}
+              currentYear={currentYear}
+              revealedMap={revealedMap}
+              tastingMode={tastingMode}
+              seeGroupAveragesPreReveal={seeGroupAveragesPreReveal}
+            />
+          </div>
+
           {/* One-line list following Material 3 list patterns */}
           <div
             style={{
@@ -322,11 +391,19 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                   }
                 }
 
-                const trailingRating =
-                  d.avg_rating !== null ? d.avg_rating.toFixed(1) : "—";
-
                 const hasRevealed =
                   revealedMap.get(d.whiskey_day_id) ?? false;
+
+                const groupAvgContent =
+                  d.avg_rating === null || d.rating_count === 0
+                    ? "—"
+                    : canSeeGroupAverage(d)
+                    ? d.avg_rating!.toFixed(1)
+                    : (
+                        <LockIcon
+                          style={{ fontSize: "1rem", opacity: 0.7 }}
+                        />
+                      );
 
                 // Admins and past seasons can always view details.
                 // For the current season, non-admins need the day revealed.
@@ -406,7 +483,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                         fontSize: "0.9rem",
                       }}
                     >
-                      {trailingRating}
+                      {groupAvgContent}
                     </div>
 
                     {/* Trailing: count */}

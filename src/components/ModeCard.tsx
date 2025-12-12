@@ -32,22 +32,23 @@ export const ModeCard: React.FC<ModeCardProps> = ({
 
   return (
     <Paper
-      variant="outlined"
       elevation={isActive ? 3 : 0}
       sx={{
-        borderRadius: 16,
-        borderColor,
+        borderRadius: theme.spacing(2.5),
+        border: `1px solid ${borderColor}`,
         backgroundColor,
         opacity,
+        overflow: "hidden",
         transition:
           "box-shadow 150ms ease, border-color 150ms ease, opacity 150ms ease",
         p: 2,
-        minWidth: 220,
-        maxWidth: 260,
+        width: "100%",
+        maxWidth: 300,
         display: "flex",
         flexDirection: "column",
-        gap: 1.5,
+        justifyContent: "flex-start",
         cursor: "pointer",
+        boxShadow: isActive ? theme.shadows[3] : theme.shadows[0],
       }}
       onClick={onSelect}
     >
@@ -82,6 +83,7 @@ export const ModeCard: React.FC<ModeCardProps> = ({
         variant={isActive ? "contained" : "outlined"}
         size="small"
         fullWidth
+        sx={{ mt: 2 }}
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
