@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { supabase } from "./supabaseClient";
 import { getWhiskeysForSeason, type Season } from "./api/whiskeys";
 import { getSeasonStats } from "./api/stats";
@@ -13,10 +15,13 @@ type WhiskeyDay = {
   region: string | null;
   name?: string | null;
   distillery?: string | null;
+  image_url?: string | null;
 };
 
+import type { TastingMode } from "./api/profiles";
+
 type RevealPreferences = {
-  mode: "PURIST" | "EXPLORER" | "RELAXED";
+  mode: TastingMode;
   see_group_averages_pre_reveal?: boolean;
 } | null;
 
@@ -29,6 +34,8 @@ type HomeProps = {
 
 function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const now = new Date();
   const todayYear = now.getFullYear();
@@ -48,8 +55,8 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
   );
   const [loading, setLoading] = useState(true);
 
-  const mode = revealPreferences?.mode ?? "PURIST";
-  const isPurist = mode === "PURIST";
+  const mode = revealPreferences?.mode ?? "purist";
+  const isPurist = mode === "purist";
 
   // Load season (current year or latest) + days
   useEffect(() => {
@@ -167,9 +174,9 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
         className="calendar-grid"
         style={{
           display: "grid",
-          gap: 8,
-          paddingTop: 24,
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: isMobile ? 6 : 8,
+          paddingTop: isMobile ? 12 : 24,
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))",
         }}
       >
         {whiskeyDays.map((day) => {
@@ -216,6 +223,7 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
               dayNumber={day.day_number}
               headline={headline}
               subhead={subhead}
+              imageUrl={hideDetails ? null : (day.image_url ?? null)}
               averageRating={avgRatingsMap.get(day.id) ?? null}
               userRating={ratingsMap.get(day.id) ?? null}
               regionText={regionText}
@@ -224,6 +232,7 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
               isDisabled={isDisabled}
               showOverlay={showOverlay}
               hideDetails={hideDetails}
+              compact={isMobile}
               onClick={
                 isDisabled
                   ? undefined

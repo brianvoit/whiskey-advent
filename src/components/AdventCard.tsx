@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
@@ -22,6 +22,7 @@ type AdventCardProps = {
   isDisabled: boolean; // future day lock / disabled state
   showOverlay: boolean; // semi-transparent lock overlay for future days
   hideDetails: boolean; // whether name / distiller / rating should be hidden based on mode
+  compact?: boolean;    // compact row layout for mobile
   onClick?: () => void;
 };
 
@@ -38,13 +39,29 @@ const AdventCard: React.FC<AdventCardProps> = ({
   isDisabled,
   showOverlay,
   hideDetails,
+  compact = false,
   onClick,
 }) => {
   const theme = useTheme();
+  const [imgError, setImgError] = useState(false);
+  const isDark = theme.palette.mode === "dark";
 
   const background = isToday
     ? theme.palette.background.paper
     : theme.palette.background.default;
+
+  // Placeholder gradient — earthy amber in light mode, dark bourbon in dark mode
+  const placeholderGradient = isDark
+    ? "linear-gradient(145deg, #2a1c0c 0%, #3d2510 55%, #2e1a09 100%)"
+    : "linear-gradient(145deg, #eedcbf 0%, #c8945a 55%, #9e6535 100%)";
+  const placeholderIconColor = isDark ? "#c8945a" : "#5c3317";
+
+  // Frosted day-number chip — light in light mode, dark in dark mode
+  const chipBg  = isDark ? "rgba(0,0,0,0.55)"   : "rgba(255,255,255,0.82)";
+  const chipColor = isDark ? "#ffffff"           : "#1a1a1a";
+
+  // Future-day overlay
+  const overlayBg = isDark ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.70)";
 
   const handleClick = () => {
     if (isDisabled) return;
@@ -84,39 +101,170 @@ const AdventCard: React.FC<AdventCardProps> = ({
     ? subhead
     : "";
 
-  // Very simple placeholder image: if no image URL, show a neutral bottle block
-  const imageContent = imageUrl ? (
-    <img
-      src={imageUrl}
-      alt={hideDetails ? "Hidden whiskey" : headline ?? "Whiskey"}
-      style={{
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        borderRadius: 6,
-      }}
-    />
-  ) : (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        borderRadius: 6,
-        background: theme.palette.background.paper,
-        border: `1px solid ${theme.palette.divider}`,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <LocalBarRoundedIcon
+  const showImage = Boolean(imageUrl && !imgError);
+
+  const cardRadius = typeof theme.shape.borderRadius === "number"
+    ? theme.shape.borderRadius
+    : 8;
+
+  // ── Compact row layout (mobile) ──────────────────────────────────────────
+  if (compact) {
+    const rated = hasUserRating;
+    return (
+      <button
+        type="button"
+        disabled={isDisabled}
+        onClick={handleClick}
         style={{
-          fontSize: "1.8rem",
-          color: theme.palette.primary.main,
+          position: "relative",
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "8px 12px 8px 8px",
+          border: `1px solid ${isToday ? theme.palette.primary.main : theme.palette.divider}`,
+          borderRadius: cardRadius,
+          background: theme.palette.background.paper,
+          cursor: isDisabled ? "default" : "pointer",
+          textAlign: "left",
+          boxShadow: isToday ? `0 0 0 1px ${theme.palette.primary.main}` : "none",
+          opacity: isDisabled ? 0.7 : 1,
         }}
-      />
-    </div>
-  );
+      >
+        {/* Thumbnail */}
+        <div
+          style={{
+            width: 52,
+            height: 52,
+            flexShrink: 0,
+            borderRadius: cardRadius / 2,
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          {showImage ? (
+            <img
+              src={imageUrl!}
+              alt={hideDetails ? "Hidden whiskey" : headline ?? "Whiskey"}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background: placeholderGradient,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <LocalBarRoundedIcon style={{ fontSize: "1.2rem", color: placeholderIconColor, opacity: 0.5 }} />
+            </div>
+          )}
+          {/* Day chip on thumbnail */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 3,
+              right: 3,
+              padding: "1px 5px",
+              borderRadius: 999,
+              background: chipBg,
+              backdropFilter: "blur(4px)",
+              WebkitBackdropFilter: "blur(4px)",
+              fontSize: "0.65rem",
+              fontWeight: 700,
+              color: chipColor,
+              lineHeight: 1.6,
+            }}
+          >
+            {dayNumber}
+          </div>
+        </div>
+
+        {/* Name + distillery */}
+        <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+          <div
+            style={{
+              fontWeight: 600,
+              fontSize: "0.9rem",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              color: theme.palette.text.primary,
+              marginBottom: 2,
+            }}
+          >
+            {hideDetails ? "🔒 Hidden" : (headline || `Day ${dayNumber}`)}
+          </div>
+          {!hideDetails && subhead && (
+            <div
+              style={{
+                fontSize: "0.78rem",
+                color: theme.palette.text.secondary,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {subhead}
+            </div>
+          )}
+        </div>
+
+        {/* Rating + action */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          {!hideDetails && hasUserRating && (
+            <div
+              style={{
+                fontSize: "0.85rem",
+                fontVariantNumeric: "tabular-nums",
+                color: theme.palette.text.secondary,
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
+              }}
+            >
+              <PersonIcon style={{ fontSize: "0.9rem" }} />
+              {userRatingText}
+            </div>
+          )}
+          <div
+            style={{
+              padding: "3px 10px",
+              borderRadius: 999,
+              border: `1px solid ${theme.palette.divider}`,
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              background: isDisabled
+                ? theme.palette.action.disabledBackground
+                : theme.palette.background.default,
+              color: isDisabled
+                ? theme.palette.text.disabled
+                : theme.palette.text.primary,
+            }}
+          >
+            {rated ? "View" : "Rate"}
+          </div>
+        </div>
+
+        {/* Future-day overlay */}
+        {showOverlay && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: cardRadius,
+              background: overlayBg,
+              pointerEvents: "none",
+            }}
+          />
+        )}
+      </button>
+    );
+  }
 
   return (
     <button
@@ -125,15 +273,16 @@ const AdventCard: React.FC<AdventCardProps> = ({
       onClick={handleClick}
       style={{
         position: "relative",
-        borderRadius: theme.shape.borderRadius,
+        borderRadius: cardRadius,
         border: `1px solid ${theme.palette.divider}`,
         background,
         cursor: isDisabled ? "default" : "pointer",
-        padding: 8,
+        padding: 0,
         width: "100%",
         aspectRatio: "3 / 4",
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
         boxShadow: isToday
           ? "0 4px 12px rgba(0,0,0,0.18)"
           : "0 2px 6px rgba(0,0,0,0.10)",
@@ -141,51 +290,69 @@ const AdventCard: React.FC<AdventCardProps> = ({
         textAlign: "left",
       }}
     >
-      {/* Day badge in the top-right corner */}
+      {/* Image / placeholder — full-bleed, flush to card edges */}
       <div
         style={{
-          position: "absolute",
-          top: 6,
-          right: 8,
-          padding: "2px 6px",
-          borderRadius: 10,
-          background: "rgba(0,0,0,0.06)",
-          fontSize: "0.7rem",
-          fontWeight: 600,
+          position: "relative",
+          flex: "0 0 48%",
+          minHeight: 0,
+          overflow: "hidden",
         }}
       >
-        {dayNumber}
+        {showImage ? (
+          <img
+            src={imageUrl!}
+            alt={hideDetails ? "Hidden whiskey" : headline ?? "Whiskey"}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: placeholderGradient,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <LocalBarRoundedIcon style={{ fontSize: "2.2rem", color: placeholderIconColor, opacity: 0.45 }} />
+          </div>
+        )}
+
+        {/* Day number — frosted chip overlaid on the image */}
+        <div
+          style={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            padding: "2px 8px",
+            borderRadius: 999,
+            background: chipBg,
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+            fontSize: "0.7rem",
+            fontWeight: 700,
+            color: chipColor,
+            lineHeight: 1.6,
+          }}
+        >
+          {dayNumber}
+        </div>
       </div>
 
-      {/* Content column */}
+      {/* Text + bottom row */}
       <div
         style={{
+          flex: "1 1 auto",
           display: "flex",
           flexDirection: "column",
-          flexGrow: 1,
-          gap: 6,
+          justifyContent: "space-between",
+          minHeight: 0,
+          padding: "8px 10px 8px",
         }}
       >
-        {/* Image block */}
-        <div
-          style={{
-            flex: "0 0 auto",
-            height: "40%",
-          }}
-        >
-          {imageContent}
-        </div>
-
-        {/* Text + bottom row */}
-        <div
-          style={{
-            flex: "1 1 auto",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            minHeight: 0,
-          }}
-        >
           {/* Headline + subhead */}
           <div
             style={{
@@ -319,7 +486,6 @@ const AdventCard: React.FC<AdventCardProps> = ({
             </div>
           </div>
         </div>
-      </div>
 
       {/* Future-day overlay */}
       {showOverlay && (
@@ -328,7 +494,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
             position: "absolute",
             inset: 0,
             borderRadius: theme.shape.borderRadius,
-            background: "rgba(255, 255, 255, 0.7)",
+            background: overlayBg,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useTheme } from "@mui/material/styles";
 import UserAvatar from "./UserAvatar";
 import Typography from "@mui/material/Typography";
@@ -108,7 +108,7 @@ function CommentComposer({
         firstName={currentUser?.first_name ?? null}
         lastName={currentUser?.last_name ?? null}
         avatarUrl={currentUser?.avatar_url ?? null}
-        label="Your profile"
+        ariaLabel="Your profile"
       />
 
       <div style={{ flex: 1 }}>
@@ -277,7 +277,7 @@ function CommentThread({
           firstName={author?.first_name ?? null}
           lastName={author?.last_name ?? null}
           avatarUrl={author?.avatar_url ?? null}
-          label={`${displayName} profile`}
+          ariaLabel={`${displayName} profile`}
         />
 
         <div style={{ flex: 1 }}>
@@ -434,7 +434,7 @@ function CommentThread({
                       firstName={replyAuthor?.first_name ?? null}
                       lastName={replyAuthor?.last_name ?? null}
                       avatarUrl={replyAuthor?.avatar_url ?? null}
-                      label={`${replyName} profile`}
+                      ariaLabel={`${replyName} profile`}
                     />
 
                     <div style={{ flex: 1 }}>

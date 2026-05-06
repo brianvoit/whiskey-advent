@@ -1,17 +1,19 @@
-import { useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
+import { subscribeToPush, unsubscribeFromPush } from "./api/pushSubscriptions";
 import { supabase } from "./supabaseClient";
 import type { Profile, RevealPreferences, TastingMode } from "./api/profiles";
+import { uploadAvatar } from "./api/avatars";
 import { useAppTheme } from "./theme";
 import type { ThemeMode } from "./theme";
 import { modeCopy, isMoreRelaxed } from "./modes";
 import { ModeCard } from "./components/ModeCard";
-import { useTheme } from "@mui/material/styles";
+import UserAvatar from "./components/UserAvatar";
 import {
-  Avatar,
+  Box,
   Button,
-  FormControl,
+  CircularProgress,
+  Divider,
   FormControlLabel,
-  FormLabel,
   Radio,
   RadioGroup,
   Paper,
@@ -23,70 +25,155 @@ import {
   DialogContent,
   DialogActions,
   Switch,
+  Alert,
 } from "@mui/material";
-import LightModeIcon from "@mui/icons-material/LightMode";
-import ModeNightIcon from "@mui/icons-material/ModeNight";
-import DesktopWindowsRoundedIcon from "@mui/icons-material/DesktopWindowsRounded";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
+import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
+import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
+import Brightness4RoundedIcon from "@mui/icons-material/Brightness4Rounded";
+import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
+import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 
 type ProfileScreenProps = {
   profile: Profile;
+  userId: string;
   userEmail: string;
+  hasEmailAuth?: boolean;
   onProfileUpdated: (profile: Profile) => void;
 };
 
-function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenProps) {
-  const theme = useTheme();
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
+  { value: "light",  label: "Day",    icon: <LightModeRoundedIcon fontSize="small" /> },
+  { value: "dark",   label: "Night",  icon: <DarkModeRoundedIcon fontSize="small" /> },
+  { value: "system", label: "System", icon: <Brightness4RoundedIcon fontSize="small" /> },
+];
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+      {children}
+    </Typography>
+  );
+}
+
+function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onProfileUpdated }: ProfileScreenProps) {
   const [firstName, setFirstName] = useState(profile.first_name ?? "");
   const [lastName, setLastName] = useState(profile.last_name ?? "");
   const [seeGroupAverages, setSeeGroupAverages] = useState<boolean>(
     profile.reveal_preferences?.see_group_averages_pre_reveal ?? true
   );
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(
+    profile.notifications_opt_in ?? false
+  );
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [passwordResetSent, setPasswordResetSent] = useState(false);
+  const [passwordResetSending, setPasswordResetSending] = useState(false);
+  const [passwordResetError, setPasswordResetError] = useState<string | null>(null);
 
-  // THEME MODE STATE (global, via context)
+  // Avatar upload
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(
+    profile.avatar_url ?? null
+  );
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  const handleAvatarClick = () => {
+    if (!uploading) fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    setAvatarError(null);
+    try {
+      const newUrl = await uploadAvatar(profile.id, file);
+      setCurrentAvatarUrl(newUrl);
+      onProfileUpdated({ ...profile, avatar_url: newUrl });
+    } catch (err: any) {
+      setAvatarError(err?.message ?? "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const { mode, setMode } = useAppTheme();
 
   const initialTastingMode: TastingMode =
     (profile.tasting_mode as TastingMode | null) ?? "purist";
-
-  const [pendingMode, setPendingMode] = useState<TastingMode>(
-    initialTastingMode
-  );
-
+  const [pendingMode, setPendingMode] = useState<TastingMode>(initialTastingMode);
   const [modeDialogOpen, setModeDialogOpen] = useState(false);
-  const [modeDialogTarget, setModeDialogTarget] = useState<TastingMode | null>(
-    null
-  );
+  const [modeDialogTarget, setModeDialogTarget] = useState<TastingMode | null>(null);
 
   const initialFirstName = profile.first_name ?? "";
   const initialLastName = profile.last_name ?? "";
   const initialSeeGroupAverages =
     profile.reveal_preferences?.see_group_averages_pre_reveal ?? true;
-  const initialThemeMode = (profile.theme_mode as ThemeMode | null) ?? "light";
+  const initialThemeMode = (profile.theme_mode as ThemeMode | null) ?? "system";
+  const initialNotificationsOptIn = profile.notifications_opt_in ?? false;
 
   const isDirty =
     firstName !== initialFirstName ||
     lastName !== initialLastName ||
     seeGroupAverages !== initialSeeGroupAverages ||
     mode !== initialThemeMode ||
-    pendingMode !== initialTastingMode;
-
-  const handleThemeChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setMode((event.target as HTMLInputElement).value as ThemeMode);
-  };
+    pendingMode !== initialTastingMode ||
+    notificationsEnabled !== initialNotificationsOptIn;
 
   const handleModeSelect = (nextMode: TastingMode) => {
     if (nextMode === pendingMode) return;
-
-    // Use the *saved* initial mode to decide if this is more relaxed
     if (isMoreRelaxed(initialTastingMode, nextMode)) {
       setModeDialogTarget(nextMode);
       setModeDialogOpen(true);
     } else {
       setPendingMode(nextMode);
+    }
+  };
+
+  const handleNotificationToggle = async (enabled: boolean) => {
+    if (!enabled) {
+      setNotificationsEnabled(false);
+      await unsubscribeFromPush(userId);
+      return;
+    }
+    if (notifPermission === "unsupported") return;
+    if (notifPermission === "denied") {
+      setError("Notifications are blocked in your browser. Enable them in your browser settings and try again.");
+      return;
+    }
+    if (notifPermission === "default") {
+      const result = await Notification.requestPermission();
+      setNotifPermission(result);
+      if (result !== "granted") return;
+    }
+    const sub = await subscribeToPush(userId);
+    if (sub) {
+      setNotificationsEnabled(true);
+    } else {
+      setError("Could not set up notifications. Make sure you're on a supported browser.");
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    setPasswordResetSending(true);
+    setPasswordResetError(null);
+    setPasswordResetSent(false);
+    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+      redirectTo: `${window.location.origin}/profile`,
+    });
+    setPasswordResetSending(false);
+    if (error) {
+      setPasswordResetError("Failed to send reset email. Please try again.");
+    } else {
+      setPasswordResetSent(true);
     }
   };
 
@@ -96,7 +183,6 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
     setSuccess(null);
 
     const prefs: RevealPreferences = {
-      mode: profile.reveal_preferences?.mode ?? "PURIST", // existing logic preserved
       see_group_averages_pre_reveal: seeGroupAverages,
     };
 
@@ -106,20 +192,19 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
         first_name: firstName || null,
         last_name: lastName || null,
         reveal_preferences: prefs,
-        // Temporarily disable DB persistence for theme_mode
-        // theme_mode: mode,
+        theme_mode: mode,
         tasting_mode: pendingMode,
+        notifications_opt_in: notificationsEnabled,
       })
       .eq("id", profile.id)
       .select(
-        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, tasting_mode"
+        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, theme_mode, tasting_mode, notifications_opt_in"
       )
       .single();
 
     setSaving(false);
 
     if (error || !data) {
-      console.error("Error updating profile:", error);
       setError("There was a problem saving your changes. Please try again.");
       return;
     }
@@ -139,31 +224,87 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
       : profile.first_name || profile.last_name || "Advent Taster";
 
   return (
-    <Stack spacing={3} sx={{ maxWidth: 640, mx: "auto", pt: 1, pb: 4 }}>
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={2}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Avatar
+    <Stack spacing={3} sx={{ maxWidth: 860, mx: "auto", pt: 1, pb: 6 }}>
+
+      {/* ── Identity ── */}
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <Stack spacing={3}>
+          {/* Avatar row */}
+          <Stack direction="row" spacing={2.5} alignItems="center">
+            <Box
+              onClick={handleAvatarClick}
               sx={{
-                width: 56,
-                height: 56,
-                bgcolor: theme.palette.primary.main,
-                color: theme.palette.primary.contrastText,
-                fontWeight: 600,
+                position: "relative",
+                display: "inline-block",
+                cursor: uploading ? "default" : "pointer",
+                borderRadius: "50%",
+                flexShrink: 0,
+                "&:hover .avatar-overlay": { opacity: uploading ? 0 : 1 },
               }}
             >
-              {displayName.charAt(0)}
-            </Avatar>
-            <Stack>
-              <Typography variant="subtitle1">{displayName}</Typography>
-              {userEmail && (
-                <Typography variant="body2" color="text.secondary">
-                  {userEmail}
-                </Typography>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleAvatarChange}
+              />
+              <UserAvatar
+                firstName={firstName || profile.first_name}
+                lastName={lastName || profile.last_name}
+                avatarUrl={currentAvatarUrl}
+                size="lg"
+              />
+              <Box
+                className="avatar-overlay"
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "50%",
+                  bgcolor: "rgba(0,0,0,0.45)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: 0,
+                  transition: "opacity 0.2s",
+                  pointerEvents: "none",
+                }}
+              >
+                <CameraAltIcon sx={{ color: "white", fontSize: 20 }} />
+              </Box>
+              {uploading && (
+                <Box
+                  sx={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "50%",
+                    bgcolor: "rgba(0,0,0,0.45)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <CircularProgress size={22} sx={{ color: "white" }} />
+                </Box>
               )}
+            </Box>
+
+            <Stack spacing={0.25}>
+              <Typography variant="subtitle1" fontWeight={600}>{displayName}</Typography>
+              {userEmail && (
+                <Typography variant="body2" color="text.secondary">{userEmail}</Typography>
+              )}
+              <Typography variant="body2" color="text.disabled" sx={{ fontSize: "0.78rem" }}>
+                Tap photo to change
+              </Typography>
             </Stack>
           </Stack>
 
+          {avatarError && (
+            <Alert severity="error" sx={{ py: 0.5 }}>{avatarError}</Alert>
+          )}
+
+          {/* Name fields */}
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField
               label="First name"
@@ -183,177 +324,195 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
         </Stack>
       </Paper>
 
-      {/* THEME SECTION */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <FormControl component="fieldset" fullWidth>
-          <FormLabel component="legend">Theme</FormLabel>
-          <RadioGroup
-            aria-label="theme"
-            name="theme-mode"
-            value={mode}
-            onChange={handleThemeChange}
-          >
+      {/* ── Theme ── */}
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <SectionHeader>Theme</SectionHeader>
+        <RadioGroup
+          value={mode}
+          onChange={(e) => setMode(e.target.value as ThemeMode)}
+          sx={{ mt: 1 }}
+        >
+          {THEME_OPTIONS.map(({ value, label, icon }) => (
             <FormControlLabel
-              value="light"
-              labelPlacement="end"
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                ml: 0,
-                pr: 1,
-                "& .MuiFormControlLabel-label": {
-                  flex: 1,
-                },
-              }}
-              control={<Radio sx={{ ml: "auto" }} />}
+              key={value}
+              value={value}
+              control={<Radio size="small" />}
               label={
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <LightModeIcon fontSize="small" />
-                  <span>Day</span>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
+                  {icon}
+                  <Typography variant="body2">{label}</Typography>
                 </Stack>
               }
             />
-            <FormControlLabel
-              value="dark"
-              labelPlacement="end"
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                ml: 0,
-                pr: 1,
-                "& .MuiFormControlLabel-label": {
-                  flex: 1,
-                },
-              }}
-              control={<Radio sx={{ ml: "auto" }} />}
-              label={
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <ModeNightIcon fontSize="small" />
-                  <span>Night</span>
-                </Stack>
-              }
-            />
-            <FormControlLabel
-              value="system"
-              labelPlacement="end"
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                width: "100%",
-                ml: 0,
-                pr: 1,
-                "& .MuiFormControlLabel-label": {
-                  flex: 1,
-                },
-              }}
-              control={<Radio sx={{ ml: "auto" }} />}
-              label={
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <DesktopWindowsRoundedIcon fontSize="small" />
-                  <span>System</span>
-                </Stack>
-              }
-            />
-          </RadioGroup>
-        </FormControl>
+          ))}
+        </RadioGroup>
       </Paper>
 
-      {/* TASTING MODE SECTION */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={1.5}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Tasting mode
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Choose how much information you see before revealing each day.
-          </Typography>
-
-          <Stack
-            direction="row"
-            spacing={2}
-            sx={{
-              overflowX: { xs: "auto", md: "visible" },
-              py: 1,
-            }}
-          >
-            {(Object.keys(modeCopy) as TastingMode[]).map((key) => {
-              const { title, bullets } = modeCopy[key];
-              return (
-                <ModeCard
-                  key={key}
-                  title={title}
-                  bullets={bullets}
-                  isActive={pendingMode === key}
-                  onSelect={() => handleModeSelect(key)}
-                />
-              );
-            })}
-          </Stack>
+      {/* ── Tasting mode ── */}
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <SectionHeader>Tasting mode</SectionHeader>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Choose how much information you see before revealing each day.
+        </Typography>
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={1.5}
+        >
+          {(Object.keys(modeCopy) as TastingMode[]).map((key) => {
+            const { title, bullets } = modeCopy[key];
+            return (
+              <ModeCard
+                key={key}
+                title={title}
+                bullets={bullets}
+                isActive={pendingMode === key}
+                onSelect={() => handleModeSelect(key)}
+              />
+            );
+          })}
         </Stack>
       </Paper>
 
-      {/* SPOILER PREFERENCES SECTION */}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack spacing={1.5}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-            Spoiler preferences
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Purist mode hides whiskey details for current and future seasons
-            until you reveal that day.
-          </Typography>
+      {/* ── Spoiler preferences ── */}
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <SectionHeader>Spoiler preferences</SectionHeader>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Purist mode hides whiskey details for current and future seasons until
+          you reveal that day.
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={seeGroupAverages}
+              onChange={(e) => setSeeGroupAverages(e.target.checked)}
+            />
+          }
+          label={
+            <Typography variant="body2">
+              Show group average ratings before I reveal a day
+            </Typography>
+          }
+        />
+        <Typography variant="body2" color="text.disabled" sx={{ mt: 1.5, fontSize: "0.78rem" }}>
+          Changing these settings later may reveal more information for upcoming days.
+        </Typography>
+      </Paper>
 
+      {/* ── Notifications ── */}
+      {notifPermission !== "unsupported" && (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <NotificationsRoundedIcon fontSize="small" color="action" />
+            <SectionHeader>Notifications</SectionHeader>
+          </Stack>
           <FormControlLabel
             control={
               <Switch
-                checked={seeGroupAverages}
-                onChange={(e) => setSeeGroupAverages(e.target.checked)}
+                checked={notificationsEnabled}
+                onChange={(e) => handleNotificationToggle(e.target.checked)}
               />
             }
-            label="Show group average ratings before I reveal a day"
+            label={
+              <Typography variant="body2">
+                Remind me each day in December to taste
+              </Typography>
+            }
           />
+          {notifPermission === "denied" && (
+            <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+              Notifications are blocked. Enable them in your browser or device settings.
+            </Typography>
+          )}
+          {notifPermission === "granted" && notificationsEnabled && (
+            <Typography variant="body2" color="text.disabled" sx={{ mt: 1, fontSize: "0.78rem" }}>
+              You'll receive a daily reminder during the advent season.
+            </Typography>
+          )}
+        </Paper>
+      )}
 
-          <Typography variant="caption" color="text.secondary">
-            Changing these settings later may reveal more information for
-            upcoming days.
+      {/* ── Account ── */}
+      {hasEmailAuth && (
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+            <LockResetRoundedIcon fontSize="small" color="action" />
+            <SectionHeader>Account</SectionHeader>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            A reset link will be sent to <strong>{userEmail}</strong>.
           </Typography>
-        </Stack>
-      </Paper>
+          {passwordResetSent ? (
+            <Alert severity="success" sx={{ py: 0.5 }}>
+              Check your inbox — reset link sent.
+            </Alert>
+          ) : (
+            <>
+              {passwordResetError && (
+                <Alert severity="error" sx={{ mb: 1.5, py: 0.5 }}>{passwordResetError}</Alert>
+              )}
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<LockResetRoundedIcon />}
+                onClick={handlePasswordReset}
+                disabled={passwordResetSending}
+              >
+                {passwordResetSending ? "Sending…" : "Send password reset email"}
+              </Button>
+            </>
+          )}
+          <Divider sx={{ my: 2.5 }} />
+          <Typography variant="body2" color="text.disabled" sx={{ fontSize: "0.78rem" }}>
+            To delete your account, contact an admin.
+          </Typography>
+        </Paper>
+      )}
 
+      {/* ── Feedback ── */}
+      {error   && <Alert severity="error">{error}</Alert>}
+      {success && <Alert severity="success">{success}</Alert>}
+
+      {/* ── Actions ── */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={saving || !isDirty}
+        >
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        <Button
+          variant="text"
+          color="error"
+          onClick={handleSignOut}
+          disabled={signingOut}
+        >
+          {signingOut ? "Signing out…" : "Sign out"}
+        </Button>
+      </Stack>
+
+      {/* ── Tasting mode confirmation dialog ── */}
       <Dialog
         open={modeDialogOpen}
-        onClose={() => {
-          setModeDialogOpen(false);
-          setModeDialogTarget(null);
-        }}
+        onClose={() => { setModeDialogOpen(false); setModeDialogTarget(null); }}
         maxWidth="xs"
         fullWidth
       >
         <DialogTitle>Change tasting mode?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mt: 1 }}>
-            Switching to a more relaxed mode can reveal more details for
-            upcoming days. Anything you&apos;ve already seen can&apos;t be
-            undone.
+            Switching to a more relaxed mode can reveal more details for upcoming
+            days. Anything you've already seen can't be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button
-            onClick={() => {
-              setModeDialogOpen(false);
-              setModeDialogTarget(null);
-            }}
-          >
+          <Button onClick={() => { setModeDialogOpen(false); setModeDialogTarget(null); }}>
             Keep current mode
           </Button>
           <Button
             variant="contained"
             onClick={() => {
-              if (modeDialogTarget) {
-                setPendingMode(modeDialogTarget);
-              }
+              if (modeDialogTarget) setPendingMode(modeDialogTarget);
               setModeDialogOpen(false);
               setModeDialogTarget(null);
             }}
@@ -362,38 +521,6 @@ function ProfileScreen({ profile, userEmail, onProfileUpdated }: ProfileScreenPr
           </Button>
         </DialogActions>
       </Dialog>
-
-      {error && (
-        <Typography variant="body2" color="error">
-          {error}
-        </Typography>
-      )}
-      {success && (
-        <Typography variant="body2" sx={{ color: "success.main" }}>
-          {success}
-        </Typography>
-      )}
-
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={saving || !isDirty}
-          size="small"
-        >
-          {saving ? "Saving..." : "Save"}
-        </Button>
-
-        <Button
-          variant="text"
-          color="error"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          size="small"
-        >
-          {signingOut ? "Signing out..." : "Sign out"}
-        </Button>
-      </Stack>
     </Stack>
   );
 }

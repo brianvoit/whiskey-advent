@@ -19,6 +19,10 @@ export type UserAvatarProps = {
   tooltip?: string;
   /** If true, disables click affordances even if onClick is provided */
   disabled?: boolean;
+  /** If provided, overrides the computed initials (e.g. derived from email) */
+  initialsOverride?: string;
+  /** User id, reserved for future use */
+  userId?: string;
 };
 
 // In-memory cache of URLs that failed to load during this session.
@@ -67,11 +71,15 @@ export default function UserAvatar({
   ariaLabel,
   tooltip,
   disabled = false,
+  initialsOverride,
 }: UserAvatarProps) {
   const theme = useTheme();
 
   const px = sizeToPx(size);
-  const initials = useMemo(() => getInitials(firstName, lastName), [firstName, lastName]);
+  const initials = useMemo(
+    () => initialsOverride || getInitials(firstName, lastName),
+    [initialsOverride, firstName, lastName]
+  );
   const fullName = useMemo(() => getFullName(firstName, lastName), [firstName, lastName]);
 
   const defaultLabel = ariaLabel ?? `Avatar for ${fullName}`;

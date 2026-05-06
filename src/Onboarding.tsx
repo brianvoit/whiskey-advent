@@ -22,7 +22,6 @@ function Onboarding({ profile, onComplete }: OnboardingProps) {
     setError(null);
 
     const prefs: RevealPreferences = {
-      mode: "PURIST",
       see_group_averages_pre_reveal: seeGroupAverages,
     };
 

@@ -27,6 +27,7 @@ import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartm
 import ParkRoundedIcon from "@mui/icons-material/ParkRounded";
 import FitnessCenterRoundedIcon from "@mui/icons-material/FitnessCenterRounded";
 import CommentsSection from "./components/CommentsSection";
+import FlavorTagPicker from "./components/FlavorTagPicker";
 
 type WhiskeyDay = {
   id: number;
@@ -149,6 +150,8 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
     avatar_url: string | null;
   } | null>(null);
 
+  const [tags, setTags] = useState<string[]>([]);
+
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [isDirty, setIsDirty] = useState(false);
@@ -225,6 +228,8 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
               ...tasting.tasting_sliders,
             });
           }
+
+          setTags(tasting.tags ?? []);
         }
       }
 
@@ -258,10 +263,11 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
     const result = await saveTasting({
       userId,
       whiskeyDayId: whiskey.id,
-      rating, // 1–5 with 0.5 steps, or null
+      rating,
       notes,
       revealed: willReveal,
       tastingSliders,
+      tags,
     });
 
     setSaving(false);
@@ -293,6 +299,7 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
       notes,
       revealed: true,
       tastingSliders,
+      tags,
     });
 
     setSaving(false);
@@ -711,6 +718,15 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
             </div>
           ))}
         </div>
+
+        {/* Flavor tags */}
+        <FlavorTagPicker
+          selected={tags}
+          onChange={(newTags) => {
+            setTags(newTags);
+            setIsDirty(true);
+          }}
+        />
 
         {/* Notes */}
         <Typography

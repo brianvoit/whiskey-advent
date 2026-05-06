@@ -1,7 +1,8 @@
 import { useAppTheme } from "../theme";
 import type { ThemeMode } from "../theme";
-import LightModeIcon from "@mui/icons-material/LightMode";
-import ModeNightIcon from "@mui/icons-material/ModeNight";
+import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
+import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
+import Brightness4RoundedIcon from "@mui/icons-material/Brightness4Rounded";
 
 type AppHeaderProps = {
   currentYear: number;
@@ -12,10 +13,22 @@ type AppHeaderProps = {
 function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
   const { mode, setMode } = useAppTheme();
 
-  const toggleHeaderTheme = () => {
-    const next: ThemeMode = mode === "dark" ? "light" : "dark";
+  // Cycle: system → light → dark → system
+  const cycleTheme = () => {
+    const next: ThemeMode =
+      mode === "system" ? "light" : mode === "light" ? "dark" : "system";
     setMode(next);
   };
+
+  const themeIcon =
+    mode === "dark"   ? <DarkModeRoundedIcon fontSize="small" /> :
+    mode === "system" ? <Brightness4RoundedIcon fontSize="small" /> :
+                        <LightModeRoundedIcon fontSize="small" />;
+
+  const themeLabel =
+    mode === "dark"   ? "Dark mode (click for system)" :
+    mode === "system" ? "System mode (click for light)" :
+                        "Light mode (click for dark)";
 
   const handleYearClick = (event: React.MouseEvent<HTMLElement>) => {
     if (onYearClick) {
@@ -26,18 +39,17 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
   return (
     <header
       style={{
-        position: "sticky",
+        position: "fixed",
         top: 0,
-        zIndex: 10,
+        left: 0,
+        right: 0,
+        zIndex: 100,
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "12px 24px",
-        // Break out of the main content padding so the header runs full-width
-        marginLeft: "-16px",
-        marginRight: "-16px",
-        marginTop: "-16px",
+        padding: "12px 16px",
         background: "var(--mui-palette-background-paper)",
+        borderBottom: "1px solid var(--mui-palette-divider)",
       }}
     >
       {/* Left side: App name */}
@@ -61,21 +73,20 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
       >
         <button
           type="button"
-          onClick={toggleHeaderTheme}
+          onClick={cycleTheme}
           style={{
             border: "none",
             background: "transparent",
             cursor: "pointer",
             fontSize: "1.2rem",
-            padding: 4,
+            padding: 0,
+            display: "flex",
+            alignItems: "center",
           }}
-          aria-label="Toggle theme"
+          aria-label={themeLabel}
+          title={themeLabel}
         >
-          {mode === "dark" ? (
-            <ModeNightIcon fontSize="small" />
-          ) : (
-            <LightModeIcon fontSize="small" />
-          )}
+          {themeIcon}
         </button>
 
         {profileType && (

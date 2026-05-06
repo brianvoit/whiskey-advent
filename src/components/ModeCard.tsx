@@ -4,6 +4,7 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 
 export type ModeCardProps = {
   title: string;
@@ -28,70 +29,96 @@ export const ModeCard: React.FC<ModeCardProps> = ({
     ? theme.palette.background.paper
     : theme.palette.background.default;
 
-  const opacity = isActive ? 1 : 0.6;
-
   return (
     <Paper
-      elevation={isActive ? 3 : 0}
+      elevation={0}
       sx={{
-        borderRadius: theme.spacing(2.5),
-        border: `1px solid ${borderColor}`,
+        borderRadius: `${theme.shape.borderRadius}px`,
+        border: `${isActive ? 2 : 1}px solid ${borderColor}`,
         backgroundColor,
-        opacity,
-        overflow: "hidden",
+        opacity: isActive ? 1 : 0.65,
         transition:
-          "box-shadow 150ms ease, border-color 150ms ease, opacity 150ms ease",
+          "border-color 150ms ease, opacity 150ms ease, background-color 150ms ease",
         p: 2,
-        width: "100%",
-        maxWidth: 300,
+        flex: 1,
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "flex-start",
-        cursor: "pointer",
-        boxShadow: isActive ? theme.shadows[3] : theme.shadows[0],
+        flexDirection: { xs: "row", md: "column" },
+        alignItems: { xs: "center", md: "flex-start" },
+        gap: { xs: 1.5, md: 0 },
+        cursor: isActive ? "default" : "pointer",
       }}
-      onClick={onSelect}
+      onClick={isActive ? undefined : onSelect}
     >
-      {/* Title */}
-      <Typography
-        variant="subtitle1"
-        component="h3"
-        sx={{ fontWeight: 600, mb: 0.5 }}
-      >
-        {title}
-      </Typography>
+      {/* Title + bullets */}
+      <Stack sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="subtitle1"
+          component="h3"
+          sx={{ fontWeight: 700, mb: { xs: 0, md: 1 } }}
+        >
+          {title}
+        </Typography>
 
-      {/* Bullets */}
-      <Stack component="ul" spacing={0.5} sx={{ pl: 2, m: 0 }}>
-        {bullets.map((item) => (
-          <Typography
-            key={item}
-            component="li"
-            variant="body2"
-            sx={{ color: theme.palette.text.secondary }}
-          >
-            {item}
-          </Typography>
-        ))}
+        <Stack
+          component="ul"
+          spacing={0.75}
+          sx={{
+            pl: 2.5,
+            m: 0,
+            display: { xs: "none", md: "flex" },
+          }}
+        >
+          {bullets.map((item) => (
+            <Typography
+              key={item}
+              component="li"
+              variant="body2"
+              sx={{ color: theme.palette.text.secondary, lineHeight: 1.5 }}
+            >
+              {item}
+            </Typography>
+          ))}
+        </Stack>
       </Stack>
 
-      {/* Spacer to push button to bottom */}
-      <div style={{ flex: 1 }} />
-
-      {/* Choose / Selected button */}
-      <Button
-        variant={isActive ? "contained" : "outlined"}
-        size="small"
-        fullWidth
-        sx={{ mt: 2 }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
-        disabled={isActive}
-      >
-        {isActive ? "Selected" : "Choose"}
-      </Button>
+      {/* Choose / Selected indicator */}
+      {isActive ? (
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="center"
+          spacing={0.5}
+          sx={{
+            mt: { xs: 0, md: 1.5 },
+            flexShrink: 0,
+            alignSelf: { xs: "center", md: "stretch" },
+            color: "text.disabled",
+          }}
+        >
+          <CheckRoundedIcon sx={{ fontSize: "0.85rem" }} />
+          <Typography variant="body2" sx={{ fontWeight: 500, color: "text.disabled" }}>
+            Selected
+          </Typography>
+        </Stack>
+      ) : (
+        <Button
+          variant="contained"
+          size="small"
+          color="primary"
+          sx={{
+            mt: { xs: 0, md: 1.5 },
+            minWidth: { xs: 80, md: "100%" },
+            flexShrink: 0,
+            alignSelf: { xs: "center", md: "stretch" },
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect();
+          }}
+        >
+          Choose
+        </Button>
+      )}
     </Paper>
   );
 };

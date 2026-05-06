@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useTheme } from "@mui/material/styles";
 import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
+import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import UserAvatar from "./UserAvatar";
 
 type BottomNavProps = {
@@ -11,6 +12,7 @@ type BottomNavProps = {
   avatarLastName?: string;
   avatarUrl?: string | null;
   avatarEmail?: string | null;
+  isAdmin?: boolean;
 };
 
 type NavItemProps = {
@@ -94,7 +96,7 @@ function NavItem({ label, active, onClick, avatarFirstName, avatarLastName, avat
   );
 }
 
-function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, avatarUrl, avatarEmail }: BottomNavProps) {
+function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, avatarUrl, avatarEmail, isAdmin }: BottomNavProps) {
   const theme = useTheme();
 
   const goTo = (path: string) => {
@@ -112,7 +114,10 @@ function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, a
         bottom: 0,
         borderTop: `1px solid ${theme.palette.divider}`,
         background: theme.palette.background.paper,
-        padding: "6px 16px 10px",
+        paddingTop: 6,
+        paddingLeft: 16,
+        paddingRight: 16,
+        paddingBottom: "max(16px, env(safe-area-inset-bottom, 16px))",
         display: "flex",
         justifyContent: "space-around",
         alignItems: "center",
@@ -130,6 +135,14 @@ function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, a
         active={currentPath === "/stats"}
         onClick={() => goTo("/stats")}
       />
+      {isAdmin && (
+        <NavItem
+          label="Admin"
+          icon={<AdminPanelSettingsRoundedIcon fontSize="small" />}
+          active={currentPath === "/admin"}
+          onClick={() => goTo("/admin")}
+        />
+      )}
       <NavItem
         label="Profile"
         active={currentPath === "/profile"}

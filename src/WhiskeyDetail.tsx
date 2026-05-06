@@ -3,8 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import WhiskeyChart from "./components/WhiskeyChart";
+import WhiskeyRadarChart from "./components/WhiskeyRadarChart";
 import UserAvatar from "./components/UserAvatar";
+import Chip from "@mui/material/Chip";
+import Box from "@mui/material/Box";
 import { supabase } from "./supabaseClient";
+import { FLAVOR_TAGS } from "./components/FlavorTagPicker";
 
 type WhiskeyDayInfo = {
   id: number;
@@ -37,10 +41,17 @@ type WhiskeyTastingDetail = {
   profile_avatar_url: string | null;
   sliders: WhiskeyTastingSliders | null;
   revealed: boolean | null;
+  tags: string[] | null;
 };
 
 type WhiskeyDetailRouteParams = {
   whiskeyDayId?: string;
+};
+
+type WhiskeyDetailProps = {
+  userId: string;
+  isAdmin: boolean;
+  tastingMode: string | null;
 };
 
 type SortColumn =
@@ -64,7 +75,7 @@ function getFullNameFromTasting(t: WhiskeyTastingDetail): string {
 }
 
 
-function WhiskeyDetail() {
+function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
   const { whiskeyDayId } = useParams<WhiskeyDetailRouteParams>();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -73,10 +84,9 @@ function WhiskeyDetail() {
   const [tastings, setTastings] = useState<WhiskeyTastingDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [tastingMode, setTastingMode] = useState<string | null>(null);
   const [isRevealedForMe, setIsRevealedForMe] = useState<boolean>(false);
 
+  const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>("rating");
   const [sortDirection, setSortDirection] =
     useState<SortDirection>("desc");
@@ -100,30 +110,6 @@ function WhiskeyDetail() {
       setError(null);
 
       try {
-        const { data: authData, error: authErr } = await supabase.auth.getUser();
-        if (authErr) {
-          console.error("Error loading auth user:", authErr);
-        }
-        const meId = authData?.user?.id ?? null;
-        setCurrentUserId(meId);
-
-        if (meId) {
-          const { data: meProfile, error: meProfileErr } = await supabase
-            .from("profiles")
-            .select("tasting_mode")
-            .eq("id", meId)
-            .maybeSingle();
-
-          if (meProfileErr) {
-            console.error("Error loading my profile:", meProfileErr);
-            setTastingMode(null);
-          } else {
-            setTastingMode((meProfile as any)?.tasting_mode ?? null);
-          }
-        } else {
-          setTastingMode(null);
-        }
-
         // 1) Load the whiskey day info
         const { data: whiskeyRows, error: whiskeyError } = await supabase
           .from("whiskey_days")
@@ -152,7 +138,7 @@ function WhiskeyDetail() {
         // 2) Load all tastings for this whiskey (no join yet)
         const { data: tastingRows, error: tastingError } = await supabase
           .from("tastings")
-          .select("user_id, rating, notes, tasting_sliders, revealed")
+          .select("user_id, rating, notes, tasting_sliders, tags, revealed")
           .eq("whiskey_day_id", dayId);
 
         if (tastingError) {
@@ -268,17 +254,14 @@ function WhiskeyDetail() {
               row.revealed === null || row.revealed === undefined
                 ? null
                 : Boolean(row.revealed),
+            tags: Array.isArray(row.tags) ? row.tags : null,
           };
         });
 
         setTastings(mapped);
 
-        if (meId) {
-          const mine = mapped.find((t) => t.user_id === meId);
-          setIsRevealedForMe(Boolean(mine?.revealed));
-        } else {
-          setIsRevealedForMe(false);
-        }
+        const mine = mapped.find((t) => t.user_id === userId);
+        setIsRevealedForMe(Boolean(mine?.revealed));
 
         setLoading(false);
       } catch (e) {
@@ -293,6 +276,19 @@ function WhiskeyDetail() {
 
 
   const hasTastings = tastings.length > 0;
+
+  const tagCounts = useMemo(() => {
+    const validTags = new Set<string>(FLAVOR_TAGS);
+    const counts: Record<string, number> = {};
+    for (const t of tastings) {
+      for (const tag of t.tags ?? []) {
+        if (validTags.has(tag)) {
+          counts[tag] = (counts[tag] ?? 0) + 1;
+        }
+      }
+    }
+    return Object.entries(counts).sort(([, a], [, b]) => b - a);
+  }, [tastings]);
 
   const sortedTastings = useMemo(() => {
     const copy = [...tastings];
@@ -389,7 +385,7 @@ function WhiskeyDetail() {
           fontWeight: 600,
           letterSpacing: "0.06em",
           textTransform: "uppercase",
-          color: "rgba(0,0,0,0.7)",
+          color: theme.palette.text.secondary,
           display: "inline-flex",
           alignItems: "center",
           gap: 4,
@@ -554,7 +550,7 @@ function WhiskeyDetail() {
           margin: 0,
           marginBottom: 12,
           fontSize: "0.9rem",
-          color: "#555",
+          color: theme.palette.text.secondary,
         }}
       >
         {whiskey.distillery && (
@@ -588,31 +584,95 @@ function WhiskeyDetail() {
         </p>
       )}
 
-      {/* Rating distribution chart */}
-      <section style={{ marginBottom: 24 }}>
-        <h3
-          style={{
-            margin: 0,
-            marginBottom: 8,
-            fontSize: "1rem",
-            fontWeight: 600,
-          }}
-        >
-          Rating distribution
-        </h3>
+      {/* Charts row: rating distribution + flavor radar */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+        <section style={{ flex: "3 1 0", minWidth: 0 }}>
+          <h3
+            style={{
+              margin: 0,
+              marginBottom: 8,
+              fontSize: "1rem",
+              fontWeight: 600,
+            }}
+          >
+            Rating distribution
+          </h3>
+          {!hasTastings ? (
+            <p style={{ fontSize: "0.9rem", color: "#666" }}>
+              No ratings recorded yet for this whiskey.
+            </p>
+          ) : (
+            <WhiskeyChart
+              tastings={tastings.map((t) => ({
+                rating: t.rating,
+                rater: {
+                  user_id: t.user_id,
+                  first_name: t.profile_first_name,
+                  last_name: t.profile_last_name,
+                },
+              }))}
+              tastingMode={tastingMode as "purist" | "explorer" | "relaxed" | null}
+              isRevealed={isRevealedForMe}
+            />
+          )}
+        </section>
 
-        {!hasTastings ? (
-          <p style={{ fontSize: "0.9rem", color: "#666" }}>
-            No ratings recorded yet for this whiskey.
-          </p>
-        ) : (
-          <WhiskeyChart
-            tastings={tastings}
-            tastingMode={tastingMode}
-            isRevealedForMe={isRevealedForMe}
-          />
-        )}
-      </section>
+        <section style={{ flex: "2 1 0", minWidth: 0 }}>
+          <h3
+            style={{
+              margin: 0,
+              marginBottom: 8,
+              fontSize: "1rem",
+              fontWeight: 600,
+            }}
+          >
+            Flavor profile
+          </h3>
+          {!hasTastings ? (
+            <p style={{ fontSize: "0.9rem", color: "#666" }}>
+              No tastings recorded yet for this whiskey.
+            </p>
+          ) : (
+            <WhiskeyRadarChart
+              tastings={tastings}
+              hoveredUserId={hoveredUserId}
+              tastingMode={tastingMode}
+              isRevealedForMe={isRevealedForMe}
+            />
+          )}
+        </section>
+      </div>
+
+      {/* Flavor notes aggregate */}
+      {tagCounts.length > 0 && (
+        <section style={{ marginBottom: 24 }}>
+          <h3
+            style={{
+              margin: 0,
+              marginBottom: 8,
+              fontSize: "1rem",
+              fontWeight: 600,
+            }}
+          >
+            Flavor Notes
+          </h3>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            {tagCounts.map(([tag, count]) => {
+              const topCount = tagCounts[0]?.[1] ?? 1;
+              const isTop = count >= topCount;
+              return (
+                <Chip
+                  key={tag}
+                  label={`${tag} · ${count}`}
+                  variant={isTop ? "filled" : "outlined"}
+                  color={isTop ? "primary" : "default"}
+                  size="small"
+                />
+              );
+            })}
+          </Box>
+        </section>
+      )}
 
       {/* Taster table */}
       <section>
@@ -634,8 +694,8 @@ function WhiskeyDetail() {
         ) : (
           <div
             style={{
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.08)",
+              borderRadius: theme.shape.borderRadius,
+              border: `1px solid ${theme.palette.divider}`,
               overflow: "hidden",
             }}
           >
@@ -647,8 +707,8 @@ function WhiskeyDetail() {
                   "auto minmax(0, 2fr) 90px 90px 90px 90px 90px 90px 90px",
                 columnGap: 10,
                 padding: "8px 12px 8px 8px",
-                background: "rgba(0,0,0,0.02)",
-                borderBottom: "1px solid rgba(0,0,0,0.04)",
+                background: theme.palette.action.hover,
+                borderBottom: `1px solid ${theme.palette.divider}`,
                 fontSize: "0.8rem",
               }}
             >
@@ -736,6 +796,8 @@ function WhiskeyDetail() {
               return (
                 <div
                   key={tasting.user_id}
+                  onMouseEnter={() => setHoveredUserId(tasting.user_id)}
+                  onMouseLeave={() => setHoveredUserId(null)}
                   style={{
                     display: "grid",
                     gridTemplateColumns:
@@ -744,9 +806,15 @@ function WhiskeyDetail() {
                     columnGap: 10,
                     rowGap: 4,
                     padding: "10px 12px 10px 8px",
-                    borderTop: "1px solid rgba(0,0,0,0.04)",
+                    borderTop: `1px solid ${theme.palette.divider}`,
                     fontSize: "0.9rem",
                     alignItems: "center",
+                    backgroundColor:
+                      hoveredUserId === tasting.user_id
+                        ? theme.palette.action.hover
+                        : undefined,
+                    transition: "background-color 0.15s",
+                    cursor: "default",
                   }}
                 >
                   {/* Avatar spanning both rows */}
@@ -878,7 +946,7 @@ function WhiskeyDetail() {
                         gridRow: "2 / 3",
                         gridColumn: "2 / 10",
                         fontSize: "0.8rem",
-                        color: "#555",
+                        color: theme.palette.text.secondary,
                         whiteSpace: "normal",
                         wordBreak: "break-word",
                       }}

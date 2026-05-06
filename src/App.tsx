@@ -13,43 +13,40 @@ import Home from "./Home";
 import DayDetail from "./DayDetail";
 import WhiskeyDetail from "./WhiskeyDetail";
 import Stats from "./Stats";
-import Profile from "./ProfileScreen";
+import ProfileScreen from "./ProfileScreen";
 import Onboarding from "./Onboarding";
+import AwaitingApproval from "./AwaitingApproval";
+import AdminScreen from "./AdminScreen";
 import AppHeader from "./components/AppHeader";
 import BottomNav from "./components/BottomNav";
+import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
+import InstallBanner from "./components/InstallBanner";
 import { Menu, MenuItem } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { useAppTheme, type ThemeMode } from "./theme";
+import type { Profile, TastingMode } from "./api/profiles";
 
-type RevealMode = "PURIST" | "EXPLORER" | "RELAXED";
-
-type ProfileRecord = {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  role: "admin" | "user" | null;
-  // Existing reveal-mode fields
-  reveal_mode: RevealMode | null;
-  see_group_averages_pre_reveal: boolean | null;
-  onboarding_complete: boolean | null;
-  // Additional fields to align with generated Profile type
-  first_name: string | null;
-  last_name: string | null;
-  reveal_preferences: RevealPreferences | null;
-  theme_mode: string | null;
-  tasting_mode: RevealMode | null;
+// Computed tasting preferences passed to child components
+type TastingPrefs = {
+  mode: TastingMode;
+  see_group_averages_pre_reveal: boolean;
 };
-
-type RevealPreferences = {
-  mode: RevealMode;
-  see_group_averages_pre_reveal?: boolean;
-} | null;
 
 function App() {
   const theme = useTheme();
+  const { setMode } = useAppTheme();
 
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<ProfileRecord | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  // Sync saved theme preference from profile into the theme context
+  useEffect(() => {
+    if (profile?.theme_mode) {
+      setMode(profile.theme_mode as ThemeMode);
+    }
+  }, [profile?.theme_mode, setMode]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,27 +65,19 @@ function App() {
   const firstName = profile?.first_name ?? ((session?.user?.user_metadata as any)?.given_name || (session?.user?.user_metadata as any)?.first_name || undefined);
   const lastName = profile?.last_name ?? ((session?.user?.user_metadata as any)?.family_name || (session?.user?.user_metadata as any)?.last_name || undefined);
 
-  const effectiveMode: RevealMode =
-    profile?.reveal_mode === "PURIST" ||
-    profile?.reveal_mode === "EXPLORER" ||
-    profile?.reveal_mode === "RELAXED"
-      ? profile.reveal_mode
-      : "PURIST";
+  // tasting_mode is the single source of truth (lowercase)
+  const effectiveMode: TastingMode = profile?.tasting_mode ?? "purist";
 
-  const revealPreferences: RevealPreferences = {
+  const tastingPrefs: TastingPrefs = {
     mode: effectiveMode,
     see_group_averages_pre_reveal:
-      profile?.see_group_averages_pre_reveal ?? false,
+      profile?.reveal_preferences?.see_group_averages_pre_reveal ?? false,
   };
 
-  let profileType = "";
-  if (effectiveMode === "PURIST") {
-    profileType = "Purist";
-  } else if (effectiveMode === "EXPLORER") {
-    profileType = "Explorer";
-  } else if (effectiveMode === "RELAXED") {
-    profileType = "Relaxed";
-  }
+  const profileType =
+    effectiveMode === "purist" ? "Purist" :
+    effectiveMode === "explorer" ? "Explorer" :
+    effectiveMode === "relaxed" ? "Relaxed" : "";
 
   // ---------------------------------------------------------
   // Auth + profile loading
@@ -126,6 +115,9 @@ function App() {
   }, []);
 
   const loadProfile = async (userId: string) => {
+    setProfileError(null);
+    // select("*") is intentional — tolerates columns added via migrations
+    // that haven't been applied yet, rather than hard-failing on a missing field.
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -134,10 +126,11 @@ function App() {
 
     if (error) {
       console.error("Error loading profile", error);
+      setProfileError(error.message);
       return;
     }
 
-    setProfile(data as ProfileRecord);
+    setProfile(data as Profile);
   };
 
   // ---------------------------------------------------------
@@ -170,12 +163,6 @@ function App() {
     }
 
     setSession(data.session ?? null);
-  };
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    setSession(null);
-    setProfile(null);
   };
 
   if (loading) {
@@ -215,9 +202,19 @@ function App() {
           color: theme.palette.text.primary,
         }}
       >
-        <h1 style={{ marginBottom: 8 }}>Whiskey Advent</h1>
-        <p style={{ marginBottom: 24 }}>
-          Sign in to rate each day&apos;s whiskey.
+        <div style={{ fontSize: "2.8rem", marginBottom: 12, lineHeight: 1 }}>🥃</div>
+        <h1 style={{ marginBottom: 8, fontSize: "1.8rem" }}>Whiskey Advent</h1>
+        <p style={{ marginBottom: 8, lineHeight: 1.6, color: theme.palette.text.primary }}>
+          A private advent calendar for serious (and not-so-serious) whiskey tasters.
+          Rate each day&apos;s pour, track your flavor notes, and compare with the group.
+        </p>
+        <p style={{
+          marginBottom: 28,
+          fontSize: "0.82rem",
+          color: theme.palette.text.secondary,
+          fontStyle: "italic",
+        }}>
+          Access is by invitation — sign in below or ask an admin to add you.
         </p>
 
         <button
@@ -312,7 +309,7 @@ function App() {
   }
 
   // ---------------------------------------------------------
-  // Logged-in but profile not yet loaded
+  // Logged-in but profile not yet loaded (or failed to load)
   // ---------------------------------------------------------
   if (!profile) {
     return (
@@ -320,42 +317,103 @@ function App() {
         style={{
           minHeight: "100vh",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          gap: 16,
           backgroundColor: theme.palette.background.default,
           color: theme.palette.text.primary,
+          padding: 24,
+          textAlign: "center",
         }}
       >
-        Loading profile…
+        {profileError ? (
+          <>
+            <p style={{ color: theme.palette.error.main, maxWidth: 420 }}>
+              Could not load your profile. This can happen if a database
+              migration hasn't been applied yet.
+            </p>
+            <p style={{ fontSize: "0.85rem", color: theme.palette.text.secondary, maxWidth: 420 }}>
+              Error: {profileError}
+            </p>
+            <button
+              onClick={() => session?.user && loadProfile(session.user.id)}
+              style={{
+                padding: "8px 20px",
+                borderRadius: 8,
+                border: `1px solid ${theme.palette.divider}`,
+                background: theme.palette.background.paper,
+                color: theme.palette.text.primary,
+                cursor: "pointer",
+              }}
+            >
+              Try again
+            </button>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              style={{
+                padding: "4px 12px",
+                border: "none",
+                background: "none",
+                color: theme.palette.error.main,
+                cursor: "pointer",
+                fontSize: "0.85rem",
+              }}
+            >
+              Sign out
+            </button>
+          </>
+        ) : (
+          <p>Loading profile…</p>
+        )}
       </div>
     );
   }
 
   // ---------------------------------------------------------
-  // Logged-in but onboarding not complete
-  // (for now we treat missing reveal_mode as "needs onboarding")
+  // Logged-in but not yet approved by an admin
   // ---------------------------------------------------------
-  const needsOnboarding =
-    !profile.onboarding_complete && !profile.reveal_mode;
+  if (profile.approved === false) {
+    return (
+      <AwaitingApproval
+        userEmail={session.user.email ?? ""}
+        onRefresh={() => loadProfile(session.user.id)}
+      />
+    );
+  }
+
+  // ---------------------------------------------------------
+  // Logged-in but onboarding not complete
+  // ---------------------------------------------------------
+  const needsOnboarding = !profile.onboarding_complete;
 
   if (needsOnboarding) {
-    return <Onboarding profile={profile} />;
+    return (
+      <Onboarding
+        profile={profile as any}
+        onComplete={(updated) => setProfile(updated as Profile)}
+      />
+    );
   }
 
   // ---------------------------------------------------------
   // Authenticated + onboarding complete (router shell)
   // ---------------------------------------------------------
+  const hasEmailAuth =
+    session.user.identities?.some((i) => i.provider === "email") ?? false;
+
   return (
     <BrowserRouter>
       <AppShell
         isAdmin={isAdmin}
         userId={session.user.id}
-        revealPreferences={revealPreferences}
+        tastingPrefs={tastingPrefs}
         profile={profile}
         currentYear={selectedYear}
         avatarUrl={avatarUrl}
         profileType={profileType}
         userEmail={session.user.email ?? ""}
+        hasEmailAuth={hasEmailAuth}
         onProfileUpdated={(updated) => setProfile(updated)}
         onYearChange={(year) => setSelectedYear(year)}
         firstName={firstName}
@@ -368,13 +426,14 @@ function App() {
 type AppShellProps = {
   isAdmin: boolean;
   userId: string;
-  revealPreferences: RevealPreferences;
-  profile: ProfileRecord | null;
+  tastingPrefs: TastingPrefs;
+  profile: Profile | null;
   currentYear: number;
   avatarUrl?: string;
   profileType: string;
   userEmail: string;
-  onProfileUpdated: (profile: ProfileRecord) => void;
+  hasEmailAuth: boolean;
+  onProfileUpdated: (profile: Profile) => void;
   onYearChange: (year: number) => void;
   firstName?: string;
   lastName?: string;
@@ -383,12 +442,13 @@ type AppShellProps = {
 function AppShell({
   isAdmin,
   userId,
-  revealPreferences,
+  tastingPrefs,
   profile,
   currentYear,
   avatarUrl,
   profileType,
   userEmail,
+  hasEmailAuth,
   onProfileUpdated,
   onYearChange,
   firstName,
@@ -416,9 +476,7 @@ function AppShell({
 
   const availableYears = [2024, 2025, 2026];
 
-  const tastingMode = revealPreferences?.mode ?? "PURIST";
-  const seeGroupAveragesPreReveal =
-    revealPreferences?.see_group_averages_pre_reveal ?? false;
+  const tastingMode = tastingPrefs.mode;
 
   const goTo = (path: string) => {
     if (location.pathname !== path) {
@@ -432,6 +490,7 @@ function AppShell({
         minHeight: "100vh",
         boxSizing: "border-box",
         backgroundColor: theme.palette.background.default,
+        overflowX: "hidden",
       }}
     >
       {/* Top header + year menu */}
@@ -461,8 +520,13 @@ function AppShell({
         style={{
           maxWidth: 1500,
           margin: "0 auto",
-          padding: "16px 16px 72px",
+          paddingTop: 68,
+          paddingLeft: 16,
+          paddingRight: 16,
+          paddingBottom: "calc(80px + env(safe-area-inset-bottom, 16px))",
           boxSizing: "border-box",
+          minWidth: 0,
+          width: "100%",
         }}
       >
         {/* Main content */}
@@ -474,7 +538,7 @@ function AppShell({
                 <Home
                   isAdmin={isAdmin}
                   userId={userId}
-                  revealPreferences={revealPreferences}
+                  revealPreferences={tastingPrefs}
                   currentYear={currentYear}
                 />
               }
@@ -485,8 +549,6 @@ function AppShell({
                 <DayDetail
                   isAdmin={isAdmin}
                   userId={userId}
-                  tastingMode={tastingMode}
-                  seeGroupAveragesPreReveal={seeGroupAveragesPreReveal}
                 />
               }
             />
@@ -496,31 +558,40 @@ function AppShell({
                 <Stats
                   isAdmin={isAdmin}
                   userId={userId}
-                  revealPreferences={revealPreferences}
                   currentYear={currentYear}
                 />
               }
             />
-            <Route 
-              path="/whiskey/:whiskeyDayId" 
+            <Route
+              path="/whiskey/:whiskeyDayId"
               element={
-                <WhiskeyDetail 
-
+                <WhiskeyDetail
+                  userId={userId}
+                  isAdmin={isAdmin}
+                  tastingMode={tastingMode}
                 />
-              } 
+              }
             />
             <Route
               path="/profile"
               element={
                 profile && (
-                  <Profile
-                    profile={profile as any}
+                  <ProfileScreen
+                    profile={profile}
+                    userId={userId}
                     userEmail={userEmail}
-                    onProfileUpdated={(updated) =>
-                      onProfileUpdated(updated as ProfileRecord)
-                    }
+                    hasEmailAuth={hasEmailAuth}
+                    onProfileUpdated={(updated) => onProfileUpdated(updated)}
                   />
                 )
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                isAdmin
+                  ? <AdminScreen userId={userId} />
+                  : <Navigate to="/" replace />
               }
             />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -535,7 +606,14 @@ function AppShell({
           avatarFirstName={firstName}
           avatarLastName={lastName}
           avatarEmail={userEmail}
+          isAdmin={isAdmin}
         />
+
+        {/* Add-to-home-screen banner (mobile only, dismissed persistently) */}
+        <InstallBanner />
+
+        {/* PWA update notification */}
+        <PWAUpdatePrompt />
       </div>
     </div>
   );

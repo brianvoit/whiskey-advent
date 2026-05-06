@@ -68,8 +68,9 @@ export async function saveTasting(params: {
   notes: string;
   revealed: boolean;
   tastingSliders: TastingSliderValues;
+  tags?: string[] | null;
 }) {
-  const { userId, whiskeyDayId, rating, notes, revealed, tastingSliders } =
+  const { userId, whiskeyDayId, rating, notes, revealed, tastingSliders, tags } =
     params;
 
   const { error } = await supabase.from("tastings").upsert(
@@ -80,6 +81,7 @@ export async function saveTasting(params: {
       notes,
       revealed,
       tasting_sliders: tastingSliders,
+      tags: tags ?? null,
     },
     {
       onConflict: "user_id,whiskey_day_id",

@@ -244,8 +244,8 @@ const ThemeModeContext = createContext<ThemeContextValue | undefined>(
 );
 
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
-  // Default to light mode; user can change to dark or system.
-  const [mode, setMode] = useState<ThemeMode>("light");
+  // Default to system — follows OS preference until the user explicitly overrides.
+  const [mode, setMode] = useState<ThemeMode>("system");
   const [systemPrefersDark, setSystemPrefersDark] = useState(false);
 
   useEffect(() => {

@@ -1,104 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "./supabaseClient";
-import { getSeasonByYear, getWhiskeysForSeason } from "./api/whiskeys";
+import { getSeasonStats, type DayStats } from "./api/stats";
 import LockIcon from "@mui/icons-material/Lock";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import PersonIcon from "@mui/icons-material/Person";
 import GroupIcon from "@mui/icons-material/Group";
 import StatsChart from "./components/StatsChart";
-
-export type DayStats = {
-  whiskey_day_id: number;
-  day_number: number;
-  name: string | null;
-  avg_rating: number | null;
-  rating_count: number;
-};
-
-async function getSeasonStats(year: number): Promise<DayStats[]> {
-  console.log("the year is", year);
-  if (!year) {
-    console.warn("getSeasonStats called without a valid year");
-    return [];
-  }
-
-  // 1) Use the existing API helper to find the season row by year
-  const season = await getSeasonByYear(year);
-  if (!season) {
-    console.warn("No season found for year", year);
-    return [];
-  }
-
-  // 2) Use existing helper to fetch all whiskey days in this season
-  const days = await getWhiskeysForSeason(season.id);
-  if (!days || days.length === 0) {
-    console.warn("No whiskey days found for season", season.id, "year", year);
-    return [];
-  }
-
-  const dayIds = days.map((d: any) => d.id as number);
-
-  // 3) Load all tastings for these days in one query
-  const { data: tastingRows, error } = await supabase
-    .from("tastings")
-    .select("whiskey_day_id, rating")
-    .in("whiskey_day_id", dayIds);
-
-  if (error) {
-    console.error("Error fetching tastings for stats:", error);
-    // Return days with zeroed stats if tastings query fails
-    return days.map((day: any) => ({
-      whiskey_day_id: day.id as number,
-      day_number: day.day_number as number,
-      name: (day.name as string) ?? null,
-      avg_rating: null,
-      rating_count: 0,
-    }));
-  }
-
-  // Build a map of whiskey_day_id -> ratings[]
-  const ratingsByDay = new Map<number, number[]>();
-  for (const id of dayIds) {
-    ratingsByDay.set(id, []);
-  }
-
-  for (const row of tastingRows ?? []) {
-    const id = row.whiskey_day_id as number;
-    const rating = row.rating as number | null;
-    if (rating == null) continue;
-    const arr = ratingsByDay.get(id);
-    if (arr) {
-      arr.push(rating);
-    } else {
-      ratingsByDay.set(id, [rating]);
-    }
-  }
-
-  // 4) Compute avg and count for each day, keeping days with 0 ratings
-  return days
-    .slice()
-    .sort(
-      (a: any, b: any) => (a.day_number as number) - (b.day_number as number)
-    )
-    .map((day: any) => {
-      const id = day.id as number;
-      const ratings = ratingsByDay.get(id) ?? [];
-      const ratingCount = ratings.length;
-      const avgRating =
-        ratingCount > 0
-          ? ratings.reduce((acc, val) => acc + val, 0) / ratingCount
-          : null;
-
-      return {
-        whiskey_day_id: id,
-        day_number: day.day_number as number,
-        name: (day.name as string) ?? null,
-        avg_rating: avgRating,
-        rating_count: ratingCount,
-      };
-    });
-}
 
 type StatsProps = {
   isAdmin: boolean;
@@ -239,7 +147,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
       return false;
     }
 
-    if (tastingMode === "RELAXED") {
+    if (tastingMode === "relaxed") {
       return true;
     }
 

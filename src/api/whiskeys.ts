@@ -1,5 +1,7 @@
 import { supabase } from "../supabaseClient";
 
+export type Season = { id: number; year: number };
+
 export async function getSeasonByYear(year: number) {
   const { data, error } = await supabase
     .from("seasons")
