@@ -303,76 +303,38 @@ function CommentThread({
             {comment.body}
           </Typography>
 
-          {/* Reactions row */}
-          <div
-            style={{
-              marginTop: 6,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              flexWrap: "wrap",
-            }}
-          >
-            {reactionOrder.map((type) => {
-              const count = comment.reactions[type];
-              const isActive = userReactionSet.has(type);
-
-              return (
-                <div
-                  key={type}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 2,
-                  }}
-                >
-                  <IconButton
-                    size="small"
-                    onClick={() => onToggleReaction(comment.id, type)}
-                    style={{
-                      padding: 2,
-                      opacity: count === 0 && !isActive ? 0.5 : 1,
-                    }}
-                  >
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: isActive
-                          ? theme.palette.primary.main
-                          : theme.palette.text.secondary,
-                      }}
+          {/* Reactions + actions */}
+          <div style={{ marginTop: 6 }}>
+            {/* Reaction icons row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              {reactionOrder.map((type) => {
+                const count = comment.reactions[type];
+                const isActive = userReactionSet.has(type);
+                return (
+                  <div key={type} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onToggleReaction(comment.id, type)}
+                      style={{ padding: 4, opacity: count === 0 && !isActive ? 0.4 : 1 }}
                     >
-                      {reactionIcons[type]}
-                    </span>
-                  </IconButton>
-                  {count > 0 && (
-                    <Typography variant="caption" color="text.secondary">
-                      {count}
-                    </Typography>
-                  )}
-                </div>
-              );
-            })}
-
-            {/* Reply + Delete actions */}
-            <div style={{ flexGrow: 1 }} />
-
-            <Button size="small" variant="text" onClick={handleRootReplyClick}>
-              Reply
-            </Button>
-
-            {isAdmin && (
-              <Button
-                size="small"
-                variant="text"
-                color="error"
-                onClick={() => onDelete(comment.id)}
-              >
-                Delete
-              </Button>
-            )}
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: isActive ? theme.palette.primary.main : theme.palette.text.secondary }}>
+                        {reactionIcons[type]}
+                      </span>
+                    </IconButton>
+                    {count > 0 && (
+                      <Typography variant="caption" color="text.secondary">{count}</Typography>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Reply / Delete row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+              <Button size="small" variant="text" onClick={handleRootReplyClick}>Reply</Button>
+              {isAdmin && (
+                <Button size="small" variant="text" color="error" onClick={() => onDelete(comment.id)}>Delete</Button>
+              )}
+            </div>
           </div>
 
           {/* Inline reply under root comment */}
@@ -397,8 +359,8 @@ function CommentThread({
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
-                paddingLeft: 32,
-                borderLeft: `1px solid ${theme.palette.divider}`,
+                paddingLeft: 16,
+                borderLeft: `2px solid ${theme.palette.divider}`,
               }}
             >
               {replies.map((reply) => {
@@ -463,84 +425,36 @@ function CommentThread({
                         {reply.body}
                       </Typography>
 
-                      <div
-                        style={{
-                          marginTop: 6,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        {reactionOrder.map((type) => {
-                          const count = reply.reactions[type];
-                          const isActive = replyUserReactionSet.has(type);
-
-                          return (
-                            <div
-                              key={type}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 2,
-                              }}
-                            >
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  onToggleReaction(reply.id, type)
-                                }
-                                style={{
-                                  padding: 2,
-                                  opacity:
-                                    count === 0 && !isActive ? 0.5 : 1,
-                                }}
-                              >
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    color: isActive
-                                      ? theme.palette.primary.main
-                                      : theme.palette.text.secondary,
-                                  }}
+                      {/* Reactions + actions */}
+                      <div style={{ marginTop: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          {reactionOrder.map((type) => {
+                            const count = reply.reactions[type];
+                            const isActive = replyUserReactionSet.has(type);
+                            return (
+                              <div key={type} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => onToggleReaction(reply.id, type)}
+                                  style={{ padding: 4, opacity: count === 0 && !isActive ? 0.4 : 1 }}
                                 >
-                                  {reactionIcons[type]}
-                                </span>
-                              </IconButton>
-                              {count > 0 && (
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                >
-                                  {count}
-                                </Typography>
-                              )}
-                            </div>
-                          );
-                        })}
-
-                        <div style={{ flexGrow: 1 }} />
-
-                        <Button
-                          size="small"
-                          variant="text"
-                          onClick={handleReplyClick}
-                        >
-                          Reply
-                        </Button>
-
-                        {isAdmin && (
-                          <Button
-                            size="small"
-                            variant="text"
-                            color="error"
-                            onClick={() => onDelete(reply.id)}
-                          >
-                            Delete
-                          </Button>
-                        )}
+                                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: isActive ? theme.palette.primary.main : theme.palette.text.secondary }}>
+                                    {reactionIcons[type]}
+                                  </span>
+                                </IconButton>
+                                {count > 0 && (
+                                  <Typography variant="caption" color="text.secondary">{count}</Typography>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                          <Button size="small" variant="text" onClick={handleReplyClick}>Reply</Button>
+                          {isAdmin && (
+                            <Button size="small" variant="text" color="error" onClick={() => onDelete(reply.id)}>Delete</Button>
+                          )}
+                        </div>
                       </div>
 
                       <InlineReplyComposer
@@ -710,9 +624,6 @@ export default function CommentsSection({
       style={{
         marginTop: 32,
         marginBottom: 32,
-        maxWidth: 640,
-        marginLeft: "auto",
-        marginRight: "auto",
       }}
     >
       <Divider style={{ marginBottom: 16 }} />

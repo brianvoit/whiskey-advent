@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import WhiskeyChart from "./components/WhiskeyChart";
 import WhiskeyRadarChart from "./components/WhiskeyRadarChart";
 import UserAvatar from "./components/UserAvatar";
+import CommentsSection from "./components/CommentsSection";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import { supabase } from "./supabaseClient";
@@ -52,6 +54,10 @@ type WhiskeyDetailProps = {
   userId: string;
   isAdmin: boolean;
   tastingMode: string | null;
+  /** Resolved avatar URL (may come from OAuth user_metadata, not just profiles table) */
+  avatarUrl?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
 };
 
 type SortColumn =
@@ -75,16 +81,24 @@ function getFullNameFromTasting(t: WhiskeyTastingDetail): string {
 }
 
 
-function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
+function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, lastName }: WhiskeyDetailProps) {
   const { whiskeyDayId } = useParams<WhiskeyDetailRouteParams>();
   const navigate = useNavigate();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [whiskey, setWhiskey] = useState<WhiskeyDayInfo | null>(null);
   const [tastings, setTastings] = useState<WhiskeyTastingDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRevealedForMe, setIsRevealedForMe] = useState<boolean>(false);
+
+  const [seasonId, setSeasonId] = useState<number | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<{
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  } | null>(null);
 
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn>("rating");
@@ -114,7 +128,7 @@ function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
         const { data: whiskeyRows, error: whiskeyError } = await supabase
           .from("whiskey_days")
           .select(
-            "id, day_number, name, type, region, country, abv, distillery, age, blurb"
+            "id, season_id, day_number, name, type, region, country, abv, distillery, age, blurb"
           )
           .eq("id", dayId)
           .maybeSingle();
@@ -134,6 +148,7 @@ function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
         }
 
         setWhiskey(whiskeyRows as WhiskeyDayInfo);
+        setSeasonId((whiskeyRows as any).season_id ?? null);
 
         // 2) Load all tastings for this whiskey (no join yet)
         const { data: tastingRows, error: tastingError } = await supabase
@@ -152,7 +167,7 @@ function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
 
         // Collect unique user ids so we can look up profile info
         const userIds = Array.from(
-          new Set(tastingsRaw.map((t: any) => t.user_id).filter(Boolean))
+          new Set([...tastingsRaw.map((t: any) => t.user_id).filter(Boolean), userId])
         );
 
         let profilesById = new Map<
@@ -186,6 +201,16 @@ function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
             );
           }
         }
+
+        // Merge profile row with OAuth-resolved values passed from App.tsx.
+        // profiles.avatar_url is null for Google OAuth users who haven't
+        // manually uploaded one, so we fall back to the resolved avatarUrl prop.
+        const profileRow = profilesById.get(userId) ?? null;
+        setCurrentUserProfile({
+          first_name: profileRow?.first_name ?? firstName ?? null,
+          last_name: profileRow?.last_name ?? lastName ?? null,
+          avatar_url: profileRow?.avatar_url ?? avatarUrl ?? null,
+        });
 
         const mapped: WhiskeyTastingDetail[] = tastingsRaw.map((row: any) => {
           const profile =
@@ -464,8 +489,12 @@ function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
       ? `${whiskey.region}, ${whiskey.country}`
       : whiskey.country ?? "";
 
+  const centeredStyle: CSSProperties = isMobile
+    ? { paddingTop: 8 }
+    : { paddingTop: 8, maxWidth: "66.67%", marginLeft: "auto", marginRight: "auto" };
+
   return (
-    <div style={{ paddingTop: 8 }}>
+    <div style={centeredStyle}>
       {/* Back button, styled to match DayDetail intent */}
       <button
         type="button"
@@ -585,7 +614,7 @@ function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
       )}
 
       {/* Charts row: rating distribution + flavor radar */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, marginBottom: 24 }}>
         <section style={{ flex: "3 1 0", minWidth: 0 }}>
           <h3
             style={{
@@ -691,6 +720,73 @@ function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
           <p style={{ fontSize: "0.9rem", color: "#666" }}>
             No tastings recorded yet.
           </p>
+        ) : isMobile ? (
+          /* ── Mobile: compact cards per taster ── */
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {sortedTastings.map((tasting) => {
+              const fullName = getFullNameFromTasting(tasting);
+              const sliders = tasting.sliders;
+              const fmt = (val: number | null | undefined) =>
+                val == null ? "—" : Number(val).toFixed(1);
+              const flavorCols: [string, string][] = [
+                ["Sweet", fmt(sliders?.sweetness ?? null)],
+                ["Fruit", fmt(sliders?.fruit ?? null)],
+                ["Spice", fmt(sliders?.spice ?? null)],
+                ["Smoke", fmt(sliders?.smoke ?? null)],
+                ["Oak", fmt(sliders?.oak ?? null)],
+                ["Body", fmt(sliders?.body ?? null)],
+              ];
+              return (
+                <div
+                  key={tasting.user_id}
+                  style={{
+                    borderRadius: theme.shape.borderRadius,
+                    border: `1px solid ${theme.palette.divider}`,
+                    padding: "10px 12px",
+                    background: theme.palette.background.paper,
+                  }}
+                >
+                  {/* Top row: avatar + name + overall */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: sliders ? 8 : 0 }}>
+                    <UserAvatar
+                      size="sm"
+                      firstName={tasting.profile_first_name}
+                      lastName={tasting.profile_last_name}
+                      avatarUrl={tasting.profile_avatar_url}
+                      ariaLabel={fullName}
+                      tooltip={fullName}
+                      userId={tasting.user_id}
+                    />
+                    <div style={{ flex: 1, minWidth: 0, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", fontSize: "0.9rem", fontWeight: 600 }}>
+                      {fullName}
+                    </div>
+                    {tasting.rating != null && (
+                      <div style={{ flexShrink: 0, fontSize: "1.1rem", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: theme.palette.primary.main }}>
+                        {tasting.rating.toFixed(1)}
+                      </div>
+                    )}
+                  </div>
+                  {/* Flavor grid: 3 columns */}
+                  {sliders && (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "4px 8px", marginBottom: tasting.notes ? 6 : 0 }}>
+                      {flavorCols.map(([label, val]) => (
+                        <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem" }}>
+                          <span style={{ color: theme.palette.text.secondary }}>{label}</span>
+                          <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Notes */}
+                  {tasting.notes && tasting.notes.trim().length > 0 && (
+                    <div style={{ fontSize: "0.78rem", color: theme.palette.text.secondary, fontStyle: "italic", marginTop: 4 }}>
+                      {tasting.notes}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div
             style={{
@@ -960,6 +1056,17 @@ function WhiskeyDetail({ userId, tastingMode }: WhiskeyDetailProps) {
           </div>
         )}
       </section>
+
+      {/* Comments */}
+      {seasonId !== null && (
+        <CommentsSection
+          seasonId={seasonId}
+          whiskeyDayId={parseInt(whiskeyDayId!, 10)}
+          userId={userId}
+          isAdmin={isAdmin}
+          currentUser={currentUserProfile ?? undefined}
+        />
+      )}
     </div>
   );
 }

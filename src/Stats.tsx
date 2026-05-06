@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { supabase } from "./supabaseClient";
 import { getSeasonStats, type DayStats } from "./api/stats";
 import LockIcon from "@mui/icons-material/Lock";
@@ -16,6 +18,8 @@ type StatsProps = {
 
 function Stats({ isAdmin, userId, currentYear }: StatsProps) {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [stats, setStats] = useState<DayStats[]>([]);
   const [revealedMap, setRevealedMap] = useState<Map<number, boolean>>(
     () => new Map()
@@ -216,64 +220,23 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                 opacity: 0.7,
               }}
             >
-              <div
-                style={{
-                  width: 56,
-                  flexShrink: 0,
-                  textAlign: "center",
-                }}
-              >
+              <div style={{ width: isMobile ? 36 : 56, flexShrink: 0, textAlign: "center" }}>
                 Day
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>Whiskey</div>
-              <div
-                style={{
-                  width: 50,
-                  textAlign: "center",
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
+              <div style={{ width: isMobile ? 40 : 50, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <PersonIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
               </div>
-              <div
-                style={{
-                  width: 70,
-                  textAlign: "right",
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                }}
-              >
+              <div style={{ width: isMobile ? 40 : 70, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <GroupIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
               </div>
-              <div
-                style={{
-                  width: 90,
-                  textAlign: "center",
-                  flexShrink: 0,
-                }}
-              >
-                Count
-              </div>
-              <div
-                style={{
-                  width: 1,
-                  alignSelf: "stretch",
-                  backgroundColor: "rgba(0,0,0,0.08)",
-                  marginLeft: 4,
-                  marginRight: 4,
-                }}
-              />
-              <div
-                style={{
-                  width: 40,
-                  flexShrink: 0,
-                }}
-              />
+              {!isMobile && (
+                <div style={{ width: 90, textAlign: "center", flexShrink: 0 }}>Count</div>
+              )}
+              {!isMobile && (
+                <div style={{ width: 1, alignSelf: "stretch", backgroundColor: "rgba(0,0,0,0.08)", marginLeft: 4, marginRight: 4 }} />
+              )}
+              <div style={{ width: isMobile ? 28 : 40, flexShrink: 0 }} />
             </div>
 
             {/* List items */}
@@ -325,17 +288,19 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                   <div
                     key={d.whiskey_day_id}
                     role="listitem"
+                    onClick={isMobile && canViewDetails ? () => navigate(`/whiskey/${d.whiskey_day_id}`) : undefined}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       padding: "10px 12px 10px 8px",
                       borderTop: "1px solid rgba(0,0,0,0.04)",
+                      cursor: isMobile && canViewDetails ? "pointer" : undefined,
                     }}
                   >
-                    {/* Leading: Day number */}
+                    {/* Day number */}
                     <div
                       style={{
-                        width: 56,
+                        width: isMobile ? 36 : 56,
                         flexShrink: 0,
                         fontVariantNumeric: "tabular-nums",
                         fontSize: "0.9rem",
@@ -345,7 +310,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                       {d.day_number}
                     </div>
 
-                    {/* Primary text: whiskey name or lock glyph */}
+                    {/* Whiskey name */}
                     <div
                       style={{
                         flex: 1,
@@ -360,18 +325,16 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                       }}
                     >
                       {locked ? (
-                        <LockIcon
-                          style={{ fontSize: "1rem", opacity: 0.7 }}
-                        />
+                        <LockIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
                       ) : (
                         displayName
                       )}
                     </div>
 
-                    {/* Trailing: user rating */}
+                    {/* User rating */}
                     <div
                       style={{
-                        width: 50,
+                        width: isMobile ? 40 : 50,
                         textAlign: "center",
                         flexShrink: 0,
                         fontVariantNumeric: "tabular-nums",
@@ -381,74 +344,86 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                       {userRating !== null ? userRating.toFixed(1) : "—"}
                     </div>
 
-                    {/* Trailing: average rating */}
+                    {/* Group average */}
                     <div
                       style={{
-                        width: 70,
-                        textAlign: "right",
+                        width: isMobile ? 40 : 70,
+                        textAlign: "center",
                         flexShrink: 0,
                         fontVariantNumeric: "tabular-nums",
                         fontSize: "0.9rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
                       {groupAvgContent}
                     </div>
 
-                    {/* Trailing: count */}
-                    <div
-                      style={{
-                        width: 90,
-                        textAlign: "center",
-                        flexShrink: 0,
-                        fontVariantNumeric: "tabular-nums",
-                        fontSize: "0.9rem",
-                      }}
-                    >
-                      {d.rating_count}
-                    </div>
+                    {/* Count — desktop only */}
+                    {!isMobile && (
+                      <div
+                        style={{
+                          width: 90,
+                          textAlign: "center",
+                          flexShrink: 0,
+                          fontVariantNumeric: "tabular-nums",
+                          fontSize: "0.9rem",
+                        }}
+                      >
+                        {d.rating_count}
+                      </div>
+                    )}
 
-                    {/* Vertical divider before chevron */}
-                    <div
-                      style={{
-                        width: 1,
-                        alignSelf: "stretch",
-                        backgroundColor: "rgba(0,0,0,0.08)",
-                        marginLeft: 4,
-                        marginRight: 4,
-                      }}
-                    />
+                    {/* Divider — desktop only */}
+                    {!isMobile && (
+                      <div
+                        style={{
+                          width: 1,
+                          alignSelf: "stretch",
+                          backgroundColor: "rgba(0,0,0,0.08)",
+                          marginLeft: 4,
+                          marginRight: 4,
+                        }}
+                      />
+                    )}
 
-                    {/* Trailing: chevron to whiskey details */}
+                    {/* Chevron */}
                     <div
                       style={{
-                        width: 40,
+                        width: isMobile ? 28 : 40,
                         flexShrink: 0,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                       }}
                     >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate(`/whiskey/${d.whiskey_day_id}`)
-                        }
-                        disabled={!canViewDetails}
-                        style={{
-                          border: "none",
-                          background: "none",
-                          padding: 0,
-                          margin: 0,
-                          cursor: canViewDetails ? "pointer" : "default",
-                          opacity: canViewDetails ? 1 : 0.4,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        aria-label="View whiskey details"
-                      >
-                        <KeyboardArrowRightIcon fontSize="small" />
-                      </button>
+                      {isMobile ? (
+                        <KeyboardArrowRightIcon
+                          fontSize="small"
+                          style={{ opacity: canViewDetails ? 0.4 : 0.15 }}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/whiskey/${d.whiskey_day_id}`)}
+                          disabled={!canViewDetails}
+                          style={{
+                            border: "none",
+                            background: "none",
+                            padding: 0,
+                            margin: 0,
+                            cursor: canViewDetails ? "pointer" : "default",
+                            opacity: canViewDetails ? 1 : 0.4,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                          aria-label="View whiskey details"
+                        >
+                          <KeyboardArrowRightIcon fontSize="small" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

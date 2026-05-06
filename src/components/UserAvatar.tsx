@@ -25,40 +25,27 @@ export type UserAvatarProps = {
   userId?: string;
 };
 
-// In-memory cache of URLs that failed to load during this session.
-// Prevents broken images from retrying on every render.
-const brokenImageUrlCache = new Set<string>();
-
 function getInitials(firstName?: string | null, lastName?: string | null): string {
   const f = (firstName ?? "").trim();
   const l = (lastName ?? "").trim();
-
   const fi = f ? f[0] : "";
   const li = l ? l[0] : "";
-
-  const initials = (fi + li).toUpperCase();
-  return initials || "?";
+  return (fi + li).toUpperCase() || "?";
 }
 
 function getFullName(firstName?: string | null, lastName?: string | null): string {
   const f = (firstName ?? "").trim();
   const l = (lastName ?? "").trim();
-  const full = `${f} ${l}`.trim();
-  return full || "User";
+  return `${f} ${l}`.trim() || "User";
 }
 
 function sizeToPx(size: UserAvatarSize): number {
   switch (size) {
-    case "xs":
-      return 24;
-    case "sm":
-      return 32;
-    case "md":
-      return 40;
-    case "lg":
-      return 56;
-    default:
-      return 40;
+    case "xs": return 24;
+    case "sm": return 32;
+    case "md": return 40;
+    case "lg": return 56;
+    default:   return 40;
   }
 }
 
@@ -85,38 +72,40 @@ export default function UserAvatar({
   const defaultLabel = ariaLabel ?? `Avatar for ${fullName}`;
   const tooltipText = tooltip ?? fullName;
 
-  const [imageOk, setImageOk] = useState<boolean>(() => {
-    if (!avatarUrl) return false;
-    return !brokenImageUrlCache.has(avatarUrl);
-  });
-
-  // If the URL changes, re-check cache.
+  // Track image load failure per URL — resets when the URL changes.
+  const [imgError, setImgError] = useState(false);
   useEffect(() => {
-    if (!avatarUrl) {
-      setImageOk(false);
-      return;
-    }
-    setImageOk(!brokenImageUrlCache.has(avatarUrl));
+    setImgError(false);
   }, [avatarUrl]);
 
-  const showImage = Boolean(avatarUrl && imageOk);
-
-  // Neutral background + text that adapts to light/dark.
-  // Use theme palette so it matches the rest of the app.
   const bgColor = theme.palette.mode === "dark" ? theme.palette.grey[800] : theme.palette.grey[200];
   const fgColor = theme.palette.mode === "dark" ? theme.palette.grey[100] : theme.palette.grey[900];
 
+  // Render the image manually as a child so we bypass MUI Avatar's internal
+  // useLoaded hook entirely — gives us full, predictable control.
+  const imageChild =
+    avatarUrl && !imgError ? (
+      <img
+        src={avatarUrl}
+        alt={fullName}
+        onError={() => setImgError(true)}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          // borderRadius is inherited from the Avatar's overflow:hidden
+        }}
+      />
+    ) : null;
+
   const avatarEl = (
+    // Do NOT pass src — we handle image rendering ourselves.
     <Avatar
-      src={showImage ? avatarUrl ?? undefined : undefined}
       alt={fullName}
-      imgProps={{
-        onError: () => {
-          if (avatarUrl) brokenImageUrlCache.add(avatarUrl);
-          setImageOk(false);
-        },
-      }}
       sx={{
+        position: "relative", // needed for the absolutely-positioned img child
         width: px,
         height: px,
         bgcolor: bgColor,
@@ -125,13 +114,15 @@ export default function UserAvatar({
         fontSize: Math.max(12, Math.round(px * 0.4)),
         border: `1px solid ${theme.palette.divider}`,
         userSelect: "none",
+        overflow: "hidden",   // clips the img to the circle
       }}
     >
-      {!showImage ? initials : null}
+      {/* Initials always in DOM as the background; image overlays when available */}
+      {initials}
+      {imageChild}
     </Avatar>
   );
 
-  // Clickable avatar (for future profile views)
   if (onClick && !disabled) {
     return (
       <Tooltip title={tooltipText} enterDelay={300}>
@@ -139,10 +130,7 @@ export default function UserAvatar({
           onClick={onClick}
           aria-label={defaultLabel}
           size="small"
-          sx={{
-            padding: 0,
-            borderRadius: "999px",
-          }}
+          sx={{ padding: 0, borderRadius: "999px" }}
         >
           {avatarEl}
         </IconButton>
@@ -150,7 +138,6 @@ export default function UserAvatar({
     );
   }
 
-  // Non-clickable avatar (still accessible)
   return (
     <Tooltip title={tooltipText} enterDelay={300}>
       <span aria-label={defaultLabel}>

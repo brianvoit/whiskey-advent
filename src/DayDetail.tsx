@@ -15,6 +15,7 @@ import Snackbar from "@mui/material/Snackbar";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import Typography from "@mui/material/Typography";
 import Slider from "@mui/material/Slider";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
@@ -48,6 +49,9 @@ type WhiskeyDay = {
 type DayDetailProps = {
   isAdmin: boolean;
   userId: string;
+  avatarUrl?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
 };
 
 // Simple star rating component with 0.5 increments (1–5)
@@ -126,8 +130,9 @@ function StarRating({ value, onChange }: StarRatingProps) {
   );
 }
 
-function DayDetail({ isAdmin, userId }: DayDetailProps) {
+function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetailProps) {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const { year, dayNumber } = useParams();
   const navigate = useNavigate();
@@ -183,10 +188,12 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         const mode = (profile.tasting_mode as TastingMode | null) ?? "purist";
         setTastingMode(mode);
 
+        // Fall back to OAuth-resolved values passed from App.tsx when the
+        // profiles table avatar_url is null (common for Google OAuth users).
         setCurrentUserProfile({
-          first_name: profile.first_name ?? null,
-          last_name: profile.last_name ?? null,
-          avatar_url: profile.avatar_url ?? null,
+          first_name: profile.first_name ?? firstName ?? null,
+          last_name: profile.last_name ?? lastName ?? null,
+          avatar_url: profile.avatar_url ?? avatarUrl ?? null,
         });
       }
 
@@ -810,21 +817,23 @@ function DayDetail({ isAdmin, userId }: DayDetailProps) {
         </div>
       </div>
       {seasonId !== null && canSeeComments && (
-        <CommentsSection
-          seasonId={seasonId}
-          whiskeyDayId={whiskey.id}
-          userId={userId}
-          isAdmin={isAdmin}
-          currentUser={
-            currentUserProfile
-              ? {
-                  first_name: currentUserProfile.first_name,
-                  last_name: currentUserProfile.last_name,
-                  avatar_url: currentUserProfile.avatar_url,
-                }
-              : undefined
-          }
-        />
+        <div style={isMobile ? undefined : { maxWidth: "66.67%", marginLeft: "auto", marginRight: "auto" }}>
+          <CommentsSection
+            seasonId={seasonId}
+            whiskeyDayId={whiskey.id}
+            userId={userId}
+            isAdmin={isAdmin}
+            currentUser={
+              currentUserProfile
+                ? {
+                    first_name: currentUserProfile.first_name,
+                    last_name: currentUserProfile.last_name,
+                    avatar_url: currentUserProfile.avatar_url,
+                  }
+                : undefined
+            }
+          />
+        </div>
       )}
       <Snackbar
         open={snackbarOpen}

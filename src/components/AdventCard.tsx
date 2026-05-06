@@ -118,6 +118,8 @@ const AdventCard: React.FC<AdventCardProps> = ({
         style={{
           position: "relative",
           width: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
           display: "flex",
           alignItems: "center",
           gap: 12,
@@ -214,41 +216,34 @@ const AdventCard: React.FC<AdventCardProps> = ({
           )}
         </div>
 
-        {/* Rating + action */}
-        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
-          {!hideDetails && hasUserRating && (
-            <div
-              style={{
-                fontSize: "0.85rem",
-                fontVariantNumeric: "tabular-nums",
-                color: theme.palette.text.secondary,
-                display: "flex",
-                alignItems: "center",
-                gap: 3,
-              }}
-            >
-              <PersonIcon style={{ fontSize: "0.9rem" }} />
-              {userRatingText}
-            </div>
-          )}
+        {/* Ratings column — only shown if there's at least one rating to display */}
+        {!hideDetails && (hasUserRating || hasAverageRating) && (
           <div
             style={{
-              padding: "3px 10px",
-              borderRadius: 999,
-              border: `1px solid ${theme.palette.divider}`,
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: 2,
               fontSize: "0.75rem",
-              fontWeight: 600,
-              background: isDisabled
-                ? theme.palette.action.disabledBackground
-                : theme.palette.background.default,
-              color: isDisabled
-                ? theme.palette.text.disabled
-                : theme.palette.text.primary,
+              fontVariantNumeric: "tabular-nums",
+              color: theme.palette.text.secondary,
             }}
           >
-            {rated ? "View" : "Rate"}
+            {hasUserRating && (
+              <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <PersonIcon style={{ fontSize: "0.85rem" }} />
+                <span>{userRatingText}</span>
+              </div>
+            )}
+            {hasAverageRating && (
+              <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <GroupIcon style={{ fontSize: "0.85rem" }} />
+                <span>{avgRatingText}</span>
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         {/* Future-day overlay */}
         {showOverlay && (

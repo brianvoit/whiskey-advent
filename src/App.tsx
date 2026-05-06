@@ -62,6 +62,7 @@ function App() {
       (session?.user?.user_metadata as any)?.picture ||
       undefined);
 
+
   const firstName = profile?.first_name ?? ((session?.user?.user_metadata as any)?.given_name || (session?.user?.user_metadata as any)?.first_name || undefined);
   const lastName = profile?.last_name ?? ((session?.user?.user_metadata as any)?.family_name || (session?.user?.user_metadata as any)?.last_name || undefined);
 
@@ -90,7 +91,7 @@ function App() {
       setSession(session ?? null);
 
       if (session?.user) {
-        await loadProfile(session.user.id);
+        await loadProfile(session.user.id, session);
       }
 
       setLoading(false);
@@ -101,7 +102,7 @@ function App() {
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession ?? null);
       if (newSession?.user) {
-        loadProfile(newSession.user.id);
+        loadProfile(newSession.user.id, newSession);
       } else {
         setProfile(null);
       }
@@ -114,7 +115,7 @@ function App() {
     };
   }, []);
 
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (userId: string, oauthSession?: Session | null) => {
     setProfileError(null);
     // select("*") is intentional — tolerates columns added via migrations
     // that haven't been applied yet, rather than hard-failing on a missing field.
@@ -130,7 +131,28 @@ function App() {
       return;
     }
 
-    setProfile(data as Profile);
+    const profile = data as Profile;
+
+    // One-time sync: if the profiles row has no avatar_url but the OAuth
+    // session carries a Google profile picture, write it to the profiles table.
+    // This makes the avatar available everywhere (comments, whiskey detail, etc.)
+    // without requiring a manual upload. The write is idempotent.
+    if (!profile.avatar_url && oauthSession?.user?.user_metadata) {
+      const meta = oauthSession.user.user_metadata as Record<string, unknown>;
+      const oauthAvatar =
+        (meta.avatar_url as string | undefined) ||
+        (meta.picture as string | undefined) ||
+        null;
+      if (oauthAvatar) {
+        await supabase
+          .from("profiles")
+          .update({ avatar_url: oauthAvatar })
+          .eq("id", userId);
+        profile.avatar_url = oauthAvatar;
+      }
+    }
+
+    setProfile(profile);
   };
 
   // ---------------------------------------------------------
@@ -549,6 +571,9 @@ function AppShell({
                 <DayDetail
                   isAdmin={isAdmin}
                   userId={userId}
+                  avatarUrl={avatarUrl}
+                  firstName={firstName}
+                  lastName={lastName}
                 />
               }
             />
@@ -569,6 +594,9 @@ function AppShell({
                   userId={userId}
                   isAdmin={isAdmin}
                   tastingMode={tastingMode}
+                  avatarUrl={avatarUrl}
+                  firstName={firstName}
+                  lastName={lastName}
                 />
               }
             />

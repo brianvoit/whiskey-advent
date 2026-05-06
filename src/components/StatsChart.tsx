@@ -1,6 +1,7 @@
 // src/components/StatsChart.tsx
 import React, { useMemo } from "react";
 import type { FC } from "react";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import {
   LineChart,
   Line,
@@ -39,6 +40,7 @@ const StatsChart: FC<StatsChartProps> = ({
   seeGroupAveragesPreReveal,
 }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const nowYear = new Date().getFullYear();
   const isCurrentSeason = currentYear === nowYear;
 
@@ -84,7 +86,18 @@ const StatsChart: FC<StatsChartProps> = ({
       rows.push({ day, avg, count });
     }
 
-    return rows;
+    // If the season has no data at all (e.g. a future year), keep all 24 days
+    // so the x-axis still shows the full calendar span.
+    const hasAnyData = rows.some((r) => r.avg !== null);
+    if (!hasAnyData) return rows;
+
+    // Otherwise trim trailing null days so the line doesn't end mid-chart
+    // with a long blank stretch to the right.
+    let lastDataIdx = rows.length - 1;
+    while (lastDataIdx > 0 && rows[lastDataIdx].avg === null) {
+      lastDataIdx -= 1;
+    }
+    return rows.slice(0, lastDataIdx + 1);
   }, [stats, isAdmin, isCurrentSeason, revealedMap, tastingMode, seeGroupAveragesPreReveal]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -143,7 +156,7 @@ const StatsChart: FC<StatsChartProps> = ({
       <ResponsiveContainer width="100%" height={210}>
         <LineChart
           data={chartData}
-          margin={{ top: 4, right: 8, bottom: 4, left: 8 }}
+          margin={{ top: 4, right: 4, bottom: 4, left: 0 }}
         >
           <CartesianGrid stroke={gridColor} strokeDasharray="3 3" />
           <XAxis
@@ -151,10 +164,12 @@ const StatsChart: FC<StatsChartProps> = ({
             tickLine={false}
             axisLine={{ stroke: gridColor }}
             tick={{ fontSize: 11, fill: axisColor }}
-            interval={0} // show all 24 days
+            interval={isMobile ? 1 : 0}
+            padding={{ left: 4, right: 0 }}
           />
           <YAxis
             domain={[1, 5]}
+            width={24}
             tickLine={false}
             axisLine={{ stroke: gridColor }}
             tick={{ fontSize: 11, fill: axisColor }}
