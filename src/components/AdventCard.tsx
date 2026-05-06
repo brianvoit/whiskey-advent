@@ -109,7 +109,6 @@ const AdventCard: React.FC<AdventCardProps> = ({
 
   // ── Compact row layout (mobile) ──────────────────────────────────────────
   if (compact) {
-    const rated = hasUserRating;
     return (
       <button
         type="button"
