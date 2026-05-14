@@ -48,6 +48,7 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
         justifyContent: "space-between",
         alignItems: "center",
         padding: "12px 16px",
+        paddingTop: "max(12px, calc(env(safe-area-inset-top) + 8px))",
         background: "var(--mui-palette-background-paper)",
         borderBottom: "1px solid var(--mui-palette-divider)",
       }}
