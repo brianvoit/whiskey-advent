@@ -574,32 +574,32 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
         </p>
       )}
 
-      <p
+      <div
         style={{
-          margin: 0,
           marginBottom: 12,
           fontSize: "0.9rem",
           color: theme.palette.text.secondary,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
         }}
       >
         {whiskey.distillery && (
-          <>
+          <p style={{ margin: 0 }}>
             <strong>Distillery:</strong> {whiskey.distillery}
-          </>
+          </p>
         )}
         {whiskey.age && (
-          <>
-            {whiskey.distillery && " · "}
+          <p style={{ margin: 0 }}>
             <strong>Age:</strong> {whiskey.age}
-          </>
+          </p>
         )}
         {whiskey.abv != null && (
-          <>
-            {(whiskey.distillery || whiskey.age) && " · "}
-            <strong>ABV:</strong> {whiskey.abv}% 
-          </>
+          <p style={{ margin: 0 }}>
+            <strong>ABV:</strong> {whiskey.abv}%
+          </p>
         )}
-      </p>
+      </div>
 
       {whiskey.blurb && (
         <p

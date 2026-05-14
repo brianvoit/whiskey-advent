@@ -3,6 +3,7 @@ import type { ThemeMode } from "../theme";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import Brightness4RoundedIcon from "@mui/icons-material/Brightness4Rounded";
+import { useTheme } from "@mui/material/styles";
 
 type AppHeaderProps = {
   currentYear: number;
@@ -12,6 +13,7 @@ type AppHeaderProps = {
 
 function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
   const { mode, setMode } = useAppTheme();
+  const theme = useTheme();
 
   // Cycle: system → light → dark → system
   const cycleTheme = () => {
@@ -48,7 +50,7 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
         justifyContent: "space-between",
         alignItems: "center",
         padding: "12px 16px",
-        paddingTop: "max(12px, calc(env(safe-area-inset-top) + 8px))",
+        paddingTop: "max(12px, calc(env(safe-area-inset-top) * 0.75 + 8px))",
         background: "var(--mui-palette-background-paper)",
         borderBottom: "1px solid var(--mui-palette-divider)",
       }}
@@ -83,6 +85,7 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
             padding: 0,
             display: "flex",
             alignItems: "center",
+            color: theme.palette.primary.main,
           }}
           aria-label={themeLabel}
           title={themeLabel}

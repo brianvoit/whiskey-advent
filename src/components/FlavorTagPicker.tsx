@@ -40,7 +40,7 @@ export default function FlavorTagPicker({ selected, onChange }: FlavorTagPickerP
       >
         Flavor Notes
       </Typography>
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "center" }}>
         {FLAVOR_TAGS.map((tag) => {
           const isSelected = selected.includes(tag);
           return (

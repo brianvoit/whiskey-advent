@@ -36,6 +36,7 @@ import {
   type WhiskeyDayInput,
 } from "../api/admin";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 const EMPTY_FORM: Omit<WhiskeyDayInput, "season_id" | "day_number"> = {
   name: "",
@@ -56,6 +57,10 @@ type WhiskeyDayEditorProps = {
 
 export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorProps) {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const gridCols = isMobile
+    ? "20px 36px 1fr 36px 36px"
+    : "20px 40px 1fr 1fr 80px 36px 36px";
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | "">(
     initialSeasonId ?? ""
@@ -316,12 +321,13 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
           No whiskeys configured for this season.
         </Typography>
       ) : (
-        <Paper variant="outlined">
+        <Paper variant="outlined" sx={{ overflow: "hidden" }}>
           {/* Header */}
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "32px 48px 1fr 1fr 80px 36px 36px",
+              gridTemplateColumns: gridCols,
+              columnGap: 0.5,
               alignItems: "center",
               px: 1.5,
               py: 1,
@@ -331,10 +337,10 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
             }}
           >
             <div />
-            <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.6, textTransform: "uppercase" }}>Day</Typography>
+            <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.6, textTransform: "uppercase", textAlign: "center" }}>Day</Typography>
             <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.6, textTransform: "uppercase" }}>Name</Typography>
-            <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.6, textTransform: "uppercase" }}>Distillery</Typography>
-            <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.6, textTransform: "uppercase" }}>Age</Typography>
+            {!isMobile && <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.6, textTransform: "uppercase" }}>Distillery</Typography>}
+            {!isMobile && <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.6, textTransform: "uppercase" }}>Age</Typography>}
             <Typography variant="caption" sx={{ fontWeight: 700, opacity: 0.6, textTransform: "uppercase", textAlign: "center" }}>Img</Typography>
             <div />
           </Box>
@@ -354,7 +360,8 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
                 onDragEnd={handleDragEnd}
                 sx={{
                   display: "grid",
-                  gridTemplateColumns: "32px 48px 1fr 1fr 80px 36px 36px",
+                  gridTemplateColumns: gridCols,
+                  columnGap: 0.5,
                   alignItems: "center",
                   px: 1.5,
                   py: 1.25,
@@ -373,12 +380,12 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
                 }}
               >
                 {/* Drag handle */}
-                <Box sx={{ color: "text.disabled", display: "flex", alignItems: "center" }}>
-                  <DragIndicatorIcon fontSize="small" />
+                <Box sx={{ color: "text.disabled", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <DragIndicatorIcon sx={{ fontSize: 16 }} />
                 </Box>
 
                 {/* Day number */}
-                <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, opacity: 0.7 }}>
+                <Typography variant="body2" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 600, opacity: 0.7, textAlign: "center" }}>
                   {day.day_number}
                 </Typography>
 
@@ -387,15 +394,19 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
                   {day.name ?? <span style={{ opacity: 0.4 }}>—</span>}
                 </Typography>
 
-                {/* Distillery */}
-                <Typography variant="body2" noWrap color="text.secondary" sx={{ pr: 1 }}>
-                  {day.distillery ?? "—"}
-                </Typography>
+                {/* Distillery — desktop only */}
+                {!isMobile && (
+                  <Typography variant="body2" noWrap color="text.secondary" sx={{ pr: 1 }}>
+                    {day.distillery ?? "—"}
+                  </Typography>
+                )}
 
-                {/* Age */}
-                <Typography variant="body2" color="text.secondary" noWrap>
-                  {day.age ?? "—"}
-                </Typography>
+                {/* Age — desktop only */}
+                {!isMobile && (
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {day.age ?? "—"}
+                  </Typography>
+                )}
 
                 {/* Image indicator — only shown when an image exists */}
                 <Box sx={{ display: "flex", justifyContent: "center" }}>

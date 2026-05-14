@@ -415,58 +415,30 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
         <span>Back</span>
       </button>
 
-      {/* Hero image with H1 overlay */}
+      {/* Masthead — matches WhiskeyDetail layout */}
       <div
         style={{
-          position: "relative",
-          marginBottom: 24,
-          borderRadius: theme.shape.borderRadius,
-          overflow: "hidden",
+          borderRadius: 20,
+          padding: "16px 20px",
+          background: whiskey.image_url
+            ? `linear-gradient(135deg, rgba(216,191,170,0.55), rgba(180,150,130,0.55)), url(${whiskey.image_url}) center/cover no-repeat`
+            : "linear-gradient(135deg, rgba(216,191,170,0.9), rgba(180,150,130,0.9))",
+          marginBottom: 20,
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          minHeight: whiskey.image_url ? 140 : "auto",
         }}
       >
-        <div
-          style={{
-            width: "100%",
-            height: 180,
-            backgroundImage: whiskey.image_url
-              ? `url(${whiskey.image_url})`
-              : "linear-gradient(135deg, #d7ccc8, #bcaaa4)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        />
-        <Typography
-          variant="h3"
-          component="h1"
-          style={{
-            position: "absolute",
-            left: 16,
-            bottom: 16,
-            margin: 0,
-            color: theme.palette.text.primary,
-            textShadow: "0 1px 3px rgba(255,255,255,0.8)",
-          }}
-        >
+        <div style={{ fontSize: "1.1rem", fontWeight: 600 }}>
           Day {whiskey.day_number}
-        </Typography>
+        </div>
         {(whiskey.region || whiskey.country) && (revealed || isExplorer || isRelaxed) && (
-          <Typography
-            variant="subtitle1"
-            component="h3"
-            style={{
-              position: "absolute",
-              right: 16,
-              bottom: 16,
-              margin: 0,
-              color: theme.palette.text.primary,
-              textShadow: "0 1px 3px rgba(255,255,255,0.8)",
-              textAlign: "right",
-            }}
-          >
+          <div style={{ fontSize: "0.9rem", textAlign: "right" }}>
             {whiskey.region ?? ""}
             {whiskey.region && whiskey.country ? ", " : ""}
             {whiskey.country ?? ""}
-          </Typography>
+          </div>
         )}
       </div>
 
@@ -521,32 +493,31 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
 
               {showMeta &&
                 (whiskey.distillery || whiskey.age || whiskey.abv !== null) && (
-                  <Typography
-                    variant="body2"
-                    component="div"
+                  <div
                     style={{
                       color: theme.palette.text.secondary,
                       marginBottom: 8,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
                     }}
                   >
                     {whiskey.distillery && (
-                      <span>
+                      <Typography variant="body2">
                         <strong>Distillery:</strong> {whiskey.distillery}
-                      </span>
+                      </Typography>
                     )}
                     {whiskey.age && (
-                      <span>
-                        {whiskey.distillery ? " · " : ""}{" "}
+                      <Typography variant="body2">
                         <strong>Age:</strong> {whiskey.age}
-                      </span>
+                      </Typography>
                     )}
                     {whiskey.abv !== null && (
-                      <span>
-                        {(whiskey.distillery || whiskey.age) ? " · " : ""}{" "}
+                      <Typography variant="body2">
                         <strong>ABV:</strong> {whiskey.abv}%
-                      </span>
+                      </Typography>
                     )}
-                  </Typography>
+                  </div>
                 )}
 
               {showBlurb && whiskey.blurb && (
@@ -591,12 +562,13 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
             type="button"
             onClick={() => navigate(`/whiskey/${whiskey.id}`)}
             disabled={!revealed}
+            title="View full tasting notes"
             style={{
-              border: "none",
+              border: revealed ? "1px solid rgba(139,90,43,0.25)" : "none",
               backgroundColor: !revealed
                 ? "transparent"
                 : theme.palette.background.paper,
-              padding: 12,
+              padding: 10,
               margin: 0,
               cursor: !revealed ? "default" : "pointer",
               color: !revealed
@@ -607,12 +579,13 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
               justifyContent: "center",
               borderRadius: "50%",
               boxShadow: revealed
-                ? "0 2px 6px rgba(0,0,0,0.18)"
+                ? "0 1px 4px rgba(100,60,20,0.15)"
                 : "none",
+              transition: "box-shadow 0.15s, background-color 0.15s",
             }}
           >
             <ChevronRightRoundedIcon
-              style={{ fontSize: "2rem" }}
+              style={{ fontSize: "1.6rem" }}
             />
           </button>
         </div>

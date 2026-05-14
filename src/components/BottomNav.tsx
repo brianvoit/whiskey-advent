@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { useTheme } from "@mui/material/styles";
-import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
 import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import UserAvatar from "./UserAvatar";
@@ -117,15 +116,15 @@ function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, a
         paddingTop: 6,
         paddingLeft: 16,
         paddingRight: 16,
-        paddingBottom: "max(16px, env(safe-area-inset-bottom, 16px))",
+        paddingBottom: "max(8px, env(safe-area-inset-bottom, 8px))",
         display: "flex",
         justifyContent: "space-around",
         alignItems: "center",
       }}
     >
       <NavItem
-        label="Home"
-        icon={<HomeRoundedIcon fontSize="small" />}
+        label="Whiskies"
+        icon={<span style={{ fontSize: 18, lineHeight: 1 }}>🥃</span>}
         active={currentPath === "/"}
         onClick={() => goTo("/")}
       />

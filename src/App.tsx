@@ -542,7 +542,7 @@ function AppShell({
         style={{
           maxWidth: 1500,
           margin: "0 auto",
-          paddingTop: "max(68px, calc(env(safe-area-inset-top) + 56px))",
+          paddingTop: "max(68px, calc(env(safe-area-inset-top) * 0.75 + 56px))",
           paddingLeft: 16,
           paddingRight: 16,
           paddingBottom: "calc(80px + env(safe-area-inset-bottom, 16px))",
