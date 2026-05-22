@@ -53,8 +53,6 @@ const AdventCard: React.FC<AdventCardProps> = ({
   const placeholderGradient = isDark
     ? "linear-gradient(145deg, #2a1c0c 0%, #3d2510 55%, #2e1a09 100%)"
     : "linear-gradient(145deg, #eedcbf 0%, #c8945a 55%, #9e6535 100%)";
-  const placeholderIconColor = isDark ? "#c8945a" : "#5c3317";
-
   // Frosted day-number chip — light in light mode, dark in dark mode
   const chipBg  = isDark ? "rgba(0,0,0,0.55)"   : "rgba(255,255,255,0.82)";
   const chipColor = isDark ? "#ffffff"           : "#1a1a1a";

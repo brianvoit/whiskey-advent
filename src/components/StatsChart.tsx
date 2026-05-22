@@ -40,6 +40,19 @@ export type StatsChartProps = {
 const Y_MIN = 1;
 const Y_MAX = 5;
 
+type ChartDatum = {
+  day:           number;
+  min_rating:    number | null;
+  q1_rating:     number | null;
+  median_rating: number | null;
+  q3_rating:     number | null;
+  max_rating:    number | null;
+  avg_rating:    number | null;
+  myRating:      number | null;
+  count:         number;
+  _bar:          number;
+};
+
 // ── Custom box-plot shape ──────────────────────────────────────────────────────
 type BoxPayload = {
   min_rating:    number | null;
@@ -60,7 +73,7 @@ function makeBoxShape(stroke: string, boxFill: string, userDotFill: string) {
       payload: BoxPayload;
     };
 
-    if (!payload || payload.min_rating == null || !background) return <g />;
+    if (!payload || payload.min_rating == null || payload.max_rating == null || !background) return <g />;
 
     const {
       min_rating, q1_rating, median_rating,
@@ -201,7 +214,7 @@ const StatsChart: FC<StatsChartProps> = ({
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
-    const p = payload[0].payload as ReturnType<typeof chartData[0]["valueOf"]> & { min_rating: number | null };
+    const p = payload[0].payload as ChartDatum;
 
     const baseStyle: React.CSSProperties = {
       background:   surfaceColor,
