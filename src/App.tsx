@@ -6,6 +6,7 @@ import {
   Navigate,
   useLocation,
   useNavigate,
+  useParams,
 } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
@@ -17,8 +18,10 @@ import ProfileScreen from "./ProfileScreen";
 import Onboarding from "./Onboarding";
 import AwaitingApproval from "./AwaitingApproval";
 import AdminScreen from "./AdminScreen";
+import AdminUserDetail from "./admin/AdminUserDetail";
 import AppHeader from "./components/AppHeader";
 import BottomNav from "./components/BottomNav";
+import NotificationsDrawer from "./components/NotificationsDrawer";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import InstallBanner from "./components/InstallBanner";
 import { Menu, MenuItem } from "@mui/material";
@@ -54,7 +57,8 @@ function App() {
 
   const isAdmin = profile?.role === "admin";
   const actualCurrentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(actualCurrentYear);
+  const [selectedYear,   setSelectedYear]   = useState(actualCurrentYear);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
 
   const avatarUrl =
     profile?.avatar_url ??
@@ -117,13 +121,33 @@ function App() {
 
   const loadProfile = async (userId: string, oauthSession?: Session | null) => {
     setProfileError(null);
+
+    // Load profile + accessible seasons in parallel
     // select("*") is intentional — tolerates columns added via migrations
     // that haven't been applied yet, rather than hard-failing on a missing field.
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    const [{ data, error }, seasonsRes] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", userId).single(),
+      supabase
+        .from("user_season_access")
+        .select("seasons(year)")
+        .eq("user_id", userId),
+    ]);
+
+    // Build sorted year list (most recent first)
+    const years: number[] = (seasonsRes.data ?? [])
+      .map((row: any) => row.seasons?.year as number | undefined)
+      .filter((y): y is number => y != null)
+      .sort((a, b) => b - a);
+
+    setAvailableYears(years);
+
+    // Default selected year to the user's most recent season,
+    // falling back to the actual calendar year if they have none.
+    if (years.length > 0) {
+      setSelectedYear((prev) =>
+        years.includes(prev) ? prev : years[0]
+      );
+    }
 
     if (error) {
       console.error("Error loading profile", error);
@@ -395,7 +419,7 @@ function App() {
   // ---------------------------------------------------------
   // Logged-in but not yet approved by an admin
   // ---------------------------------------------------------
-  if (profile.approved === false) {
+  if (profile.status !== "active") {
     return (
       <AwaitingApproval
         userEmail={session.user.email ?? ""}
@@ -432,6 +456,7 @@ function App() {
         tastingPrefs={tastingPrefs}
         profile={profile}
         currentYear={selectedYear}
+        availableYears={availableYears}
         avatarUrl={avatarUrl}
         profileType={profileType}
         userEmail={session.user.email ?? ""}
@@ -445,12 +470,53 @@ function App() {
   );
 }
 
+// Renders the right component for /profile/:userId
+// — own profile → ProfileScreen (editable)
+// — another user's profile, viewer is admin → AdminUserDetail (read-only + admin controls)
+// — anything else → redirect home
+function ProfileRouteHandler({
+  currentUserId,
+  isAdmin,
+  profile,
+  userEmail,
+  hasEmailAuth,
+  onProfileUpdated,
+}: {
+  currentUserId: string;
+  isAdmin: boolean;
+  profile: Profile | null;
+  userEmail: string;
+  hasEmailAuth: boolean;
+  onProfileUpdated: (p: Profile) => void;
+}) {
+  const { userId: paramUserId } = useParams<{ userId: string }>();
+
+  if (paramUserId === currentUserId) {
+    return profile ? (
+      <ProfileScreen
+        profile={profile}
+        userId={currentUserId}
+        userEmail={userEmail}
+        hasEmailAuth={hasEmailAuth}
+        onProfileUpdated={onProfileUpdated}
+      />
+    ) : null;
+  }
+
+  if (isAdmin) {
+    return <AdminUserDetail currentUserId={currentUserId} />;
+  }
+
+  return <Navigate to="/" replace />;
+}
+
 type AppShellProps = {
   isAdmin: boolean;
   userId: string;
   tastingPrefs: TastingPrefs;
   profile: Profile | null;
   currentYear: number;
+  availableYears: number[];
   avatarUrl?: string;
   profileType: string;
   userEmail: string;
@@ -467,6 +533,7 @@ function AppShell({
   tastingPrefs,
   profile,
   currentYear,
+  availableYears,
   avatarUrl,
   profileType,
   userEmail,
@@ -479,6 +546,59 @@ function AppShell({
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // ── Notification unread count ────────────────────────────────────────────────
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notificationsOpen,   setNotificationsOpen]   = useState(false);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("read", false);
+      setUnreadNotifications(count ?? 0);
+    };
+
+    void fetchUnread();
+
+    const channel = supabase
+      .channel("notification-count")
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications" }, () => {
+        void fetchUnread();
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, []);
+
+  // ── Pending-user badge count (admins only) ──────────────────────────────────
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending")
+        .eq("is_legacy", false);
+      setPendingCount(count ?? 0);
+    };
+
+    void fetchCount();
+
+    // Live updates — re-fetch whenever any profile row changes
+    const channel = supabase
+      .channel("pending-count")
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        void fetchCount();
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [isAdmin]);
 
   const [yearMenuAnchorEl, setYearMenuAnchorEl] = useState<null | HTMLElement>(null);
   const isYearMenuOpen = Boolean(yearMenuAnchorEl);
@@ -496,7 +616,6 @@ function AppShell({
     setYearMenuAnchorEl(null);
   };
 
-  const availableYears = [2024, 2025, 2026];
 
   const tastingMode = tastingPrefs.mode;
 
@@ -520,6 +639,8 @@ function AppShell({
         currentYear={currentYear}
         profileType={profileType}
         onYearClick={handleYearClick}
+        unreadNotifications={unreadNotifications}
+        onNotificationsClick={() => setNotificationsOpen(true)}
       />
 
       <Menu
@@ -600,18 +721,23 @@ function AppShell({
                 />
               }
             />
+            {/* /profile → redirect to the current user's profile */}
             <Route
               path="/profile"
+              element={<Navigate to={`/profile/${userId}`} replace />}
+            />
+            {/* /profile/:userId — own profile or admin viewing another user */}
+            <Route
+              path="/profile/:userId"
               element={
-                profile && (
-                  <ProfileScreen
-                    profile={profile}
-                    userId={userId}
-                    userEmail={userEmail}
-                    hasEmailAuth={hasEmailAuth}
-                    onProfileUpdated={(updated) => onProfileUpdated(updated)}
-                  />
-                )
+                <ProfileRouteHandler
+                  currentUserId={userId}
+                  isAdmin={isAdmin}
+                  profile={profile}
+                  userEmail={userEmail}
+                  hasEmailAuth={hasEmailAuth}
+                  onProfileUpdated={onProfileUpdated}
+                />
               }
             />
             <Route
@@ -630,11 +756,21 @@ function AppShell({
         <BottomNav
           currentPath={location.pathname}
           onNavigate={goTo}
+          userId={userId}
           avatarUrl={avatarUrl}
           avatarFirstName={firstName}
           avatarLastName={lastName}
           avatarEmail={userEmail}
           isAdmin={isAdmin}
+          pendingCount={pendingCount}
+        />
+
+        {/* Notifications slide-in panel */}
+        <NotificationsDrawer
+          open={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+          onAllRead={() => setUnreadNotifications(0)}
+          userId={userId}
         />
 
         {/* Add-to-home-screen banner (mobile only, dismissed persistently) */}

@@ -3,15 +3,18 @@ import type { ThemeMode } from "../theme";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import Brightness4RoundedIcon from "@mui/icons-material/Brightness4Rounded";
+import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import { useTheme } from "@mui/material/styles";
 
 type AppHeaderProps = {
   currentYear: number;
-  profileType?: string; // e.g., "Purist"
+  profileType?: string;
   onYearClick?: (event: React.MouseEvent<HTMLElement>) => void;
+  unreadNotifications?: number;
+  onNotificationsClick?: () => void;
 };
 
-function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
+function AppHeader({ currentYear, profileType, onYearClick, unreadNotifications = 0, onNotificationsClick }: AppHeaderProps) {
   const { mode, setMode } = useAppTheme();
   const theme = useTheme();
 
@@ -66,7 +69,7 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
         Whiskey Advent
       </h2>
 
-      {/* Right side: Theme icon + mode + year */}
+      {/* Right side: Bell + Theme icon + mode + year */}
       <div
         style={{
           display: "flex",
@@ -74,6 +77,49 @@ function AppHeader({ currentYear, profileType, onYearClick }: AppHeaderProps) {
           gap: 12,
         }}
       >
+        {/* Notification bell */}
+        {onNotificationsClick && (
+          <button
+            type="button"
+            onClick={onNotificationsClick}
+            style={{
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              position: "relative",
+              color: unreadNotifications > 0 ? theme.palette.primary.main : theme.palette.text.secondary,
+            }}
+            aria-label={`Notifications${unreadNotifications > 0 ? ` (${unreadNotifications} unread)` : ""}`}
+          >
+            <NotificationsRoundedIcon fontSize="small" />
+            {unreadNotifications > 0 && (
+              <span style={{
+                position: "absolute",
+                top: -5,
+                right: -6,
+                minWidth: 16,
+                height: 16,
+                borderRadius: 8,
+                background: theme.palette.error.main,
+                color: "#fff",
+                fontSize: "0.6rem",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "0 3px",
+                lineHeight: 1,
+                boxSizing: "border-box",
+              }}>
+                {unreadNotifications > 9 ? "9+" : unreadNotifications}
+              </span>
+            )}
+          </button>
+        )}
+
         <button
           type="button"
           onClick={cycleTheme}

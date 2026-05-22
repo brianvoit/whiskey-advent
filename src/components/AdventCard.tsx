@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
-import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
 import PersonIcon from "@mui/icons-material/Person";
 import GroupIcon from "@mui/icons-material/Group";
 
@@ -161,7 +160,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
                 justifyContent: "center",
               }}
             >
-              <LocalBarRoundedIcon style={{ fontSize: "1.2rem", color: placeholderIconColor, opacity: 0.5 }} />
+              <span style={{ fontSize: "1.2rem", opacity: 0.5, lineHeight: 1 }}>🥃</span>
             </div>
           )}
           {/* Day chip on thumbnail */}
@@ -311,7 +310,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
               justifyContent: "center",
             }}
           >
-            <LocalBarRoundedIcon style={{ fontSize: "2.2rem", color: placeholderIconColor, opacity: 0.45 }} />
+            <span style={{ fontSize: "2.2rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
           </div>
         )}
 

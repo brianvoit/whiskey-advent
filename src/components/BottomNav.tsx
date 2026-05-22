@@ -7,11 +7,13 @@ import UserAvatar from "./UserAvatar";
 type BottomNavProps = {
   currentPath: string;
   onNavigate: (path: string) => void;
+  userId?: string;
   avatarFirstName?: string;
   avatarLastName?: string;
   avatarUrl?: string | null;
   avatarEmail?: string | null;
   isAdmin?: boolean;
+  pendingCount?: number;
 };
 
 type NavItemProps = {
@@ -95,8 +97,9 @@ function NavItem({ label, active, onClick, avatarFirstName, avatarLastName, avat
   );
 }
 
-function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, avatarUrl, avatarEmail, isAdmin }: BottomNavProps) {
+function BottomNav({ currentPath, onNavigate, userId, avatarFirstName, avatarLastName, avatarUrl, avatarEmail, isAdmin, pendingCount = 0 }: BottomNavProps) {
   const theme = useTheme();
+  const profilePath = userId ? `/profile/${userId}` : "/profile";
 
   const goTo = (path: string) => {
     if (currentPath !== path) {
@@ -137,15 +140,41 @@ function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, a
       {isAdmin && (
         <NavItem
           label="Admin"
-          icon={<AdminPanelSettingsRoundedIcon fontSize="small" />}
+          icon={
+            <span style={{ position: "relative", display: "inline-flex" }}>
+              <AdminPanelSettingsRoundedIcon fontSize="small" />
+              {pendingCount > 0 && (
+                <span style={{
+                  position: "absolute",
+                  top: -5,
+                  right: -7,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 8,
+                  background: theme.palette.error.main,
+                  color: "#fff",
+                  fontSize: "0.6rem",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 3px",
+                  lineHeight: 1,
+                  boxSizing: "border-box",
+                }}>
+                  {pendingCount > 9 ? "9+" : pendingCount}
+                </span>
+              )}
+            </span>
+          }
           active={currentPath === "/admin"}
           onClick={() => goTo("/admin")}
         />
       )}
       <NavItem
         label="Profile"
-        active={currentPath === "/profile"}
-        onClick={() => goTo("/profile")}
+        active={currentPath.startsWith("/profile")}
+        onClick={() => goTo(profilePath)}
         avatarFirstName={avatarFirstName}
         avatarLastName={avatarLastName}
         avatarUrl={avatarUrl}

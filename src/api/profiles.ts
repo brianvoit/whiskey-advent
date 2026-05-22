@@ -10,25 +10,29 @@ export type RevealPreferences = {
   see_group_averages_pre_reveal: boolean;
 };
 
+export type ProfileStatus = "pending" | "active" | "previous" | "denied" | "blocked";
+
 export type Profile = {
   id: string;
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
   role: "user" | "admin" | null;
-  approved: boolean;
+  approved: boolean;        // legacy column — keep for RLS compat; source of truth is `status`
+  status: ProfileStatus;
   onboarding_complete: boolean | null;
   reveal_preferences: RevealPreferences | null;
   theme_mode: ThemeMode | null;
   tasting_mode: TastingMode | null;
   notifications_opt_in: boolean | null;
+  comment_notifications_opt_in: boolean | null;
 };
 
 export async function getProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, first_name, last_name, avatar_url, role, approved, onboarding_complete, reveal_preferences, theme_mode, tasting_mode, notifications_opt_in"
+      "id, first_name, last_name, avatar_url, role, approved, status, onboarding_complete, reveal_preferences, theme_mode, tasting_mode, notifications_opt_in, comment_notifications_opt_in"
     )
     .eq("id", userId)
     .single();

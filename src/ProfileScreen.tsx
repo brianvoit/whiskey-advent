@@ -65,6 +65,9 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(
     profile.notifications_opt_in ?? false
   );
+  const [commentNotificationsEnabled, setCommentNotificationsEnabled] = useState<boolean>(
+    profile.comment_notifications_opt_in ?? true
+  );
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
@@ -118,7 +121,8 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
   const initialSeeGroupAverages =
     profile.reveal_preferences?.see_group_averages_pre_reveal ?? true;
   const initialThemeMode = (profile.theme_mode as ThemeMode | null) ?? "system";
-  const initialNotificationsOptIn = profile.notifications_opt_in ?? false;
+  const initialNotificationsOptIn        = profile.notifications_opt_in ?? false;
+  const initialCommentNotificationsOptIn = profile.comment_notifications_opt_in ?? true;
 
   const isDirty =
     firstName !== initialFirstName ||
@@ -126,7 +130,8 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
     seeGroupAverages !== initialSeeGroupAverages ||
     mode !== initialThemeMode ||
     pendingMode !== initialTastingMode ||
-    notificationsEnabled !== initialNotificationsOptIn;
+    notificationsEnabled !== initialNotificationsOptIn ||
+    commentNotificationsEnabled !== initialCommentNotificationsOptIn;
 
   const handleModeSelect = (nextMode: TastingMode) => {
     if (nextMode === pendingMode) return;
@@ -195,10 +200,11 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
         theme_mode: mode,
         tasting_mode: pendingMode,
         notifications_opt_in: notificationsEnabled,
+        comment_notifications_opt_in: commentNotificationsEnabled,
       })
       .eq("id", profile.id)
       .select(
-        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, theme_mode, tasting_mode, notifications_opt_in"
+        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, theme_mode, tasting_mode, notifications_opt_in, comment_notifications_opt_in"
       )
       .single();
 
@@ -324,30 +330,6 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
         </Stack>
       </Paper>
 
-      {/* ── Theme ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
-        <SectionHeader>Theme</SectionHeader>
-        <RadioGroup
-          value={mode}
-          onChange={(e) => setMode(e.target.value as ThemeMode)}
-          sx={{ mt: 1 }}
-        >
-          {THEME_OPTIONS.map(({ value, label, icon }) => (
-            <FormControlLabel
-              key={value}
-              value={value}
-              control={<Radio size="small" />}
-              label={
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
-                  {icon}
-                  <Typography variant="body2">{label}</Typography>
-                </Stack>
-              }
-            />
-          ))}
-        </RadioGroup>
-      </Paper>
-
       {/* ── Tasting mode ── */}
       <Paper variant="outlined" sx={{ p: 3 }}>
         <SectionHeader>Tasting mode</SectionHeader>
@@ -398,6 +380,30 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
         </Typography>
       </Paper>
 
+      {/* ── Theme ── */}
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <SectionHeader>Theme</SectionHeader>
+        <RadioGroup
+          value={mode}
+          onChange={(e) => setMode(e.target.value as ThemeMode)}
+          sx={{ mt: 1 }}
+        >
+          {THEME_OPTIONS.map(({ value, label, icon }) => (
+            <FormControlLabel
+              key={value}
+              value={value}
+              control={<Radio size="small" />}
+              label={
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
+                  {icon}
+                  <Typography variant="body2">{label}</Typography>
+                </Stack>
+              }
+            />
+          ))}
+        </RadioGroup>
+      </Paper>
+
       {/* ── Notifications ── */}
       {notifPermission !== "unsupported" && (
         <Paper variant="outlined" sx={{ p: 3 }}>
@@ -428,6 +434,21 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
               You'll receive a daily reminder during the advent season.
             </Typography>
           )}
+
+          <FormControlLabel
+            sx={{ mt: 1 }}
+            control={
+              <Switch
+                checked={commentNotificationsEnabled}
+                onChange={(e) => setCommentNotificationsEnabled(e.target.checked)}
+              />
+            }
+            label={
+              <Typography variant="body2">
+                Notify me when someone leaves a comment
+              </Typography>
+            }
+          />
         </Paper>
       )}
 

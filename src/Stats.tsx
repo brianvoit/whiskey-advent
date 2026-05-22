@@ -173,7 +173,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
 
       {!loading && !error && !hasStats && (
         <p style={{ fontSize: "0.9rem", color: "#666", marginTop: 8 }}>
-          No stats have been recorded for {currentYear} yet.
+          No whiskey days have been configured for {currentYear} yet.
         </p>
       )}
 
@@ -196,6 +196,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
               revealedMap={revealedMap}
               tastingMode={tastingMode}
               seeGroupAveragesPreReveal={seeGroupAveragesPreReveal}
+              userRatings={userRatings}
             />
           </div>
 

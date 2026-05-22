@@ -1,131 +1,70 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
-  Button,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
+  Divider,
   Paper,
-  Select,
   Stack,
   Typography,
 } from "@mui/material";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
-import LinkRoundedIcon from "@mui/icons-material/LinkRounded";
-import {
-  getAllProfiles,
-  updateProfileRole,
-  approveUser,
-  revokeAccess,
-  mergeLegacyProfile,
-  type AdminProfile,
-} from "../api/admin";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import { getAllProfiles, type AdminProfile } from "../api/admin";
 import UserAvatar from "../components/UserAvatar";
 
 type UserManagerProps = {
   currentUserId: string;
 };
 
-type ConfirmAction =
-  | { kind: "role";    profile: AdminProfile; newRole: "user" | "admin" }
-  | { kind: "approve"; profile: AdminProfile }
-  | { kind: "revoke";  profile: AdminProfile }
-  | { kind: "link";    profile: AdminProfile };
-
 export default function UserManager({ currentUserId }: UserManagerProps) {
   const [profiles, setProfiles] = useState<AdminProfile[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [confirm, setConfirm]   = useState<ConfirmAction | null>(null);
-  const [acting, setActing]     = useState(false);
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  // Selected legacy profile UUID in the link dialog
-  const [selectedLegacyId, setSelectedLegacyId] = useState<string>("");
-
-  const load = async () => {
+  useEffect(() => {
     setLoading(true);
-    try {
-      setProfiles(await getAllProfiles());
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load users.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { void load(); }, []);
-
-  const handleConfirm = async () => {
-    if (!confirm) return;
-    setActing(true);
-    setError(null);
-    try {
-      if (confirm.kind === "approve") {
-        await approveUser(confirm.profile.id);
-        setProfiles((prev) =>
-          prev.map((p) => p.id === confirm.profile.id ? { ...p, approved: true } : p)
-        );
-      } else if (confirm.kind === "revoke") {
-        await revokeAccess(confirm.profile.id);
-        setProfiles((prev) =>
-          prev.map((p) => p.id === confirm.profile.id ? { ...p, approved: false } : p)
-        );
-      } else if (confirm.kind === "role") {
-        await updateProfileRole(confirm.profile.id, confirm.newRole);
-        setProfiles((prev) =>
-          prev.map((p) => p.id === confirm.profile.id ? { ...p, role: confirm.newRole } : p)
-        );
-      } else if (confirm.kind === "link") {
-        if (!selectedLegacyId) return;
-        await mergeLegacyProfile(selectedLegacyId, confirm.profile.id);
-        // Reload — the legacy row is gone and the new row now has legacy data + approved
-        await load();
-      }
-      setConfirm(null);
-      setSelectedLegacyId("");
-    } catch (e: any) {
-      setError(e?.message ?? "Action failed.");
-      setConfirm(null);
-      setSelectedLegacyId("");
-    } finally {
-      setActing(false);
-    }
-  };
+    getAllProfiles()
+      .then(setProfiles)
+      .catch((e: unknown) => setError((e as Error)?.message ?? "Failed to load users."))
+      .finally(() => setLoading(false));
+  }, []);
 
   if (loading) return <CircularProgress size={24} />;
-
-  const pending  = profiles.filter((p) => !p.approved && !p.is_legacy);
-  const approved = profiles.filter((p) =>  p.approved && !p.is_legacy);
-  const legacy   = profiles.filter((p) =>  p.is_legacy);
 
   const displayName = (p: AdminProfile) =>
     p.first_name || p.last_name
       ? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()
       : "Unnamed user";
 
+  const pending  = profiles.filter((p) => p.status === "pending"  && !p.is_legacy);
+  const active   = profiles.filter((p) => p.status === "active");
+  const previous = profiles.filter((p) => p.status === "previous");
+  const denied   = profiles.filter((p) => p.status === "denied");
+  const blocked  = profiles.filter((p) => p.status === "blocked");
+  const legacy   = profiles.filter((p) => p.is_legacy && p.status === "pending");
+
   const renderRow = (profile: AdminProfile, i: number) => {
-    const isAdmin = profile.role === "admin";
     const isSelf  = profile.id === currentUserId;
+    const isAdmin = profile.role === "admin";
 
     return (
       <Box
         key={profile.id}
+        component="button"
+        onClick={() => navigate(`/profile/${profile.id}`)}
         sx={{
-          display: "flex",
-          alignItems: "center",
-          gap: 2,
-          px: 2,
-          py: 1.5,
+          display: "flex", alignItems: "center", gap: 2,
+          px: 2, py: 1.5, width: "100%", textAlign: "left",
+          border: "none", background: "transparent", cursor: "pointer",
           borderTop: i === 0 ? "none" : "1px solid",
           borderColor: "divider",
+          "&:hover": { bgcolor: "action.hover" },
+          transition: "background-color 0.1s",
         }}
       >
         <UserAvatar
@@ -144,132 +83,107 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
               <Typography variant="caption" color="text.secondary">(you)</Typography>
             )}
             {isAdmin && (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <AdminPanelSettingsIcon sx={{ fontSize: 14, color: "primary.main" }} />
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                <AdminPanelSettingsIcon sx={{ fontSize: 13, color: "primary.main" }} />
                 <Typography variant="caption" color="primary.main" fontWeight={600}>Admin</Typography>
               </Box>
             )}
-            {!profile.approved && (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <HourglassTopRoundedIcon sx={{ fontSize: 14, color: "warning.main" }} />
+            {profile.status === "pending" && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                <HourglassTopRoundedIcon sx={{ fontSize: 13, color: "warning.main" }} />
                 <Typography variant="caption" color="warning.main">Pending</Typography>
               </Box>
             )}
           </Box>
         </Box>
 
-        <Stack direction="row" spacing={1} flexShrink={0}>
-          {!profile.approved ? (
-            <>
-              {legacy.length > 0 && (
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<LinkRoundedIcon />}
-                  onClick={() => {
-                    setSelectedLegacyId("");
-                    setConfirm({ kind: "link", profile });
-                  }}
-                >
-                  Link legacy
-                </Button>
-              )}
-              <Button
-                size="small"
-                variant="contained"
-                color="success"
-                onClick={() => setConfirm({ kind: "approve", profile })}
-              >
-                Approve
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                size="small"
-                variant={isAdmin ? "outlined" : "contained"}
-                color={isAdmin ? "error" : "primary"}
-                disabled={isSelf}
-                onClick={() => setConfirm({ kind: "role", profile, newRole: isAdmin ? "user" : "admin" })}
-              >
-                {isAdmin ? "Remove admin" : "Make admin"}
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                disabled={isSelf}
-                onClick={() => setConfirm({ kind: "revoke", profile })}
-              >
-                Revoke
-              </Button>
-            </>
-          )}
-        </Stack>
+        <ChevronRightRoundedIcon sx={{ color: "text.disabled", fontSize: 20, flexShrink: 0 }} />
       </Box>
     );
   };
 
+  const SectionHeader = ({
+    label, count, color,
+  }: { label: string; count: number; color?: "warning" | "error" | "default" | "success" }) => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+      <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+        {label}
+      </Typography>
+      <Chip label={count} size="small" color={color ?? "default"} />
+    </Box>
+  );
+
   return (
     <Stack spacing={3}>
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
-      {/* Pending section */}
       {pending.length > 0 && (
         <Stack spacing={1}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="subtitle2" fontWeight={700}>Pending Approval</Typography>
-            <Chip label={pending.length} size="small" color="warning" />
-          </Box>
-          <Paper variant="outlined">
+          <SectionHeader label="Pending Approval" count={pending.length} color="warning" />
+          <Paper variant="outlined" sx={{ overflow: "hidden" }}>
             {pending.map((p, i) => renderRow(p, i))}
           </Paper>
         </Stack>
       )}
 
-      {/* Approved users */}
       <Stack spacing={1}>
-        <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
-          Approved Users
-        </Typography>
-        {approved.length === 0 ? (
-          <Typography color="text.secondary">No approved users.</Typography>
-        ) : (
-          <Paper variant="outlined">
-            {approved.map((p, i) => renderRow(p, i))}
-          </Paper>
-        )}
+        <SectionHeader label="Active Users" count={active.length} color="success" />
+        {active.length === 0
+          ? <Typography variant="body2" color="text.secondary">No active users.</Typography>
+          : <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+              {active.map((p, i) => renderRow(p, i))}
+            </Paper>
+        }
       </Stack>
 
-      {/* Legacy profiles (unlinked) */}
+      {(previous.length > 0 || denied.length > 0 || blocked.length > 0) && (
+        <Divider />
+      )}
+
+      {previous.length > 0 && (
+        <Stack spacing={1}>
+          <SectionHeader label="Previous Users" count={previous.length} />
+          <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+            {previous.map((p, i) => renderRow(p, i))}
+          </Paper>
+        </Stack>
+      )}
+
+      {denied.length > 0 && (
+        <Stack spacing={1}>
+          <SectionHeader label="Denied" count={denied.length} />
+          <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+            {denied.map((p, i) => renderRow(p, i))}
+          </Paper>
+        </Stack>
+      )}
+
+      {blocked.length > 0 && (
+        <Stack spacing={1}>
+          <SectionHeader label="Blocked" count={blocked.length} color="error" />
+          <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+            {blocked.map((p, i) => renderRow(p, i))}
+          </Paper>
+        </Stack>
+      )}
+
       {legacy.length > 0 && (
         <Stack spacing={1}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
-              Legacy Profiles
-            </Typography>
-            <Chip label={legacy.length} size="small" color="default" />
-          </Box>
-          <Paper variant="outlined">
+          <SectionHeader label="Legacy Profiles" count={legacy.length} />
+          <Paper variant="outlined" sx={{ overflow: "hidden" }}>
             {legacy.map((p, i) => (
               <Box
                 key={p.id}
                 sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  px: 2,
-                  py: 1.5,
+                  display: "flex", alignItems: "center", gap: 2,
+                  px: 2, py: 1.5, opacity: 0.6,
                   borderTop: i === 0 ? "none" : "1px solid",
                   borderColor: "divider",
-                  opacity: 0.65,
                 }}
               >
                 <UserAvatar
-                  firstName={p.first_name}
-                  lastName={p.last_name}
-                  avatarUrl={p.avatar_url}
-                  size="sm"
+                  firstName={p.first_name} lastName={p.last_name}
+                  avatarUrl={p.avatar_url} size="sm"
                 />
                 <Typography variant="body2" fontWeight={600} sx={{ flex: 1 }}>
                   {displayName(p)}
@@ -283,79 +197,6 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
         </Stack>
       )}
 
-      {/* Confirm dialog */}
-      <Dialog
-        open={Boolean(confirm)}
-        onClose={() => { setConfirm(null); setSelectedLegacyId(""); }}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>
-          {confirm?.kind === "approve" && "Approve user?"}
-          {confirm?.kind === "revoke"  && "Revoke access?"}
-          {confirm?.kind === "link"    && "Link to legacy profile"}
-          {confirm?.kind === "role" && (
-            confirm.newRole === "admin" ? "Promote to admin?" : "Remove admin role?"
-          )}
-        </DialogTitle>
-
-        <DialogContent>
-          {confirm?.kind === "link" ? (
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <Typography variant="body2">
-                Select the legacy profile that belongs to{" "}
-                <strong>{displayName(confirm.profile)}</strong>. Their historical
-                tasting data will be merged into their account and they'll be
-                automatically approved.
-              </Typography>
-              <FormControl fullWidth size="small">
-                <InputLabel>Legacy profile</InputLabel>
-                <Select
-                  value={selectedLegacyId}
-                  label="Legacy profile"
-                  onChange={(e) => setSelectedLegacyId(e.target.value)}
-                >
-                  {legacy.map((p) => (
-                    <MenuItem key={p.id} value={p.id}>
-                      {displayName(p)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Stack>
-          ) : (
-            <Typography variant="body2">
-              {confirm?.kind === "approve" &&
-                `${displayName(confirm.profile)} will gain full access to the app.`}
-              {confirm?.kind === "revoke" &&
-                `${displayName(confirm.profile)} will immediately lose access.`}
-              {confirm?.kind === "role" && confirm.newRole === "admin" &&
-                `${displayName(confirm.profile)} will gain full admin access.`}
-              {confirm?.kind === "role" && confirm.newRole === "user" &&
-                `${displayName(confirm.profile)} will lose admin access.`}
-            </Typography>
-          )}
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={() => { setConfirm(null); setSelectedLegacyId(""); }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color={
-              confirm?.kind === "revoke" ? "error" :
-              confirm?.kind === "role" && confirm.newRole === "user" ? "error" :
-              "primary"
-            }
-            onClick={handleConfirm}
-            disabled={acting || (confirm?.kind === "link" && !selectedLegacyId)}
-          >
-            {acting ? "Saving…" :
-              confirm?.kind === "link" ? "Link & Approve" : "Confirm"}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Stack>
   );
 }
