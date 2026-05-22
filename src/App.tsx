@@ -690,11 +690,7 @@ function AppShell({
               path="/year/:year/day/:dayNumber"
               element={
                 <DayDetail
-                  isAdmin={isAdmin}
                   userId={userId}
-                  avatarUrl={avatarUrl}
-                  firstName={firstName}
-                  lastName={lastName}
                 />
               }
             />

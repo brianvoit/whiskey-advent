@@ -407,48 +407,42 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
       {/* ── Notifications ── */}
       {notifPermission !== "unsupported" && (
         <Paper variant="outlined" sx={{ p: 3 }}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
             <NotificationsRoundedIcon fontSize="small" color="action" />
             <SectionHeader>Notifications</SectionHeader>
           </Stack>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={notificationsEnabled}
-                onChange={(e) => handleNotificationToggle(e.target.checked)}
-              />
-            }
-            label={
-              <Typography variant="body2">
-                Remind me each day in December to taste
-              </Typography>
-            }
-          />
           {notifPermission === "denied" && (
-            <Typography variant="body2" color="warning.main" sx={{ mt: 1 }}>
+            <Typography variant="body2" color="warning.main" sx={{ mb: 1.5 }}>
               Notifications are blocked. Enable them in your browser or device settings.
             </Typography>
           )}
-          {notifPermission === "granted" && notificationsEnabled && (
-            <Typography variant="body2" color="text.disabled" sx={{ mt: 1, fontSize: "0.78rem" }}>
-              You'll receive a daily reminder during the advent season.
-            </Typography>
-          )}
-
-          <FormControlLabel
-            sx={{ mt: 1 }}
-            control={
+          <Stack spacing={1.5}>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
+              <Switch
+                checked={notificationsEnabled}
+                onChange={(e) => handleNotificationToggle(e.target.checked)}
+                size="small"
+              />
+              <Typography variant="body2">
+                Remind me each day in December to taste
+              </Typography>
+            </Stack>
+            <Stack direction="row" alignItems="center" spacing={1.5}>
               <Switch
                 checked={commentNotificationsEnabled}
                 onChange={(e) => setCommentNotificationsEnabled(e.target.checked)}
+                size="small"
               />
-            }
-            label={
               <Typography variant="body2">
                 Notify me when someone leaves a comment
               </Typography>
-            }
-          />
+            </Stack>
+          </Stack>
+          {notifPermission === "granted" && notificationsEnabled && (
+            <Typography variant="body2" color="text.disabled" sx={{ mt: 1.5, fontSize: "0.78rem" }}>
+              You'll receive a daily reminder during the advent season.
+            </Typography>
+          )}
         </Paper>
       )}
 

@@ -6,6 +6,9 @@ import { supabase } from "./supabaseClient";
 import { getWhiskeysForSeason, type Season } from "./api/whiskeys";
 import { getSeasonStats } from "./api/stats";
 import AdventCard from "./components/AdventCard";
+import StreakPill from "./components/StreakPill";
+import { calculateStreak } from "./utils/streak";
+import FireplaceRoundedIcon from "@mui/icons-material/FireplaceRounded";
 
 type WhiskeyDay = {
   id: number;
@@ -156,6 +159,11 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
     fetchReveals();
   }, [whiskeyDays, userId]);
 
+  const isActiveDecember = seasonYear === todayYear && currentMonth === 11;
+  const streak = isActiveDecember
+    ? calculateStreak(ratingsMap, whiskeyDays, currentDayOfMonth)
+    : 0;
+
   if (loading) {
     return <div>Loading calendar…</div>;
   }
@@ -170,6 +178,11 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
 
   return (
     <div style={{ width: "100%" }}>
+      {isActiveDecember && streak > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: isMobile ? 8 : 16, paddingBottom: 4 }}>
+          <StreakPill streak={streak} />
+        </div>
+      )}
       <div
         className="calendar-grid"
         style={{
@@ -196,9 +209,10 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
             currentMonth === 11 &&
             currentDayOfMonth === day.day_number;
 
-          // For Purist (non-admin) in current/future seasons, hide details until the day is revealed.
+          // For Purist mode in current/future seasons, hide details until the day is revealed.
+          // Applies to all users including admins — admin role controls access, not spoiler protection.
           let hideDetails = false;
-          if (!isAdmin && !seasonIsPast && isPurist) {
+          if (!seasonIsPast && isPurist) {
             if (isFutureDay) {
               hideDetails = true;
             } else if (!revealedMap.get(day.id)) {
@@ -214,8 +228,8 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
             [day.region, day.country].filter(Boolean).join(", ") || null;
           const typeText = day.type ?? null;
 
-          const headline = hideDetails ? null : day.name ?? null;
-          const subhead = hideDetails ? null : day.distillery ?? null;
+          const headline = day.name ?? null;
+          const subhead = day.distillery ?? null;
 
           return (
             <AdventCard
@@ -232,6 +246,7 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
               isDisabled={isDisabled}
               showOverlay={showOverlay}
               hideDetails={hideDetails}
+              isFutureDay={isFutureDay}
               compact={isMobile}
               onClick={
                 isDisabled
@@ -242,6 +257,17 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
             />
           );
         })}
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 40, marginBottom: 8 }}>
+        <a
+          href="https://www.youtube.com/watch?v=LS-ErOKpO4E"
+          target="_blank"
+          rel="noreferrer"
+          style={{ color: "inherit", opacity: 0.18, display: "inline-flex", lineHeight: 1 }}
+          aria-label="Yule log"
+        >
+          <FireplaceRoundedIcon style={{ fontSize: "1.1rem" }} />
+        </a>
       </div>
     </div>
   );

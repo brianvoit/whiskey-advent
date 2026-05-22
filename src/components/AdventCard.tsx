@@ -21,6 +21,7 @@ type AdventCardProps = {
   isDisabled: boolean; // future day lock / disabled state
   showOverlay: boolean; // semi-transparent lock overlay for future days
   hideDetails: boolean; // whether name / distiller / rating should be hidden based on mode
+  isFutureDay?: boolean; // true when the day hasn't arrived yet — blurs the action button too
   compact?: boolean;    // compact row layout for mobile
   onClick?: () => void;
 };
@@ -38,6 +39,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
   isDisabled,
   showOverlay,
   hideDetails,
+  isFutureDay = false,
   compact = false,
   onClick,
 }) => {
@@ -72,8 +74,6 @@ const AdventCard: React.FC<AdventCardProps> = ({
     averageRating !== null &&
     !Number.isNaN(averageRating);
 
-  const showRatingsRow =
-    !hideDetails && (hasUserRating || hasAverageRating);
 
   const userRatingText =
     hasUserRating && userRating !== null ? userRating.toFixed(1) : "—";
@@ -85,18 +85,8 @@ const AdventCard: React.FC<AdventCardProps> = ({
 
   const actionLabel = hasUserRating ? "View" : "Rate";
 
-  // When details are hidden for current days, show lock glyphs in place of text.
-  const displayHeadline = hideDetails
-    ? "🔒"
-    : headline && headline.trim().length > 0
-    ? headline
-    : "";
-
-  const displaySubhead = hideDetails
-    ? ""
-    : subhead && subhead.trim().length > 0
-    ? subhead
-    : "";
+  const displayHeadline = headline && headline.trim().length > 0 ? headline : "";
+  const displaySubhead = subhead && subhead.trim().length > 0 ? subhead : "";
 
   const showImage = Boolean(imageUrl && !imgError);
 
@@ -144,7 +134,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
             <img
               src={imageUrl!}
               alt={hideDetails ? "Hidden whiskey" : headline ?? "Whiskey"}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", ...(hideDetails ? { filter: "blur(8px)", transform: "scale(1.05)" } : {}) }}
               onError={() => setImgError(true)}
             />
           ) : (
@@ -156,6 +146,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                ...(hideDetails ? { filter: "blur(8px)", transform: "scale(1.05)" } : {}),
               }}
             >
               <span style={{ fontSize: "1.2rem", opacity: 0.5, lineHeight: 1 }}>🥃</span>
@@ -183,7 +174,14 @@ const AdventCard: React.FC<AdventCardProps> = ({
         </div>
 
         {/* Name + distillery */}
-        <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: "hidden",
+            ...(hideDetails ? { filter: "blur(5px)", userSelect: "none", pointerEvents: "none" } : {}),
+          }}
+        >
           <div
             style={{
               fontWeight: 600,
@@ -195,9 +193,9 @@ const AdventCard: React.FC<AdventCardProps> = ({
               marginBottom: 2,
             }}
           >
-            {hideDetails ? "🔒 Hidden" : (headline || `Day ${dayNumber}`)}
+            {headline || `Day ${dayNumber}`}
           </div>
-          {!hideDetails && subhead && (
+          {subhead && (
             <div
               style={{
                 fontSize: "0.78rem",
@@ -212,34 +210,33 @@ const AdventCard: React.FC<AdventCardProps> = ({
           )}
         </div>
 
-        {/* Ratings column — only shown if there's at least one rating to display */}
-        {!hideDetails && (hasUserRating || hasAverageRating) && (
-          <div
-            style={{
-              flexShrink: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              gap: 2,
-              fontSize: "0.75rem",
-              fontVariantNumeric: "tabular-nums",
-              color: theme.palette.text.secondary,
-            }}
-          >
-            {hasUserRating && (
-              <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                <PersonIcon style={{ fontSize: "0.85rem" }} />
-                <span>{userRatingText}</span>
-              </div>
-            )}
-            {hasAverageRating && (
-              <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                <GroupIcon style={{ fontSize: "0.85rem" }} />
-                <span>{avgRatingText}</span>
-              </div>
-            )}
+        {/* Ratings column */}
+        <div
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            gap: 2,
+            fontSize: "0.75rem",
+            fontVariantNumeric: "tabular-nums",
+            color: theme.palette.text.secondary,
+            ...(hideDetails && isFutureDay ? { filter: "blur(5px)", userSelect: "none", pointerEvents: "none" } : {}),
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <PersonIcon style={{ fontSize: "0.85rem", opacity: hasUserRating ? 0.9 : 0.4 }} />
+            <span style={hideDetails && hasUserRating ? { filter: "blur(4px)", userSelect: "none" } : undefined}>
+              {userRatingText}
+            </span>
           </div>
-        )}
+          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            <GroupIcon style={{ fontSize: "0.85rem", opacity: hasAverageRating ? 0.9 : 0.4 }} />
+            <span style={hideDetails && hasAverageRating ? { filter: "blur(4px)", userSelect: "none" } : undefined}>
+              {avgRatingText}
+            </span>
+          </div>
+        </div>
 
         {/* Future-day overlay */}
         {showOverlay && (
@@ -294,7 +291,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
           <img
             src={imageUrl!}
             alt={hideDetails ? "Hidden whiskey" : headline ?? "Whiskey"}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", ...(hideDetails ? { filter: "blur(8px)", transform: "scale(1.05)" } : {}) }}
             onError={() => setImgError(true)}
           />
         ) : (
@@ -306,6 +303,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              ...(hideDetails ? { filter: "blur(8px)", transform: "scale(1.05)" } : {}),
             }}
           >
             <span style={{ fontSize: "2.2rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
@@ -349,6 +347,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
             style={{
               minHeight: 0,
               overflow: "hidden",
+              ...(hideDetails ? { filter: "blur(5px)", userSelect: "none", pointerEvents: "none" } : {}),
             }}
           >
             {displayHeadline ? (
@@ -363,7 +362,6 @@ const AdventCard: React.FC<AdventCardProps> = ({
                   WebkitBoxOrient: "vertical",
                   WebkitLineClamp: 2,
                   lineHeight: 1.25,
-                  
                   textOverflow: "ellipsis",
                 }}
               >
@@ -392,69 +390,47 @@ const AdventCard: React.FC<AdventCardProps> = ({
               alignItems: "center",
               justifyContent: "space-between",
               marginTop: 6,
+              ...(hideDetails && isFutureDay ? { filter: "blur(5px)", userSelect: "none", pointerEvents: "none" } : {}),
             }}
           >
             {/* Rating row (bottom-left) */}
-            {!hideDetails && (
-              showRatingsRow ? (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: "0.75rem",
-                    color: theme.palette.text.secondary,
-                  }}
-                >
-                  {/* User rating */}
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 2,
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    <PersonIcon
-                      style={{
-                        fontSize: "1rem",
-                        opacity: hasUserRating ? 0.9 : 0.4,
-                      }}
-                    />
-                    <span>{userRatingText}</span>
-                  </div>
-
-                  <span>|</span>
-
-                  {/* Group average rating */}
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 2,
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    <GroupIcon
-                      style={{
-                        fontSize: "1rem",
-                        opacity: hasAverageRating ? 0.9 : 0.4,
-                      }}
-                    />
-                    <span>{avgRatingText}</span>
-                  </div>
-                </div>
-              ) : (
-                <Typography
-                  variant="caption"
-                  style={{
-                    color: theme.palette.text.secondary,
-                  }}
-                >
-                  no ratings
-                </Typography>
-              )
-            )}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: "0.75rem",
+                color: theme.palette.text.secondary,
+              }}
+            >
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 2,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <PersonIcon style={{ fontSize: "1rem", opacity: hasUserRating ? 0.9 : 0.4 }} />
+                <span style={hideDetails && hasUserRating ? { filter: "blur(4px)", userSelect: "none" } : undefined}>
+                  {userRatingText}
+                </span>
+              </div>
+              <span>|</span>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 2,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <GroupIcon style={{ fontSize: "1rem", opacity: hasAverageRating ? 0.9 : 0.4 }} />
+                <span style={hideDetails && hasAverageRating ? { filter: "blur(4px)", userSelect: "none" } : undefined}>
+                  {avgRatingText}
+                </span>
+              </div>
+            </div>
 
             {/* Action "button" (bottom-right) */}
             <div

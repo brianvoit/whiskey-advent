@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import StreakPill from "./components/StreakPill";
+import { useStreak } from "./hooks/useStreak";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -82,6 +84,7 @@ function getFullNameFromTasting(t: WhiskeyTastingDetail): string {
 
 
 function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, lastName }: WhiskeyDetailProps) {
+  const { streak } = useStreak(userId);
   const { whiskeyDayId } = useParams<WhiskeyDetailRouteParams>();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -495,27 +498,29 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
 
   return (
     <div style={centeredStyle}>
-      {/* Back button, styled to match DayDetail intent */}
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          marginBottom: 12,
-          border: "none",
-          background: "none",
-          padding: 0,
-          cursor: "pointer",
-          color: theme.palette.primary.main,
-          font: "inherit",
-          fontWeight: 500,
-        }}
-      >
-        <ArrowBackIcon fontSize="small" />
-        <span>Back</span>
-      </button>
+      {/* Back button + streak pill row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            border: "none",
+            background: "none",
+            padding: 0,
+            cursor: "pointer",
+            color: theme.palette.primary.main,
+            font: "inherit",
+            fontWeight: 500,
+          }}
+        >
+          <ArrowBackIcon fontSize="small" />
+          <span>Back</span>
+        </button>
+        {streak > 0 && <StreakPill streak={streak} />}
+      </div>
 
       {/* Masthead / cover row */}
       <div

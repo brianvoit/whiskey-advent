@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getSeasonByYear, getWhiskeysForSeason } from "./api/whiskeys";
 import {
@@ -15,7 +15,6 @@ import Snackbar from "@mui/material/Snackbar";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import { useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
 import Typography from "@mui/material/Typography";
 import Slider from "@mui/material/Slider";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
@@ -27,8 +26,11 @@ import WaterDropRoundedIcon from "@mui/icons-material/WaterDropRounded";
 import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
 import ParkRoundedIcon from "@mui/icons-material/ParkRounded";
 import FitnessCenterRoundedIcon from "@mui/icons-material/FitnessCenterRounded";
-import CommentsSection from "./components/CommentsSection";
 import FlavorTagPicker from "./components/FlavorTagPicker";
+import CelebrationOverlay, { type CelebrationType } from "./components/CelebrationOverlay";
+import StreakPill from "./components/StreakPill";
+import { calculateStreak, getStreakMilestone } from "./utils/streak";
+import { useStreak } from "./hooks/useStreak";
 
 type WhiskeyDay = {
   id: number;
@@ -47,11 +49,7 @@ type WhiskeyDay = {
 };
 
 type DayDetailProps = {
-  isAdmin: boolean;
   userId: string;
-  avatarUrl?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
 };
 
 // Simple star rating component with 0.5 increments (1–5)
@@ -130,9 +128,8 @@ function StarRating({ value, onChange }: StarRatingProps) {
   );
 }
 
-function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetailProps) {
+function DayDetail({ userId }: DayDetailProps) {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const { year, dayNumber } = useParams();
   const navigate = useNavigate();
@@ -149,11 +146,6 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
     useState<TastingSliderValues>(defaultTastingSliders);
 
   const [tastingMode, setTastingMode] = useState<TastingMode>("purist");
-  const [currentUserProfile, setCurrentUserProfile] = useState<{
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-  } | null>(null);
 
   const [tags, setTags] = useState<string[]>([]);
 
@@ -161,6 +153,12 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
   const [saveMessage, setSaveMessage] = useState("");
   const [isDirty, setIsDirty] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [celebration, setCelebration] = useState<CelebrationType | null>(null);
+  const celebratedMilestones = useRef<Set<number>>(new Set());
+  const hasCelebrationRef = useRef(false);
+  const { streak, refetch: refetchStreak } = useStreak(userId);
+  const prevStreakRef = useRef(streak);
+  const [streakAnimKey, setStreakAnimKey] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -176,7 +174,7 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
       // Load the user's profile to get tasting mode
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("tasting_mode, reveal_preferences, first_name, last_name, avatar_url")
+        .select("tasting_mode, reveal_preferences")
         .eq("id", userId)
         .maybeSingle();
 
@@ -187,14 +185,6 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
       if (profile) {
         const mode = (profile.tasting_mode as TastingMode | null) ?? "purist";
         setTastingMode(mode);
-
-        // Fall back to OAuth-resolved values passed from App.tsx when the
-        // profiles table avatar_url is null (common for Google OAuth users).
-        setCurrentUserProfile({
-          first_name: profile.first_name ?? firstName ?? null,
-          last_name: profile.last_name ?? lastName ?? null,
-          avatar_url: profile.avatar_url ?? avatarUrl ?? null,
-        });
       }
 
       const season = await getSeasonByYear(seasonYear);
@@ -247,6 +237,24 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
     void load();
   }, [year, dayNumber, userId]);
 
+  const handleReset = async () => {
+    if (!whiskey) return;
+    setRating(null);
+    setNotes("");
+    setTastingSliders(defaultTastingSliders);
+    setTags([]);
+    setIsDirty(false);
+    await saveTasting({
+      userId,
+      whiskeyDayId: whiskey.id,
+      rating: null,
+      notes: "",
+      revealed,
+      tastingSliders: defaultTastingSliders,
+      tags: [],
+    });
+  };
+
   const handleSave = async () => {
     if (!whiskey) return;
 
@@ -280,13 +288,63 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
     setSaving(false);
 
     if (result.success) {
-      setSaveMessage("Saved!");
       setIsDirty(false);
+      hasCelebrationRef.current = false;
+      await checkCelebration(rating);
+      if (!hasCelebrationRef.current) {
+        navigate(`/whiskey/${whiskey.id}`);
+      }
     } else {
       setSaveMessage("Error saving tasting");
+      setSnackbarOpen(true);
+    }
+  };
+
+  const checkCelebration = async (savedRating: number | null) => {
+    if (!seasonId || !whiskey) return;
+
+    // Perfect score can fire any time, regardless of month
+    if (savedRating === 5) {
+      hasCelebrationRef.current = true;
+      setCelebration("perfect_score");
+      return;
     }
 
-    setSnackbarOpen(true);
+    // Streak and season-end celebrations only apply during active December
+    const now = new Date();
+    if (now.getMonth() !== 11) return;
+
+    const allDays = await getWhiskeysForSeason(seasonId) as { id: number; day_number: number }[];
+    const allDayIds = allDays.map((d) => d.id);
+
+    const { data: tastings } = await supabase
+      .from("tastings")
+      .select("whiskey_day_id, rating")
+      .eq("user_id", userId)
+      .in("whiskey_day_id", allDayIds);
+
+    const newRatingsMap = new Map<number, number | null>();
+    for (const t of tastings ?? []) {
+      if (t.rating !== null) newRatingsMap.set(t.whiskey_day_id, t.rating as number);
+    }
+
+    const newStreak = calculateStreak(newRatingsMap, allDays, now.getDate());
+
+    if (newStreak > prevStreakRef.current) {
+      prevStreakRef.current = newStreak;
+      setStreakAnimKey((k) => k + 1);
+      await refetchStreak();
+    }
+
+    const milestone = getStreakMilestone(newStreak);
+    if (milestone && !celebratedMilestones.current.has(milestone)) {
+      celebratedMilestones.current.add(milestone);
+      hasCelebrationRef.current = true;
+      setCelebration(`streak_${milestone}` as CelebrationType);
+    } else if (newRatingsMap.size === allDays.length) {
+      hasCelebrationRef.current = true;
+      setCelebration("season_end");
+    }
   };
 
   const handleReveal = async () => {
@@ -346,19 +404,8 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
     );
   }
 
-  const isPurist = tastingMode === "purist";
   const isExplorer = tastingMode === "explorer";
   const isRelaxed = tastingMode === "relaxed";
-
-  const hasUserRating = rating !== null;
-  const seasonYear = year ? parseInt(year, 10) : null;
-  const currentYear = new Date().getFullYear();
-  const isPastSeason = seasonYear !== null && seasonYear < currentYear;
-
-  const canSeeComments =
-    isRelaxed ||
-    isPastSeason ||
-    (hasUserRating && (isPurist || isExplorer));
 
   // Visibility rules:
   // - Purist: nothing until reveal
@@ -601,6 +648,13 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
           marginRight: "auto",
         }}
       >
+        {/* Streak pill — only shown in active December */}
+        {streak > 0 && (
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+            <StreakPill streak={streak} animKey={streakAnimKey} />
+          </div>
+        )}
+
         {/* Star rating block */}
         <StarRating
           value={rating}
@@ -769,6 +823,27 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
             {saving ? "Saving..." : "Save"}
           </button>
 
+          <button
+            type="button"
+            onClick={handleReset}
+            disabled={rating === null && notes === "" && tags.length === 0}
+            style={{
+              border: "none",
+              background: "none",
+              padding: "4px 8px",
+              margin: 0,
+              cursor: rating === null && notes === "" && tags.length === 0 ? "default" : "pointer",
+              color: rating === null && notes === "" && tags.length === 0
+                ? theme.palette.text.disabled
+                : theme.palette.text.secondary,
+              font: "inherit",
+              fontSize: "0.85rem",
+              fontWeight: 400,
+            }}
+          >
+            Reset
+          </button>
+
           {!revealed && (
             <button
               type="button"
@@ -789,25 +864,6 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
           )}
         </div>
       </div>
-      {seasonId !== null && canSeeComments && (
-        <div style={isMobile ? undefined : { maxWidth: "66.67%", marginLeft: "auto", marginRight: "auto" }}>
-          <CommentsSection
-            seasonId={seasonId}
-            whiskeyDayId={whiskey.id}
-            userId={userId}
-            isAdmin={isAdmin}
-            currentUser={
-              currentUserProfile
-                ? {
-                    first_name: currentUserProfile.first_name,
-                    last_name: currentUserProfile.last_name,
-                    avatar_url: currentUserProfile.avatar_url,
-                  }
-                : undefined
-            }
-          />
-        </div>
-      )}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={3000}
@@ -818,6 +874,16 @@ function DayDetail({ isAdmin, userId, avatarUrl, firstName, lastName }: DayDetai
         message={saveMessage || "Saved"}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
+
+      {celebration && whiskey && (
+        <CelebrationOverlay
+          type={celebration}
+          onDismiss={() => {
+            setCelebration(null);
+            navigate(`/whiskey/${whiskey.id}`);
+          }}
+        />
+      )}
     </div>
   );
 }
