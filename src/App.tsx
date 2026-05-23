@@ -24,6 +24,7 @@ import TasterDetail from "./TasterDetail";
 import AppHeader from "./components/AppHeader";
 import BottomNav from "./components/BottomNav";
 import NotificationsDrawer from "./components/NotificationsDrawer";
+import SearchDrawer from "./components/SearchDrawer";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import InstallBanner from "./components/InstallBanner";
 import { Menu, MenuItem } from "@mui/material";
@@ -80,11 +81,6 @@ function App() {
     see_group_averages_pre_reveal:
       profile?.reveal_preferences?.see_group_averages_pre_reveal ?? false,
   };
-
-  const profileType =
-    effectiveMode === "purist" ? "Purist" :
-    effectiveMode === "explorer" ? "Explorer" :
-    effectiveMode === "relaxed" ? "Relaxed" : "";
 
   // ---------------------------------------------------------
   // Auth + profile loading
@@ -460,7 +456,6 @@ function App() {
         currentYear={selectedYear}
         availableYears={availableYears}
         avatarUrl={avatarUrl}
-        profileType={profileType}
         userEmail={session.user.email ?? ""}
         hasEmailAuth={hasEmailAuth}
         onProfileUpdated={(updated) => setProfile(updated)}
@@ -520,7 +515,6 @@ type AppShellProps = {
   currentYear: number;
   availableYears: number[];
   avatarUrl?: string;
-  profileType: string;
   userEmail: string;
   hasEmailAuth: boolean;
   onProfileUpdated: (profile: Profile) => void;
@@ -537,7 +531,6 @@ function AppShell({
   currentYear,
   availableYears,
   avatarUrl,
-  profileType,
   userEmail,
   hasEmailAuth,
   onProfileUpdated,
@@ -548,6 +541,9 @@ function AppShell({
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // ── Search drawer ────────────────────────────────────────────────────────────
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // ── Notification unread count ────────────────────────────────────────────────
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -639,10 +635,10 @@ function AppShell({
       {/* Top header + year menu */}
       <AppHeader
         currentYear={currentYear}
-        profileType={profileType}
         onYearClick={handleYearClick}
         unreadNotifications={unreadNotifications}
         onNotificationsClick={() => setNotificationsOpen(true)}
+        onSearchClick={() => setSearchOpen(true)}
       />
 
       <Menu
@@ -787,6 +783,15 @@ function AppShell({
           onClose={() => setNotificationsOpen(false)}
           onAllRead={() => setUnreadNotifications(0)}
           userId={userId}
+        />
+
+        {/* Search overlay */}
+        <SearchDrawer
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          userId={userId}
+          availableYears={availableYears}
+          tastingMode={tastingPrefs.mode}
         />
 
         {/* Add-to-home-screen banner (mobile only, dismissed persistently) */}
