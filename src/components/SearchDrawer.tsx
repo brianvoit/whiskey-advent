@@ -167,8 +167,19 @@ export default function SearchDrawer({
     [index]
   );
 
-  // Scored + sorted results
+  // Whether the user has entered any search input at all
+  const hasInput =
+    query.trim().length > 0 ||
+    filters.years.length > 0 ||
+    filters.types.length > 0 ||
+    filters.countries.length > 0 ||
+    filters.minRating > 0 ||
+    filters.selectedTags.length > 0 ||
+    Object.values(filters.flavorLevels).some((v) => v !== "any");
+
+  // Scored + sorted results — empty until the user starts searching
   const results = useMemo(() => {
+    if (!hasInput) return [];
     return index
       .map((e) => ({ entry: e, score: scoreEntry(e, query, filters) }))
       .filter((r): r is { entry: SearchEntry; score: number } => r.score !== null)
@@ -177,7 +188,7 @@ export default function SearchDrawer({
         return b.entry.rating - a.entry.rating;
       })
       .map((r) => r.entry);
-  }, [index, query, filters]);
+  }, [index, query, filters, hasInput]);
 
   // Active filter summary chips
   const activeFilterLabels: { label: string; clear: () => void }[] = useMemo(() => {
@@ -236,6 +247,7 @@ export default function SearchDrawer({
       countryOptions={countryOptions}
       tagOptions={tagOptions}
       indexSize={index.length}
+      hasInput={hasInput}
       onClose={handleClose}
       inputRef={inputRef}
     />
@@ -325,6 +337,7 @@ type SearchContentProps = {
   countryOptions: string[];
   tagOptions: readonly string[];
   indexSize: number;
+  hasInput: boolean;
   onClose: () => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
 };
@@ -332,7 +345,7 @@ type SearchContentProps = {
 function SearchContent({
   query, setQuery, filters, setFilters,
   filtersOpen, setFiltersOpen, flavorOpen, setFlavorOpen,
-  activeFilterLabels, results, indexLoading, indexSize,
+  activeFilterLabels, results, indexLoading, indexSize, hasInput,
   availableYears, typeOptions, countryOptions, tagOptions,
   onClose, inputRef,
 }: SearchContentProps) {
@@ -662,6 +675,10 @@ function SearchContent({
             {indexLoading ? (
               <Typography variant="body2" color="text.secondary" style={{ padding: "16px 16px" }}>
                 Loading…
+              </Typography>
+            ) : !hasInput ? (
+              <Typography variant="body2" color="text.secondary" style={{ padding: "16px 16px" }}>
+                Type a name or choose filters to find whiskies.
               </Typography>
             ) : results.length === 0 ? (
               <Typography variant="body2" color="text.secondary" style={{ padding: "16px 16px" }}>
