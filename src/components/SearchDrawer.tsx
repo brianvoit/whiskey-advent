@@ -262,29 +262,33 @@ export default function SearchDrawer({
     );
   }
 
-  // Desktop: drop-down panel below header + backdrop
-  if (!open) return null;
+  // Desktop: always rendered — slides out from behind the header (header zIndex: 100, panel: 99)
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — fades in behind panel, above page content */}
       <div
-        onClick={handleClose}
+        onClick={open ? handleClose : undefined}
         style={{
           position: "fixed",
-          inset: 0,
           top: 68,
-          zIndex: 199,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 95,
           background: "rgba(0,0,0,0.35)",
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none",
+          transition: "opacity 0.25s ease",
         }}
       />
-      {/* Panel */}
+      {/* Panel — sits just below the header; translateY(-100%) tucks it back behind the nav */}
       <div
         style={{
           position: "fixed",
           top: 68,
           left: 0,
           right: 0,
-          zIndex: 200,
+          zIndex: 99,
           maxHeight: "calc(100vh - 68px)",
           overflow: "hidden",
           display: "flex",
@@ -292,6 +296,8 @@ export default function SearchDrawer({
           backgroundColor: theme.palette.background.paper,
           boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
           borderBottom: `1px solid ${theme.palette.divider}`,
+          transform: open ? "translateY(0)" : "translateY(-100%)",
+          transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
         {content}
