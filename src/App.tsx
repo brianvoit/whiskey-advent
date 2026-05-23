@@ -19,6 +19,8 @@ import Onboarding from "./Onboarding";
 import AwaitingApproval from "./AwaitingApproval";
 import AdminScreen from "./AdminScreen";
 import AdminUserDetail from "./admin/AdminUserDetail";
+import Tasters from "./Tasters";
+import TasterDetail from "./TasterDetail";
 import AppHeader from "./components/AppHeader";
 import BottomNav from "./components/BottomNav";
 import NotificationsDrawer from "./components/NotificationsDrawer";
@@ -733,6 +735,24 @@ function AppShell({
                   userEmail={userEmail}
                   hasEmailAuth={hasEmailAuth}
                   onProfileUpdated={onProfileUpdated}
+                />
+              }
+            />
+            <Route
+              path="/tasters"
+              element={
+                <Tasters
+                  currentYear={currentYear}
+                  currentUserId={userId}
+                />
+              }
+            />
+            <Route
+              path="/tasters/:tasterId"
+              element={
+                <TasterDetail
+                  currentUserId={userId}
+                  currentYear={currentYear}
                 />
               }
             />

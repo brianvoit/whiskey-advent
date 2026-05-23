@@ -204,7 +204,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
           <div
             style={{
               borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.08)",
+              border: `1px solid ${theme.palette.divider}`,
               overflow: "hidden",
             }}
           >
@@ -235,7 +235,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                 <div style={{ width: 90, textAlign: "center", flexShrink: 0 }}>Count</div>
               )}
               {!isMobile && (
-                <div style={{ width: 1, alignSelf: "stretch", backgroundColor: "rgba(0,0,0,0.08)", marginLeft: 4, marginRight: 4 }} />
+                <div style={{ width: 1, alignSelf: "stretch", backgroundColor: theme.palette.divider, marginLeft: 4, marginRight: 4 }} />
               )}
               <div style={{ width: isMobile ? 28 : 40, flexShrink: 0 }} />
             </div>
@@ -294,7 +294,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                       display: "flex",
                       alignItems: "center",
                       padding: "10px 12px 10px 8px",
-                      borderTop: "1px solid rgba(0,0,0,0.04)",
+                      borderTop: `1px solid ${theme.palette.divider}`,
                       cursor: isMobile && canViewDetails ? "pointer" : undefined,
                     }}
                   >
@@ -382,7 +382,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                         style={{
                           width: 1,
                           alignSelf: "stretch",
-                          backgroundColor: "rgba(0,0,0,0.08)",
+                          backgroundColor: theme.palette.divider,
                           marginLeft: 4,
                           marginRight: 4,
                         }}

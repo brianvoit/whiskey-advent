@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useTheme } from "@mui/material/styles";
 import QueryStatsRoundedIcon from "@mui/icons-material/QueryStatsRounded";
+import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
 import AdminPanelSettingsRoundedIcon from "@mui/icons-material/AdminPanelSettingsRounded";
 import UserAvatar from "./UserAvatar";
 
@@ -130,6 +131,12 @@ function BottomNav({ currentPath, onNavigate, userId, avatarFirstName, avatarLas
         icon={<span style={{ fontSize: 18, lineHeight: 1 }}>🥃</span>}
         active={currentPath === "/"}
         onClick={() => goTo("/")}
+      />
+      <NavItem
+        label="Tasters"
+        icon={<GroupRoundedIcon fontSize="small" />}
+        active={currentPath.startsWith("/tasters")}
+        onClick={() => goTo("/tasters")}
       />
       <NavItem
         label="Stats"
