@@ -50,12 +50,34 @@ const defaultFilters: SearchFilters = {
   selectedTags: [],
 };
 
-/** Collapse regional/style variants into a single canonical type label. */
+/** Collapse style-suffix variants while preserving Single Malt / Blended distinctions. */
 function normalizeType(type: string): string {
   const t = type.toLowerCase();
-  if (t.includes("scotch")) return "Scotch";
-  if (t.includes("irish")) return "Irish";
+  const isScotch     = t.includes("scotch");
+  const isIrish      = t.includes("irish");
+  const isSingleMalt = t.includes("single malt");
+  const isBlended    = t.includes("blended");
+
+  if (isScotch) {
+    if (isSingleMalt) return "Single Malt Scotch";
+    if (isBlended)    return "Blended Scotch";
+    return "Scotch";
+  }
+  if (isIrish) {
+    if (isSingleMalt) return "Irish Single Malt";
+    if (isBlended)    return "Irish Blended";
+    return "Irish Whiskey";
+  }
   return type;
+}
+
+/** Collapse common USA/United States variants into one label. */
+function normalizeCountry(country: string): string {
+  const c = country.toLowerCase().trim();
+  if (c === "usa" || c === "us" || c === "united states" || c === "united states of america") {
+    return "United States";
+  }
+  return country;
 }
 
 function scoreEntry(
@@ -66,7 +88,7 @@ function scoreEntry(
   // Hard filters
   if (filters.years.length > 0 && !filters.years.includes(entry.season_year)) return null;
   if (filters.types.length > 0 && (!entry.type || !filters.types.includes(normalizeType(entry.type)))) return null;
-  if (filters.countries.length > 0 && (!entry.country || !filters.countries.includes(entry.country))) return null;
+  if (filters.countries.length > 0 && (!entry.country || !filters.countries.includes(normalizeCountry(entry.country)))) return null;
   if (filters.minRating > 0 && entry.rating < filters.minRating) return null;
 
   const q = query.trim().toLowerCase();
@@ -165,7 +187,8 @@ export default function SearchDrawer({
     [index]
   );
   const countryOptions = useMemo(
-    () => [...new Set(index.map((e) => e.country).filter(Boolean))].sort() as string[],
+    () =>
+      [...new Set(index.map((e) => e.country && normalizeCountry(e.country)).filter(Boolean))].sort() as string[],
     [index]
   );
   const tagOptions = useMemo(
