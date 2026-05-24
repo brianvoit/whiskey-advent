@@ -50,6 +50,14 @@ const defaultFilters: SearchFilters = {
   selectedTags: [],
 };
 
+/** Collapse regional/style variants into a single canonical type label. */
+function normalizeType(type: string): string {
+  const t = type.toLowerCase();
+  if (t.includes("scotch")) return "Scotch";
+  if (t.includes("irish")) return "Irish";
+  return type;
+}
+
 function scoreEntry(
   entry: SearchEntry,
   query: string,
@@ -57,7 +65,7 @@ function scoreEntry(
 ): number | null {
   // Hard filters
   if (filters.years.length > 0 && !filters.years.includes(entry.season_year)) return null;
-  if (filters.types.length > 0 && (!entry.type || !filters.types.includes(entry.type))) return null;
+  if (filters.types.length > 0 && (!entry.type || !filters.types.includes(normalizeType(entry.type)))) return null;
   if (filters.countries.length > 0 && (!entry.country || !filters.countries.includes(entry.country))) return null;
   if (filters.minRating > 0 && entry.rating < filters.minRating) return null;
 
@@ -152,7 +160,8 @@ export default function SearchDrawer({
 
   // Derived filter options from index
   const typeOptions = useMemo(
-    () => [...new Set(index.map((e) => e.type).filter(Boolean))].sort() as string[],
+    () =>
+      [...new Set(index.map((e) => e.type && normalizeType(e.type)).filter(Boolean))].sort() as string[],
     [index]
   );
   const countryOptions = useMemo(
