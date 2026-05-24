@@ -50,24 +50,14 @@ const defaultFilters: SearchFilters = {
   selectedTags: [],
 };
 
-/** Collapse style-suffix variants while preserving Single Malt / Blended distinctions. */
+/** Collapse type variants into canonical labels. */
 function normalizeType(type: string): string {
   const t = type.toLowerCase();
-  const isScotch     = t.includes("scotch");
-  const isIrish      = t.includes("irish");
-  const isSingleMalt = t.includes("single malt");
-  const isBlended    = t.includes("blended");
-
-  if (isScotch) {
-    if (isSingleMalt) return "Single Malt Scotch";
-    if (isBlended)    return "Blended Scotch";
-    return "Scotch";
-  }
-  if (isIrish) {
-    if (isSingleMalt) return "Irish Single Malt";
-    if (isBlended)    return "Irish Blended";
-    return "Irish Whiskey";
-  }
+  if (t.includes("single malt")) return "Single Malt";
+  if (t.includes("blended"))     return "Blended";
+  if (t.includes("rye"))         return "Rye";
+  if (t.includes("scotch"))      return "Scotch";
+  if (t.includes("irish"))       return "Irish Whiskey";
   return type;
 }
 
