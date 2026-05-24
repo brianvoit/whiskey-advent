@@ -50,15 +50,14 @@ const defaultFilters: SearchFilters = {
   selectedTags: [],
 };
 
-/** Collapse type variants into canonical labels. */
+/** Normalize type — data is now canonical; safety net for any legacy entries. */
 function normalizeType(type: string): string {
   const t = type.toLowerCase();
   if (t.includes("single malt")) return "Single Malt";
+  if (t.includes("blended malt")) return "Blended Malt";
   if (t.includes("blended"))     return "Blended";
   if (t.includes("rye"))         return "Rye";
-  if (t.includes("scotch"))      return "Scotch";
-  if (t.includes("irish"))       return "Irish Whiskey";
-  return type;
+  return type.trim();
 }
 
 /** Collapse common USA/United States variants into one label. */

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -37,6 +38,21 @@ import {
 } from "../api/admin";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
+
+const WHISKEY_TYPES = [
+  "Single Malt", "Blended Malt", "Blended", "Single Grain", "Pot Still",
+  "Bourbon", "Rye", "Tennessee Whiskey", "Corn Whiskey", "Wheat Whiskey", "Other",
+];
+
+const WHISKEY_COUNTRIES = [
+  "Scotland", "Ireland", "United States", "Japan", "Canada",
+  "India", "Taiwan", "Australia", "England", "Wales", "Sweden", "France", "Other",
+];
+
+const REGION_SUGGESTIONS: Record<string, string[]> = {
+  "Scotland": ["Speyside", "Highlands", "Lowlands", "Islay", "Campbeltown", "Islands"],
+  "United States": ["Kentucky", "Tennessee", "New York", "Washington", "Texas", "Colorado"],
+};
 
 const EMPTY_FORM: Omit<WhiskeyDayInput, "season_id" | "day_number"> = {
   name: "",
@@ -85,6 +101,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -182,6 +199,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
     setEditTarget({ existing: null });
     setForm({ ...EMPTY_FORM, day_number: maxDay });
     setSaveError(null);
+    setNameError(false);
   };
 
   const openEdit = (day: WhiskeyDay) => {
@@ -200,6 +218,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
       day_number: day.day_number,
     });
     setSaveError(null);
+    setNameError(false);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,6 +243,10 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
 
   const handleSave = async () => {
     if (!editTarget || !selectedSeasonId) return;
+    if (!form.name?.trim()) {
+      setNameError(true);
+      return;
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -525,14 +548,69 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
               />
             )}
 
-            <TextField label="Name" size="small" fullWidth value={form.name ?? ""} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+            <TextField
+              label="Name"
+              size="small"
+              fullWidth
+              required
+              error={nameError}
+              helperText={nameError ? "Required" : undefined}
+              value={form.name ?? ""}
+              onChange={(e) => {
+                setNameError(false);
+                setForm((p) => ({ ...p, name: e.target.value }));
+              }}
+            />
             <TextField label="Distillery" size="small" fullWidth value={form.distillery ?? ""} onChange={(e) => setForm((p) => ({ ...p, distillery: e.target.value }))} />
             <Stack direction="row" spacing={1}>
-              <TextField label="Region" size="small" fullWidth value={form.region ?? ""} onChange={(e) => setForm((p) => ({ ...p, region: e.target.value }))} />
-              <TextField label="Country" size="small" fullWidth value={form.country ?? ""} onChange={(e) => setForm((p) => ({ ...p, country: e.target.value }))} />
+              <Autocomplete
+                freeSolo
+                options={REGION_SUGGESTIONS[form.country ?? ""] ?? []}
+                inputValue={form.region ?? ""}
+                onInputChange={(_, newVal) => setForm((p) => ({ ...p, region: newVal }))}
+                sx={{ flex: 1 }}
+                renderInput={(params) => (
+                  <TextField {...params} label="Region" size="small" />
+                )}
+              />
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Country</InputLabel>
+                <Select
+                  label="Country"
+                  value={form.country ?? ""}
+                  onChange={(e) => setForm((p) => ({ ...p, country: e.target.value as string, region: "" }))}
+                >
+                  <MenuItem value=""><em>— select country —</em></MenuItem>
+                  {form.country && !WHISKEY_COUNTRIES.includes(form.country) && (
+                    <MenuItem value={form.country} sx={{ color: "text.disabled", fontStyle: "italic" }}>
+                      {form.country} (legacy)
+                    </MenuItem>
+                  )}
+                  {WHISKEY_COUNTRIES.map((c) => (
+                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Stack>
             <Stack direction="row" spacing={1}>
-              <TextField label="Type" size="small" fullWidth value={form.type ?? ""} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} />
+              <FormControl size="small" sx={{ flex: 1 }}>
+                <InputLabel>Type</InputLabel>
+                <Select
+                  label="Type"
+                  value={form.type ?? ""}
+                  onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as string }))}
+                >
+                  <MenuItem value=""><em>— select type —</em></MenuItem>
+                  {form.type && !WHISKEY_TYPES.includes(form.type) && (
+                    <MenuItem value={form.type} sx={{ color: "text.disabled", fontStyle: "italic" }}>
+                      {form.type} (legacy)
+                    </MenuItem>
+                  )}
+                  {WHISKEY_TYPES.map((t) => (
+                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <TextField label="ABV (%)" size="small" sx={{ width: 110 }} type="number" value={form.abv ?? ""} onChange={(e) => setForm((p) => ({ ...p, abv: e.target.value ? parseFloat(e.target.value) : null }))} />
               <TextField label="Age" size="small" sx={{ width: 110 }} value={form.age ?? ""} onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))} />
             </Stack>
