@@ -693,6 +693,7 @@ function SearchContent({
           )}
 
           {/* Results */}
+          <style>{`.search-result-btn:hover { background-color: var(--mui-palette-action-hover) !important; }`}</style>
           <div style={{ padding: "8px 0" }}>
             {indexLoading ? (
               <Typography variant="body2" color="text.secondary" style={{ padding: "16px 16px" }}>
@@ -715,6 +716,7 @@ function SearchContent({
                   <button
                     key={entry.whiskey_day_id}
                     type="button"
+                    className="search-result-btn"
                     onClick={() => {
                       navigate(`/whiskey/${entry.whiskey_day_id}`);
                       onClose();
@@ -730,13 +732,6 @@ function SearchContent({
                       background: "none",
                       cursor: "pointer",
                       textAlign: "left",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                        theme.palette.action.hover;
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = "";
                     }}
                   >
                     {/* Name row + year badge + rating */}
