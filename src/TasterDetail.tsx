@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { usePageMeta } from "./hooks/usePageMeta";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Typography from "@mui/material/Typography";
@@ -82,6 +83,7 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
   }, [tasterSlug, currentUserId, currentYear]);
 
   const displayName = getDisplayName(profile);
+  usePageMeta({ title: profile ? `${displayName}'s Tastings` : "Taster" });
   const totalRated = history.length;
   const avgRating =
     totalRated > 0

@@ -571,8 +571,11 @@ function AppShell({
   const navigate = useNavigate();
 
   // ── GA page tracking ─────────────────────────────────────────────────────────
+  // Deferred 100ms so child components have time to call usePageMeta and set
+  // document.title before the page_view event fires.
   useEffect(() => {
-    trackPageView(location.pathname, userId);
+    const t = setTimeout(() => trackPageView(location.pathname, userId), 100);
+    return () => clearTimeout(t);
   }, [location.pathname, userId]);
 
   // ── Streak ───────────────────────────────────────────────────────────────────

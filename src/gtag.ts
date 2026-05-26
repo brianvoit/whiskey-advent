@@ -12,9 +12,10 @@ const IS_DEV = typeof window !== "undefined" && window.location.hostname === "lo
 export function trackPageView(path: string, userId?: string) {
   if (typeof window.gtag !== "function") return;
   window.gtag("config", GA_ID, {
-    page_path: path,
+    page_path:  path,
+    page_title: document.title,
     ...(userId ? { user_id: userId } : {}),
-    ...(IS_DEV ? { traffic_type: "internal" } : {}),
+    ...(IS_DEV  ? { traffic_type: "internal" } : {}),
   });
 }
 

@@ -24,7 +24,6 @@ import AddIcon from "@mui/icons-material/Add";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import ImageIcon from "@mui/icons-material/Image";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
-import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
 import {
   getAllSeasons,
   getWhiskeyDaysForSeason,
@@ -41,7 +40,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 
 const WHISKEY_TYPES = [
   "Single Malt", "Blended Malt", "Blended", "Single Grain", "Pot Still",
-  "Bourbon", "Rye", "Tennessee Whiskey", "Corn Whiskey", "Wheat Whiskey", "Other",
+  "Bourbon", "Rye", "Corn Whiskey", "Wheat Whiskey", "Other",
 ];
 
 const WHISKEY_COUNTRIES = [
@@ -62,6 +61,7 @@ const EMPTY_FORM: Omit<WhiskeyDayInput, "season_id" | "day_number"> = {
   type: "",
   abv: null,
   age: "",
+  price: null,
   blurb: "",
   info_url: "",
   image_url: null,
@@ -103,6 +103,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nameError, setNameError] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Load seasons on mount
@@ -200,6 +201,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
     setForm({ ...EMPTY_FORM, day_number: maxDay });
     setSaveError(null);
     setNameError(false);
+    setImgFailed(false);
   };
 
   const openEdit = (day: WhiskeyDay) => {
@@ -212,6 +214,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
       type: day.type ?? "",
       abv: day.abv,
       age: day.age ?? "",
+      price: day.price,
       blurb: day.blurb ?? "",
       info_url: day.info_url ?? "",
       image_url: day.image_url ?? null,
@@ -219,6 +222,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
     });
     setSaveError(null);
     setNameError(false);
+    setImgFailed(false);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,6 +237,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
         form.day_number,
         file
       );
+      setImgFailed(false);
       setForm((prev) => ({ ...prev, image_url: url }));
     } catch (err: any) {
       setSaveError(err?.message ?? "Image upload failed.");
@@ -261,6 +266,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
         type: form.type?.trim() || null,
         abv: form.abv,
         age: form.age?.trim() || null,
+        price: form.price,
         blurb: form.blurb?.trim() || null,
         info_url: form.info_url?.trim() || null,
         image_url: form.image_url || null,
@@ -483,7 +489,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
                 sx={{
                   width: 72,
                   height: 72,
-                  borderRadius: 2,
+                  borderRadius: 1,
                   border: "1px solid",
                   borderColor: "divider",
                   overflow: "hidden",
@@ -504,14 +510,15 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
                   style={{ display: "none" }}
                   onChange={handleImageUpload}
                 />
-                {form.image_url ? (
+                {form.image_url && !imgFailed ? (
                   <img
                     src={form.image_url}
-                    alt="Whiskey"
+                    alt=""
+                    onError={() => setImgFailed(true)}
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                 ) : (
-                  <LocalBarRoundedIcon sx={{ color: "primary.main", fontSize: 32 }} />
+                  <span style={{ fontSize: "2rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
                 )}
                 <Box
                   className="img-overlay"
@@ -532,9 +539,14 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
                   }
                 </Box>
               </Box>
-              <Typography variant="caption" color="text.secondary">
-                Click to upload a whiskey image.{"\n"}Recommended: square, min 400×400px.
-              </Typography>
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Click to upload a whiskey image.
+                </Typography>
+                <Typography variant="caption" color="text.disabled" display="block">
+                  Recommended: square, min 400×400px.
+                </Typography>
+              </Box>
             </Box>
 
             {!editTarget?.existing && (
@@ -611,8 +623,9 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
                   ))}
                 </Select>
               </FormControl>
-              <TextField label="ABV (%)" size="small" sx={{ width: 110 }} type="number" value={form.abv ?? ""} onChange={(e) => setForm((p) => ({ ...p, abv: e.target.value ? parseFloat(e.target.value) : null }))} />
-              <TextField label="Age" size="small" sx={{ width: 110 }} value={form.age ?? ""} onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))} />
+              <TextField label="ABV (%)" size="small" sx={{ width: 100 }} type="number" value={form.abv ?? ""} onChange={(e) => setForm((p) => ({ ...p, abv: e.target.value ? parseFloat(e.target.value) : null }))} inputProps={{ step: 0.5 }} />
+              <TextField label="Age" size="small" sx={{ width: 100 }} value={form.age ?? ""} onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))} />
+              <TextField label="Price ($)" size="small" sx={{ width: 100 }} type="number" value={form.price ?? ""} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value ? parseFloat(e.target.value) : null }))} InputLabelProps={{ sx: { fontSize: "0.72rem" } }} />
             </Stack>
             <TextField label="Blurb" size="small" fullWidth multiline minRows={2} value={form.blurb ?? ""} onChange={(e) => setForm((p) => ({ ...p, blurb: e.target.value }))} />
             <TextField label="Info URL" size="small" fullWidth value={form.info_url ?? ""} onChange={(e) => setForm((p) => ({ ...p, info_url: e.target.value }))} />

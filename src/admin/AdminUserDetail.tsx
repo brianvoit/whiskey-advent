@@ -145,13 +145,22 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
     if (!confirm || !profile || !userId) return;
     setActing(true);
     setError(null);
+    let newSeasonIds: number[] | null = null;
     try {
-      if (confirm.kind === "approve")    await approveUser(userId);
+      if (confirm.kind === "approve" || confirm.kind === "reactivate") {
+        await approveUser(userId);
+        // Auto-grant access to the current (most recent) season if not already present.
+        // seasons is sorted descending by year, so seasons[0] is the active season.
+        const currentSeason = seasons[0];
+        if (currentSeason && !(profile.season_ids ?? []).includes(currentSeason.id)) {
+          newSeasonIds = [...(profile.season_ids ?? []), currentSeason.id];
+          await setUserSeasonAccess(userId, newSeasonIds);
+        }
+      }
       if (confirm.kind === "deny")       await denyUser(userId);
       if (confirm.kind === "block")      await blockUser(userId);
       if (confirm.kind === "unblock")    await setUserStatus(userId, "pending");
       if (confirm.kind === "revoke")     await revokeAccess(userId);
-      if (confirm.kind === "reactivate") await approveUser(userId);
       if (confirm.kind === "role")       await updateProfileRole(userId, confirm.newRole);
 
       const newStatus =
@@ -165,9 +174,11 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
 
       setProfile((prev) => {
         if (!prev) return prev;
-        if (newStatus) return { ...prev, status: newStatus };
-        if (confirm.kind === "role") return { ...prev, role: confirm.newRole };
-        return prev;
+        const updated = { ...prev };
+        if (newStatus) updated.status = newStatus;
+        if (newSeasonIds) updated.season_ids = newSeasonIds;
+        if (confirm.kind === "role") updated.role = confirm.newRole;
+        return updated;
       });
       setConfirm(null);
     } catch (e: unknown) {
@@ -276,12 +287,13 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
   const confirmBody = () => {
     if (!profile) return "";
     const name = displayName(profile);
-    if (confirm?.kind === "approve")    return `${name} will gain full access to the app.`;
+    const currentSeasonYear = seasons[0]?.year;
+    if (confirm?.kind === "approve")    return `${name} will gain full access to the app${currentSeasonYear ? ` and be added to the ${currentSeasonYear} season` : ""}.`;
     if (confirm?.kind === "deny")       return `${name}'s request will be denied. They can re-apply by signing up again.`;
     if (confirm?.kind === "block")      return `${name} will be permanently blocked and cannot access the app.`;
     if (confirm?.kind === "unblock")    return `${name} will be moved back to Pending and can be approved.`;
     if (confirm?.kind === "revoke")     return `${name} will lose access and appear under Previous Users.`;
-    if (confirm?.kind === "reactivate") return `${name} will regain full access.`;
+    if (confirm?.kind === "reactivate") return `${name} will regain full access${currentSeasonYear ? ` and be added to the ${currentSeasonYear} season if not already` : ""}.`;
     if (confirm?.kind === "role" && confirm.newRole === "admin") return `${name} will gain full admin access.`;
     if (confirm?.kind === "role" && confirm.newRole === "user")  return `${name} will lose admin access.`;
     return "";

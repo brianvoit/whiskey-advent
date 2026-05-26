@@ -37,6 +37,7 @@ import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import { getWouldBuyList, type WouldBuyEntry } from "./api/tastings";
+import { usePageMeta } from "./hooks/usePageMeta";
 
 type ProfileScreenProps = {
   profile: Profile;
@@ -62,6 +63,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onProfileUpdated, currentYear }: ProfileScreenProps) {
+  usePageMeta({ title: "My Profile" });
   const [firstName, setFirstName] = useState(profile.first_name ?? "");
   const [lastName, setLastName] = useState(profile.last_name ?? "");
   const [seeGroupAverages, setSeeGroupAverages] = useState<boolean>(

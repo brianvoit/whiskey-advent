@@ -1,21 +1,55 @@
 import { useState } from "react";
+import { useTheme } from "@mui/material/styles";
+import {
+  Alert,
+  Box,
+  FormControlLabel,
+  Stack,
+  Switch,
+  Typography,
+} from "@mui/material";
+import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import { supabase } from "./supabaseClient";
-import type { Profile, RevealPreferences } from "./api/profiles";
+import type { Profile, RevealPreferences, TastingMode } from "./api/profiles";
+import { modeCopy } from "./modes";
+import { ModeCard } from "./components/ModeCard";
+import { subscribeToPush } from "./api/pushSubscriptions";
 
 type OnboardingProps = {
   profile: Profile;
   onComplete: (updated: Profile) => void;
 };
 
+const TASTING_MODES: TastingMode[] = ["purist", "explorer", "relaxed"];
+const TOTAL_STEPS = 4;
+
 function Onboarding({ profile, onComplete }: OnboardingProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const theme = useTheme();
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [tastingMode, setTastingMode] = useState<TastingMode>("purist");
   const [seeGroupAverages, setSeeGroupAverages] = useState(true);
+  const [notificationsOptIn, setNotificationsOptIn] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
+    typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleNext = () => setStep((prev) => (prev === 3 ? 3 : (prev + 1) as 1 | 2 | 3));
+  const handleNext = () =>
+    setStep((prev) => Math.min(prev + 1, TOTAL_STEPS) as 1 | 2 | 3 | 4);
   const handleBack = () =>
-    setStep((prev) => (prev === 1 ? 1 : (prev - 1) as 1 | 2 | 3));
+    setStep((prev) => Math.max(prev - 1, 1) as 1 | 2 | 3 | 4);
+
+  const handleEnableNotifications = async () => {
+    if (notifPermission === "unsupported" || notifPermission === "denied") return;
+    if (notifPermission === "default") {
+      const result = await Notification.requestPermission();
+      setNotifPermission(result);
+      if (result !== "granted") return;
+    }
+    await subscribeToPush(profile.id);
+    setNotificationsOptIn(true);
+  };
 
   const handleFinish = async () => {
     setSaving(true);
@@ -25,22 +59,24 @@ function Onboarding({ profile, onComplete }: OnboardingProps) {
       see_group_averages_pre_reveal: seeGroupAverages,
     };
 
-    const { data, error } = await supabase
+    const { data, error: saveError } = await supabase
       .from("profiles")
       .update({
+        tasting_mode: tastingMode,
         reveal_preferences: prefs,
+        notifications_opt_in: notificationsOptIn,
         onboarding_complete: true,
       })
       .eq("id", profile.id)
       .select(
-        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences"
+        "id, first_name, last_name, avatar_url, role, approved, status, onboarding_complete, reveal_preferences, theme_mode, tasting_mode, notifications_opt_in, comment_notifications_opt_in"
       )
       .single();
 
     setSaving(false);
 
-    if (error || !data) {
-      console.error("Error saving onboarding:", error);
+    if (saveError || !data) {
+      console.error("Error saving onboarding:", saveError);
       setError("There was a problem saving your settings. Please try again.");
       return;
     }
@@ -48,141 +84,264 @@ function Onboarding({ profile, onComplete }: OnboardingProps) {
     onComplete(data as Profile);
   };
 
+  // Shared button styles
+  const backBtnStyle: React.CSSProperties = {
+    padding: "10px 20px",
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 8,
+    background: "none",
+    cursor: "pointer",
+    fontSize: "0.95rem",
+    color: theme.palette.text.secondary,
+    fontFamily: "inherit",
+  };
+  const nextBtnStyle: React.CSSProperties = {
+    padding: "10px 24px",
+    border: "none",
+    borderRadius: 8,
+    background: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    cursor: "pointer",
+    fontSize: "0.95rem",
+    fontWeight: 600,
+    fontFamily: "inherit",
+  };
+
+  // Progress dots
+  const stepDots = (
+    <Box sx={{ display: "flex", gap: 0.75, mb: 4 }}>
+      {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+        <Box
+          key={i}
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            backgroundColor: i + 1 <= step ? "primary.main" : "divider",
+            transition: "background-color 0.2s ease",
+          }}
+        />
+      ))}
+    </Box>
+  );
+
   return (
-    <div
-      style={{
-        maxWidth: 640,
-        margin: "40px auto",
-        padding: "24px 20px 40px",
-      }}
-    >
-      <h2 style={{ marginBottom: 8 }}>Welcome to Whiskey Advent</h2>
+    <Box sx={{ maxWidth: 640, mx: "auto", pt: 5, px: 2.5, pb: 8 }}>
+      {stepDots}
 
+      {/* ── Step 1: Welcome ── */}
       {step === 1 && (
-        <>
-          <p style={{ marginTop: 8 }}>
-            Before we start, we&apos;ll ask a couple of questions so we don&apos;t
-            accidentally spoil any surprises for you.
-          </p>
-          <p style={{ marginTop: 8 }}>
-            You&apos;ll be able to change these settings later on your profile,
-            but changing them might reveal details for upcoming days.
-          </p>
-
-          <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
-            <button type="button" onClick={handleNext}>
-              Continue
+        <Stack spacing={2}>
+          <Typography variant="h4" component="h1">
+            Welcome to Whiskey Advent 🥃
+          </Typography>
+          <Typography color="text.secondary">
+            Before we head to the calendar, just a couple of quick questions.
+            Your answers shape how the app shows whiskey details so there are no
+            spoilers without your say-so.
+          </Typography>
+          <Typography color="text.secondary">
+            You can update any of this later on your profile page.
+          </Typography>
+          <Box sx={{ pt: 2 }}>
+            <button type="button" onClick={handleNext} style={nextBtnStyle}>
+              Let's go →
             </button>
-          </div>
-        </>
+          </Box>
+        </Stack>
       )}
 
+      {/* ── Step 2: Tasting Mode ── */}
       {step === 2 && (
-        <>
-          <h3 style={{ marginTop: 16 }}>Spoiler preferences</h3>
+        <Stack spacing={2}>
+          <Typography variant="h5" component="h2">
+            How do you want to taste?
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            This controls how much you see about each day's whiskey before you
+            choose to reveal it.
+          </Typography>
 
-          <div style={{ marginTop: 12 }}>
-            <strong>Reveal style</strong>
-            <p style={{ marginTop: 4, fontSize: "0.95rem" }}>
-              For now we use a single reveal style:
-            </p>
-            <div
-              style={{
-                marginTop: 8,
-                padding: 12,
-                borderRadius: 8,
-                border: "1px solid #ddd",
-              }}
-            >
-              <label style={{ display: "flex", gap: 8 }}>
-                <input type="checkbox" checked readOnly />
-                <span>
-                  <strong>Purist mode</strong> — do not show whiskey details
-                  (name, distillery, region, type) until you choose to reveal
-                  that day.
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 24 }}>
-            <strong>Group results</strong>
-            <p style={{ marginTop: 4, fontSize: "0.95rem" }}>
-              Your ratings contribute to group averages. You can choose whether
-              to see group averages before you reveal a day.
-            </p>
-
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginTop: 12,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={seeGroupAverages}
-                onChange={(e) => setSeeGroupAverages(e.target.checked)}
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} sx={{ mt: 0.5 }}>
+            {TASTING_MODES.map((mode) => (
+              <ModeCard
+                key={mode}
+                title={modeCopy[mode].title}
+                bullets={modeCopy[mode].bullets}
+                isActive={tastingMode === mode}
+                onSelect={() => setTastingMode(mode)}
               />
-              <span>Show group average ratings before I reveal a day</span>
-            </label>
-          </div>
+            ))}
+          </Stack>
 
-          <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
-            <button type="button" onClick={handleBack}>
-              Back
-            </button>
-            <button type="button" onClick={handleNext}>
-              Continue
-            </button>
-          </div>
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          <h3 style={{ marginTop: 16 }}>Review</h3>
-
-          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li>
-              You won&apos;t see whiskey names or details for this season&apos;s
-              days until you tap <em>Reveal Whiskey</em> on that day.
-            </li>
-            <li>
-              Past seasons will always be fully visible, including names,
-              distilleries, and stats.
-            </li>
-            <li>
-              Your ratings contribute to group stats.
-            </li>
-            <li>
-              You can change these settings later on your profile, but changing
-              them might reveal new details you haven&apos;t revealed yet.
-            </li>
-            <li>
-              Group averages before reveal:{" "}
-              {seeGroupAverages ? "Visible" : "Hidden"}.
-            </li>
-          </ul>
-
-          {error && (
-            <p style={{ marginTop: 12, color: "crimson", fontSize: "0.9rem" }}>
-              {error}
-            </p>
+          {/* Group averages toggle — only relevant in Purist or Explorer */}
+          {tastingMode !== "relaxed" && (
+            <Box
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                border: `1px solid ${theme.palette.divider}`,
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={seeGroupAverages}
+                    onChange={(e) => setSeeGroupAverages(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body2" fontWeight={600}>
+                      Show group averages before revealing
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      See how others rated a day before you tap Reveal Whiskey
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Box>
           )}
 
-          <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
-            <button type="button" onClick={handleBack} disabled={saving}>
+          <Box sx={{ pt: 1, display: "flex", justifyContent: "space-between" }}>
+            <button type="button" onClick={handleBack} style={backBtnStyle}>
               Back
             </button>
-            <button type="button" onClick={handleFinish} disabled={saving}>
-              {saving ? "Saving..." : "Finish & go to calendar"}
+            <button type="button" onClick={handleNext} style={nextBtnStyle}>
+              Continue
             </button>
-          </div>
-        </>
+          </Box>
+        </Stack>
       )}
-    </div>
+
+      {/* ── Step 3: Notifications ── */}
+      {step === 3 && (
+        <Stack spacing={2}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <NotificationsRoundedIcon color="primary" />
+            <Typography variant="h5" component="h2">
+              Daily Reminders
+            </Typography>
+          </Box>
+          <Typography color="text.secondary">
+            Get a push notification each day in December when the next pour is
+            ready — delivered at 5 pm in your local time.
+          </Typography>
+
+          {notifPermission === "unsupported" && (
+            <Alert severity="info">
+              Push notifications aren't supported in this browser. You can try
+              enabling them later in a different browser via your profile settings.
+            </Alert>
+          )}
+
+          {notifPermission === "denied" && (
+            <Alert severity="warning">
+              Notifications are currently blocked in your browser settings. You
+              can unblock them and turn on reminders later from your profile.
+            </Alert>
+          )}
+
+          {notificationsOptIn ? (
+            <Alert severity="success">
+              You're all set — daily reminders are on. You can turn them off
+              anytime from your profile.
+            </Alert>
+          ) : notifPermission !== "unsupported" && notifPermission !== "denied" ? (
+            <Box>
+              <button
+                type="button"
+                onClick={handleEnableNotifications}
+                style={nextBtnStyle}
+              >
+                Enable daily reminders
+              </button>
+            </Box>
+          ) : null}
+
+          <Box sx={{ pt: 1, display: "flex", justifyContent: "space-between" }}>
+            <button type="button" onClick={handleBack} style={backBtnStyle}>
+              Back
+            </button>
+            <button type="button" onClick={handleNext} style={nextBtnStyle}>
+              {notificationsOptIn ? "Continue" : "Skip for now"}
+            </button>
+          </Box>
+        </Stack>
+      )}
+
+      {/* ── Step 4: Review + Finish ── */}
+      {step === 4 && (
+        <Stack spacing={2}>
+          <Typography variant="h5" component="h2">
+            You're all set
+          </Typography>
+          <Typography color="text.secondary">
+            Here's a summary of your preferences. You can change any of these
+            anytime from your profile.
+          </Typography>
+
+          <Box
+            component="ul"
+            sx={{
+              pl: 2.5,
+              m: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 1,
+            }}
+          >
+            <Typography component="li" variant="body2" color="text.secondary">
+              Tasting mode:{" "}
+              <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                {modeCopy[tastingMode].title}
+              </Box>
+            </Typography>
+            {tastingMode !== "relaxed" && (
+              <Typography component="li" variant="body2" color="text.secondary">
+                Group averages before reveal:{" "}
+                <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                  {seeGroupAverages ? "Visible" : "Hidden"}
+                </Box>
+              </Typography>
+            )}
+            <Typography component="li" variant="body2" color="text.secondary">
+              Daily reminders:{" "}
+              <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                {notificationsOptIn ? "On" : "Off"}
+              </Box>
+            </Typography>
+          </Box>
+
+          {error && <Alert severity="error">{error}</Alert>}
+
+          <Box sx={{ pt: 1, display: "flex", justifyContent: "space-between" }}>
+            <button
+              type="button"
+              onClick={handleBack}
+              style={backBtnStyle}
+              disabled={saving}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleFinish}
+              style={{
+                ...nextBtnStyle,
+                opacity: saving ? 0.7 : 1,
+                cursor: saving ? "default" : "pointer",
+              }}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Head to the calendar →"}
+            </button>
+          </Box>
+        </Stack>
+      )}
+    </Box>
   );
 }
 

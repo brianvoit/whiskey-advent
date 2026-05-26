@@ -13,7 +13,7 @@ import ExpandLessRoundedIcon from "@mui/icons-material/ExpandLessRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import { loadSearchIndex, type SearchEntry } from "../api/search";
-import { FLAVOR_TAGS } from "./FlavorTagPicker";
+import { FLAVOR_GROUPS, FLAVOR_TAGS } from "./FlavorTagPicker";
 
 const VALID_TAGS = new Set<string>(FLAVOR_TAGS);
 
@@ -485,28 +485,47 @@ function SearchContent({
             </div>
           )}
 
-          {/* Filter panel toggle */}
-          <button
-            type="button"
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              width: "100%",
-              padding: "10px 16px",
-              border: "none",
-              background: "none",
-              cursor: "pointer",
-              color: theme.palette.text.secondary,
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              textAlign: "left",
-            }}
-          >
-            {filtersOpen ? <ExpandLessRoundedIcon fontSize="small" /> : <ExpandMoreRoundedIcon fontSize="small" />}
-            Filters
-          </button>
+          {/* Filter panel toggle + Clear all */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "10px 16px",
+                border: "none",
+                background: "none",
+                cursor: "pointer",
+                color: theme.palette.text.secondary,
+                fontSize: "0.85rem",
+                fontWeight: 600,
+                textAlign: "left",
+              }}
+            >
+              {filtersOpen ? <ExpandLessRoundedIcon fontSize="small" /> : <ExpandMoreRoundedIcon fontSize="small" />}
+              Filters
+            </button>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() => setFilters(() => defaultFilters)}
+                style={{
+                  padding: "4px 16px",
+                  border: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  color: theme.palette.primary.main,
+                  fontSize: "0.82rem",
+                  fontWeight: 600,
+                  fontFamily: "inherit",
+                }}
+              >
+                Clear all
+              </button>
+            )}
+          </div>
 
           {filtersOpen && (
             <div
@@ -674,21 +693,52 @@ function SearchContent({
                 )}
               </div>
 
-              {/* Tags */}
+              {/* Tags — grouped by flavor category */}
               {tagOptions.length > 0 && (
-                <FilterRow label="Tags">
-                  {tagOptions.map((tag) => (
-                    <Chip
-                      key={tag}
-                      label={tag}
-                      size="small"
-                      variant={filters.selectedTags.includes(tag) ? "filled" : "outlined"}
-                      color={filters.selectedTags.includes(tag) ? "primary" : "default"}
-                      onClick={() => toggleTag(tag)}
-                      style={{ cursor: "pointer" }}
-                    />
-                  ))}
-                </FilterRow>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    style={{ fontSize: "0.78rem" }}
+                  >
+                    Tags
+                  </Typography>
+                  {FLAVOR_GROUPS.map((group) => {
+                    const available = group.tags.filter((t) => tagOptions.includes(t));
+                    if (available.length === 0) return null;
+                    return (
+                      <div key={group.label}>
+                        <Typography
+                          variant="caption"
+                          color="text.disabled"
+                          style={{
+                            display: "block",
+                            fontSize: "0.7rem",
+                            fontWeight: 600,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            marginBottom: 4,
+                          }}
+                        >
+                          {group.label}
+                        </Typography>
+                        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                          {available.map((tag) => (
+                            <Chip
+                              key={tag}
+                              label={tag}
+                              size="small"
+                              variant={filters.selectedTags.includes(tag) ? "filled" : "outlined"}
+                              color={filters.selectedTags.includes(tag) ? "primary" : "default"}
+                              onClick={() => toggleTag(tag)}
+                              style={{ cursor: "pointer" }}
+                            />
+                          ))}
+                        </Box>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}

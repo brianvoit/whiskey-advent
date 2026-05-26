@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePageMeta } from "./hooks/usePageMeta";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Typography from "@mui/material/Typography";
@@ -21,6 +22,7 @@ function getDisplayName(t: TasterSummary): string {
 }
 
 export default function Tasters({ currentYear, currentUserId }: TastersProps) {
+  usePageMeta({ title: "Tasters" });
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();

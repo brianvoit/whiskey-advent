@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { usePageMeta } from "./hooks/usePageMeta";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { supabase } from "./supabaseClient";
@@ -35,6 +36,7 @@ type HomeProps = {
 };
 
 function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
+  usePageMeta({ title: `${currentYear} Calendar` });
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));

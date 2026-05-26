@@ -23,7 +23,7 @@ function setMetaTag(property: string, content: string) {
 
 export function usePageMeta({ title, description, image }: PageMeta) {
   useEffect(() => {
-    const fullTitle = title ? `${title} — ${APP_NAME}` : APP_NAME;
+    const fullTitle = title ?? APP_NAME;
 
     document.title = fullTitle;
     setMetaTag("og:title", fullTitle);

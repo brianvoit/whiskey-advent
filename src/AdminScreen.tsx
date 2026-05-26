@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageMeta } from "./hooks/usePageMeta";
 import { Box, Tab, Tabs } from "@mui/material";
 import SeasonManager from "./admin/SeasonManager";
 import WhiskeyDayEditor from "./admin/WhiskeyDayEditor";
@@ -12,6 +13,7 @@ const TABS = ["Seasons", "Whiskeys", "Users"] as const;
 type TabLabel = typeof TABS[number];
 
 export default function AdminScreen({ userId }: AdminScreenProps) {
+  usePageMeta({ title: "Admin" });
   const [activeTab, setActiveTab] = useState<TabLabel>("Seasons");
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
 

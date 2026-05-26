@@ -314,7 +314,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
     .filter(Boolean)
     .join(" · ");
   usePageMeta({
-    title: whiskey ? `Day ${whiskey.day_number} — ${whiskey.name ?? "Unknown"}` : undefined,
+    title: whiskey ? `Day ${whiskey.day_number} - ${whiskey.name ?? yearParam}` : undefined,
     description: metaDescription || undefined,
     image: whiskey?.image_url ?? undefined,
   });

@@ -18,6 +18,7 @@ export type WhiskeyDay = {
   type: string | null;
   abv: number | null;
   age: string | null;
+  price: number | null;
   blurb: string | null;
   info_url: string | null;
   image_url: string | null;

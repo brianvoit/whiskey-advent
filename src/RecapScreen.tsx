@@ -6,6 +6,7 @@ import { alpha } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { supabase } from "./supabaseClient";
 import { getSeasonByYear, getWhiskeysForSeason } from "./api/whiskeys";
+import { usePageMeta } from "./hooks/usePageMeta";
 import { getSeasonStats, type DayStats } from "./api/stats";
 import { getWouldBuyList, type WouldBuyEntry } from "./api/tastings";
 import { FLAVOR_GROUPS } from "./components/FlavorTagPicker";
@@ -82,6 +83,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
   const navigate = useNavigate();
   const { year: yearParam } = useParams<{ year: string }>();
   const year = Number(yearParam);
+  usePageMeta({ title: `${yearParam ?? "…"} Season Recap` });
 
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
 
@@ -1178,7 +1180,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                 {mostConsensus && (
                   <div style={bubbleStyle}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={labelStyle}>Most Consensus</p>
+                      <p style={labelStyle}>Greatest Consensus</p>
                       <p style={nameStyle}>{mostConsensus.name ?? `Day ${mostConsensus.day_number}`}</p>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>

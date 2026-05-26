@@ -9,6 +9,7 @@ import {
   defaultTastingSliders,
 } from "./api/tastings";
 import { checkCompetitiveAwards } from "./api/awards";
+import { usePageMeta } from "./hooks/usePageMeta";
 import Divider from "@mui/material/Divider";
 import { supabase } from "./supabaseClient";
 import type { TastingMode } from "./api/profiles";
@@ -211,6 +212,8 @@ function DayDetail({ userId }: DayDetailProps) {
   const celebratedMilestones = useRef<Set<number>>(new Set());
   const hasCelebrationRef = useRef(false);
   const prevStreakRef = useRef(0);
+
+  usePageMeta({ title: `Day ${dayNumber} - ${year}` });
   // Tracks whether the user already had a saved rating when this page loaded.
   // Used to fire competitive awards only on a first-ever rating, not re-saves.
   const hadSavedRatingRef = useRef(false);
