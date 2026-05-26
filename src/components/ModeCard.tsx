@@ -42,43 +42,43 @@ export const ModeCard: React.FC<ModeCardProps> = ({
         p: 2,
         flex: 1,
         display: "flex",
-        flexDirection: { xs: "row", md: "column" },
-        alignItems: { xs: "center", md: "flex-start" },
-        gap: { xs: 1.5, md: 0 },
+        flexDirection: "column",
+        alignItems: "flex-start",
         cursor: isActive ? "default" : "pointer",
       }}
       onClick={isActive ? undefined : onSelect}
     >
-      {/* Title + bullets */}
-      <Stack sx={{ flex: 1, minWidth: 0 }}>
-        <Typography
-          variant="subtitle1"
-          component="h3"
-          sx={{ fontWeight: 700, mb: { xs: 0, md: 1 } }}
-        >
-          {title}
-        </Typography>
+      {/* Title */}
+      <Typography
+        component="h3"
+        sx={{
+          fontSize: "0.75rem",
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          color: isActive ? theme.palette.primary.main : theme.palette.text.secondary,
+          mb: 1,
+        }}
+      >
+        {title}
+      </Typography>
 
-        <Stack
-          component="ul"
-          spacing={0.75}
-          sx={{
-            pl: 2.5,
-            m: 0,
-            display: { xs: "none", md: "flex" },
-          }}
-        >
-          {bullets.map((item) => (
-            <Typography
-              key={item}
-              component="li"
-              variant="body2"
-              sx={{ color: theme.palette.text.secondary, lineHeight: 1.5 }}
-            >
-              {item}
-            </Typography>
-          ))}
-        </Stack>
+      {/* Bullets */}
+      <Stack
+        component="ul"
+        spacing={0.75}
+        sx={{ pl: 2.5, m: 0, flex: 1 }}
+      >
+        {bullets.map((item) => (
+          <Typography
+            key={item}
+            component="li"
+            variant="body2"
+            sx={{ color: theme.palette.text.secondary, lineHeight: 1.5 }}
+          >
+            {item}
+          </Typography>
+        ))}
       </Stack>
 
       {/* Choose / Selected indicator */}
@@ -88,12 +88,7 @@ export const ModeCard: React.FC<ModeCardProps> = ({
           alignItems="center"
           justifyContent="center"
           spacing={0.5}
-          sx={{
-            mt: { xs: 0, md: 1.5 },
-            flexShrink: 0,
-            alignSelf: { xs: "center", md: "stretch" },
-            color: "text.disabled",
-          }}
+          sx={{ mt: 1.5, alignSelf: "stretch", color: "text.disabled" }}
         >
           <CheckRoundedIcon sx={{ fontSize: "0.85rem" }} />
           <Typography variant="body2" sx={{ fontWeight: 500, color: "text.disabled" }}>
@@ -105,12 +100,7 @@ export const ModeCard: React.FC<ModeCardProps> = ({
           variant="contained"
           size="small"
           color="primary"
-          sx={{
-            mt: { xs: 0, md: 1.5 },
-            minWidth: { xs: 80, md: "100%" },
-            flexShrink: 0,
-            alignSelf: { xs: "center", md: "stretch" },
-          }}
+          sx={{ mt: 1.5, alignSelf: "stretch" }}
           onClick={(e) => {
             e.stopPropagation();
             onSelect();

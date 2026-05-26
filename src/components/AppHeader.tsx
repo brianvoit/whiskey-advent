@@ -40,7 +40,7 @@ function AppHeader({ currentYear, streak = 0, onYearClick, unreadNotifications =
       }}
     >
       {/* Left side: App name */}
-      <h2
+      <h1
         style={{
           margin: 0,
           fontSize: "1.25rem",
@@ -48,7 +48,7 @@ function AppHeader({ currentYear, streak = 0, onYearClick, unreadNotifications =
         }}
       >
         Whiskey Advent
-      </h2>
+      </h1>
 
       {/* Center: streak (desktop only) */}
       {isDesktop && streak > 0 && (

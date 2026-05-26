@@ -145,8 +145,7 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
           />
           <StatChip
             label="Top pick"
-            value={highest ? `Day ${highest.day_number}` : "—"}
-            sub={highest ? `${highest.rating}★` : undefined}
+            value={highest ? `${highest.rating}★ · Day ${highest.day_number}` : "—"}
           />
         </div>
       )}
@@ -415,6 +414,7 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
 
 function StatChip({ label, value, sub }: { label: string; value: string; sub?: string }) {
   const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   return (
     <div
       style={{
@@ -423,12 +423,17 @@ function StatChip({ label, value, sub }: { label: string; value: string; sub?: s
         borderRadius: theme.shape.borderRadius,
         padding: "10px 8px",
         textAlign: "center",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        height: "100%",
+        boxSizing: "border-box",
       }}
     >
       <Typography variant="caption" color="text.secondary" style={{ display: "block", marginBottom: 2 }}>
         {label}
       </Typography>
-      <Typography variant="subtitle1" style={{ fontWeight: 700, lineHeight: 1.1 }}>
+      <Typography variant="subtitle1" style={{ fontWeight: 700, lineHeight: 1.1, fontSize: isDesktop ? "1.25rem" : undefined, color: theme.palette.primary.main }}>
         {value}
       </Typography>
       {sub && (

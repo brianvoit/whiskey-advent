@@ -50,7 +50,7 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
+    <Typography variant="subtitle1" component="h2" fontWeight={700} sx={{ mb: 0.5 }}>
       {children}
     </Typography>
   );
@@ -296,7 +296,7 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
             </Box>
 
             <Stack spacing={0.25}>
-              <Typography variant="subtitle1" fontWeight={600}>{displayName}</Typography>
+              <Typography variant="subtitle1" component="h2" fontWeight={600}>{displayName}</Typography>
               {userEmail && (
                 <Typography variant="body2" color="text.secondary">{userEmail}</Typography>
               )}
