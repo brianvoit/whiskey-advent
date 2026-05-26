@@ -327,10 +327,16 @@ export default function SearchDrawer({
           display: "flex",
           flexDirection: "column",
           backgroundColor: theme.palette.background.paper,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-          borderBottom: `1px solid ${theme.palette.divider}`,
+          boxShadow: open ? "0 8px 32px rgba(0,0,0,0.18)" : "none",
+          borderBottom: open ? `1px solid ${theme.palette.divider}` : "none",
           transform: open ? "translateY(0)" : "translateY(-100%)",
-          transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+          // visibility jumps to hidden only AFTER the slide-out finishes (0.3s delay),
+          // so the animation plays fully before the element stops painting.
+          // When opening, visibility jumps to visible immediately (no delay).
+          visibility: open ? "visible" : "hidden",
+          transition: open
+            ? "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+            : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.3s",
         }}
       >
         {content}

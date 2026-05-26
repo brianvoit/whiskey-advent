@@ -28,9 +28,7 @@ import ParkRoundedIcon from "@mui/icons-material/ParkRounded";
 import FitnessCenterRoundedIcon from "@mui/icons-material/FitnessCenterRounded";
 import FlavorTagPicker from "./components/FlavorTagPicker";
 import CelebrationOverlay, { type CelebrationType } from "./components/CelebrationOverlay";
-import StreakPill from "./components/StreakPill";
 import { calculateStreak, getStreakMilestone } from "./utils/streak";
-import { useStreak } from "./hooks/useStreak";
 
 type WhiskeyDay = {
   id: number;
@@ -156,9 +154,7 @@ function DayDetail({ userId }: DayDetailProps) {
   const [celebration, setCelebration] = useState<CelebrationType | null>(null);
   const celebratedMilestones = useRef<Set<number>>(new Set());
   const hasCelebrationRef = useRef(false);
-  const { streak, refetch: refetchStreak } = useStreak(userId);
-  const prevStreakRef = useRef(streak);
-  const [streakAnimKey, setStreakAnimKey] = useState(0);
+  const prevStreakRef = useRef(0);
 
   useEffect(() => {
     const load = async () => {
@@ -332,8 +328,6 @@ function DayDetail({ userId }: DayDetailProps) {
 
     if (newStreak > prevStreakRef.current) {
       prevStreakRef.current = newStreak;
-      setStreakAnimKey((k) => k + 1);
-      await refetchStreak();
     }
 
     const milestone = getStreakMilestone(newStreak);
@@ -648,13 +642,6 @@ function DayDetail({ userId }: DayDetailProps) {
           marginRight: "auto",
         }}
       >
-        {/* Streak pill — only shown in active December */}
-        {streak > 0 && (
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
-            <StreakPill streak={streak} animKey={streakAnimKey} />
-          </div>
-        )}
-
         {/* Star rating block */}
         <StarRating
           value={rating}

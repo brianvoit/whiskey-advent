@@ -1,17 +1,20 @@
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 type AppHeaderProps = {
   currentYear: number;
+  streak?: number;
   onYearClick?: (event: React.MouseEvent<HTMLElement>) => void;
   unreadNotifications?: number;
   onNotificationsClick?: () => void;
   onSearchClick?: () => void;
 };
 
-function AppHeader({ currentYear, onYearClick, unreadNotifications = 0, onNotificationsClick, onSearchClick }: AppHeaderProps) {
+function AppHeader({ currentYear, streak = 0, onYearClick, unreadNotifications = 0, onNotificationsClick, onSearchClick }: AppHeaderProps) {
   const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
 
   const handleYearClick = (event: React.MouseEvent<HTMLElement>) => {
     if (onYearClick) {
@@ -47,6 +50,26 @@ function AppHeader({ currentYear, onYearClick, unreadNotifications = 0, onNotifi
         Whiskey Advent
       </h2>
 
+      {/* Center: streak (desktop only) */}
+      {isDesktop && streak > 0 && (
+        <span
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            fontSize: "0.72rem",
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: theme.palette.primary.main,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          {streak} day streak
+        </span>
+      )}
+
       {/* Right side: Search + Bell + year */}
       <div
         style={{
@@ -65,6 +88,7 @@ function AppHeader({ currentYear, onYearClick, unreadNotifications = 0, onNotifi
               background: "transparent",
               cursor: "pointer",
               padding: 0,
+              paddingTop: 2,
               display: "flex",
               alignItems: "center",
               color: theme.palette.text.secondary,

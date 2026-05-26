@@ -8,11 +8,6 @@ export function useStreak(userId: string) {
 
   const refetch = useCallback(async () => {
     const now = new Date();
-    if (now.getMonth() !== 11) {
-      setStreak(0);
-      setLoading(false);
-      return;
-    }
 
     const { data: season } = await supabase
       .from("seasons")

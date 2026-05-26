@@ -25,6 +25,7 @@ import AppHeader from "./components/AppHeader";
 import BottomNav from "./components/BottomNav";
 import NotificationsDrawer from "./components/NotificationsDrawer";
 import SearchDrawer from "./components/SearchDrawer";
+import { useStreak } from "./hooks/useStreak";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import InstallBanner from "./components/InstallBanner";
 import { Menu, MenuItem } from "@mui/material";
@@ -542,6 +543,9 @@ function AppShell({
   const location = useLocation();
   const navigate = useNavigate();
 
+  // ── Streak ───────────────────────────────────────────────────────────────────
+  const { streak } = useStreak(userId);
+
   // ── Search drawer ────────────────────────────────────────────────────────────
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -635,6 +639,7 @@ function AppShell({
       {/* Top header + year menu */}
       <AppHeader
         currentYear={currentYear}
+        streak={streak}
         onYearClick={handleYearClick}
         unreadNotifications={unreadNotifications}
         onNotificationsClick={() => setNotificationsOpen(true)}

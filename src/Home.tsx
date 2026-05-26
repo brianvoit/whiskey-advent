@@ -6,7 +6,6 @@ import { supabase } from "./supabaseClient";
 import { getWhiskeysForSeason, type Season } from "./api/whiskeys";
 import { getSeasonStats } from "./api/stats";
 import AdventCard from "./components/AdventCard";
-import StreakPill from "./components/StreakPill";
 import { calculateStreak } from "./utils/streak";
 import FireplaceRoundedIcon from "@mui/icons-material/FireplaceRounded";
 
@@ -159,8 +158,8 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
     fetchReveals();
   }, [whiskeyDays, userId]);
 
-  const isActiveDecember = seasonYear === todayYear && currentMonth === 11;
-  const streak = isActiveDecember
+  const isCurrentYear = seasonYear === todayYear;
+  const streak = isCurrentYear
     ? calculateStreak(ratingsMap, whiskeyDays, currentDayOfMonth)
     : 0;
 
@@ -178,9 +177,24 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
 
   return (
     <div style={{ width: "100%" }}>
-      {isActiveDecember && streak > 0 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: isMobile ? 8 : 16, paddingBottom: 4 }}>
-          <StreakPill streak={streak} />
+      {isCurrentYear && streak > 0 && isMobile && (
+        <div style={{ paddingTop: 12, paddingBottom: 4 }}>
+          <p style={{
+            margin: 0,
+            textAlign: "center",
+            fontSize: "0.72rem",
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: theme.palette.primary.main,
+          }}>
+            {streak} day streak
+          </p>
+          <hr style={{
+            border: "none",
+            borderTop: `1px solid ${theme.palette.divider}`,
+            margin: "10px 0 0",
+          }} />
         </div>
       )}
       <div
