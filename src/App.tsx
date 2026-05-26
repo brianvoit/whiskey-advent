@@ -14,6 +14,7 @@ import Home from "./Home";
 import DayDetail from "./DayDetail";
 import WhiskeyDetail from "./WhiskeyDetail";
 import Stats from "./Stats";
+import RecapScreen from "./RecapScreen";
 import ProfileScreen from "./ProfileScreen";
 import Onboarding from "./Onboarding";
 import AwaitingApproval from "./AwaitingApproval";
@@ -26,6 +27,8 @@ import BottomNav from "./components/BottomNav";
 import NotificationsDrawer from "./components/NotificationsDrawer";
 import SearchDrawer from "./components/SearchDrawer";
 import { useStreak } from "./hooks/useStreak";
+import { trackPageView } from "./gtag";
+import { resolveSlugToUserId } from "./utils/slug";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import InstallBanner from "./components/InstallBanner";
 import { Menu, MenuItem } from "@mui/material";
@@ -173,6 +176,14 @@ function App() {
           .eq("id", userId);
         profile.avatar_url = oauthAvatar;
       }
+    }
+
+    // Silently sync the browser's IANA timezone to the profile.
+    // Runs on every load but only writes when the value has changed.
+    const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (detectedTz && (profile as any).timezone !== detectedTz) {
+      void supabase.from("profiles").update({ timezone: detectedTz }).eq("id", userId);
+      (profile as any).timezone = detectedTz;
     }
 
     setProfile(profile);
@@ -468,8 +479,8 @@ function App() {
   );
 }
 
-// Renders the right component for /profile/:userId
-// — own profile → ProfileScreen (editable)
+// Renders the right component for /profile/:slug
+// — own profile (by slug) → ProfileScreen (editable)
 // — another user's profile, viewer is admin → AdminUserDetail (read-only + admin controls)
 // — anything else → redirect home
 function ProfileRouteHandler({
@@ -479,6 +490,7 @@ function ProfileRouteHandler({
   userEmail,
   hasEmailAuth,
   onProfileUpdated,
+  currentYear,
 }: {
   currentUserId: string;
   isAdmin: boolean;
@@ -486,10 +498,24 @@ function ProfileRouteHandler({
   userEmail: string;
   hasEmailAuth: boolean;
   onProfileUpdated: (p: Profile) => void;
+  currentYear: number;
 }) {
-  const { userId: paramUserId } = useParams<{ userId: string }>();
+  const { userId: paramSlug } = useParams<{ userId: string }>();
+  const [resolvedId, setResolvedId] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(true);
 
-  if (paramUserId === currentUserId) {
+  useEffect(() => {
+    if (!paramSlug) { setResolving(false); return; }
+    resolveSlugToUserId(paramSlug).then((id) => {
+      setResolvedId(id);
+      setResolving(false);
+    });
+  }, [paramSlug]);
+
+  if (resolving) return null;
+  if (!resolvedId) return <Navigate to="/" replace />;
+
+  if (resolvedId === currentUserId) {
     return profile ? (
       <ProfileScreen
         profile={profile}
@@ -497,12 +523,13 @@ function ProfileRouteHandler({
         userEmail={userEmail}
         hasEmailAuth={hasEmailAuth}
         onProfileUpdated={onProfileUpdated}
+        currentYear={currentYear}
       />
     ) : null;
   }
 
   if (isAdmin) {
-    return <AdminUserDetail currentUserId={currentUserId} />;
+    return <AdminUserDetail currentUserId={currentUserId} resolvedUserId={resolvedId} />;
   }
 
   return <Navigate to="/" replace />;
@@ -542,6 +569,11 @@ function AppShell({
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // ── GA page tracking ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    trackPageView(location.pathname, userId);
+  }, [location.pathname, userId]);
 
   // ── Streak ───────────────────────────────────────────────────────────────────
   const { streak } = useStreak(userId);
@@ -708,7 +740,19 @@ function AppShell({
               }
             />
             <Route
-              path="/whiskey/:whiskeyDayId"
+              path="/recap/:year"
+              element={
+                <RecapScreen
+                  userId={userId}
+                  isAdmin={isAdmin}
+                  avatarUrl={avatarUrl}
+                  firstName={firstName}
+                  lastName={lastName}
+                />
+              }
+            />
+            <Route
+              path="/whiskey/:year/:dayNumber"
               element={
                 <WhiskeyDetail
                   userId={userId}
@@ -720,12 +764,23 @@ function AppShell({
                 />
               }
             />
-            {/* /profile → redirect to the current user's profile */}
+            {/* /profile — always the current user's own profile */}
             <Route
               path="/profile"
-              element={<Navigate to={`/profile/${userId}`} replace />}
+              element={
+                profile ? (
+                  <ProfileScreen
+                    profile={profile}
+                    userId={userId}
+                    userEmail={userEmail}
+                    hasEmailAuth={hasEmailAuth}
+                    onProfileUpdated={onProfileUpdated}
+                    currentYear={currentYear}
+                  />
+                ) : null
+              }
             />
-            {/* /profile/:userId — own profile or admin viewing another user */}
+            {/* /profile/:slug — own profile (by slug) or admin viewing another user */}
             <Route
               path="/profile/:userId"
               element={
@@ -736,6 +791,7 @@ function AppShell({
                   userEmail={userEmail}
                   hasEmailAuth={hasEmailAuth}
                   onProfileUpdated={onProfileUpdated}
+                  currentYear={currentYear}
                 />
               }
             />

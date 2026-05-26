@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getSeasonByYear, getWhiskeysForSeason } from "./api/whiskeys";
 import {
@@ -8,6 +8,7 @@ import {
   type TastingSliderValues,
   defaultTastingSliders,
 } from "./api/tastings";
+import { checkCompetitiveAwards } from "./api/awards";
 import Divider from "@mui/material/Divider";
 import { supabase } from "./supabaseClient";
 import type { TastingMode } from "./api/profiles";
@@ -15,20 +16,69 @@ import Snackbar from "@mui/material/Snackbar";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import Typography from "@mui/material/Typography";
 import Slider from "@mui/material/Slider";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import StarHalfRoundedIcon from "@mui/icons-material/StarHalfRounded";
 import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
-import LocalBarRoundedIcon from "@mui/icons-material/LocalBarRounded";
-import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
+import IcecreamRoundedIcon from "@mui/icons-material/IcecreamRounded";
+import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
+import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded";
 import WaterDropRoundedIcon from "@mui/icons-material/WaterDropRounded";
-import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
-import ParkRoundedIcon from "@mui/icons-material/ParkRounded";
-import FitnessCenterRoundedIcon from "@mui/icons-material/FitnessCenterRounded";
+import WhatshotRoundedIcon from "@mui/icons-material/WhatshotRounded";
+import OutdoorGrillRoundedIcon from "@mui/icons-material/OutdoorGrillRounded";
+import HourglassEmptyRoundedIcon from "@mui/icons-material/HourglassEmptyRounded";
+import BalanceRoundedIcon from "@mui/icons-material/BalanceRounded";
 import FlavorTagPicker from "./components/FlavorTagPicker";
 import CelebrationOverlay, { type CelebrationType } from "./components/CelebrationOverlay";
 import { calculateStreak, getStreakMilestone } from "./utils/streak";
+
+const TASTING_PLACEHOLDERS = [
+  "Tasted like a library that owns horses.",
+  "Smells faintly of decisions I'd make again.",
+  "Notes of grandfather, regret, and stone fruit.",
+  "Drank this on a Tuesday. Felt like a Thursday.",
+  "Has the structural confidence of a small bridge.",
+  "A whisky that has read at least one book about itself.",
+  "Finish goes on like a cousin telling a story.",
+  "Aggressively fine.",
+  "Reminds me of a wood I once knew.",
+  "Behaves like sherry that went to finishing school.",
+  "Tastes like the inside of a violin case. (Complimentary.)",
+  "Opens with vanilla, closes with a firm handshake.",
+  "Caramel, oak, and the distinct sense of being watched.",
+  "Could pair this with a poem or a small crime.",
+  "Mineral, marine, slightly haunted.",
+  "Pours like it knows things.",
+  "Promised the Highlands, delivered a parking lot.",
+  "Genuinely made me put my phone down.",
+  "Hot, thin, and faintly apologetic.",
+  "Smells like ambition. Tastes like compromise.",
+  "The kind of whisky that fixes a week.",
+  "Polished to the point of having nothing to say.",
+  "A small miracle in a tumbler.",
+  "Drank it. Wouldn't again. Wouldn't stop you.",
+  "Loved it. Can't recommend it.",
+  "Burns like a confession.",
+  "The bottle is prettier than the contents.",
+  "Quietly excellent. Doesn't need to tell you.",
+  "Bad on paper. Great at 11pm.",
+  "A whisky for people who don't drink whisky.",
+];
+
+const RATING_LABELS: Record<number, string> = {
+  0.5: "Actively bad",
+  1.0: "Drain pour",
+  1.5: "Painful",
+  2.0: "Tolerable",
+  2.5: "Almost decent",
+  3.0: "Perfectly fine",
+  3.5: "Genuinely good",
+  4.0: "Notably good",
+  4.5: "Rare bird",
+  5.0: "Religious experience",
+};
 
 type WhiskeyDay = {
   id: number;
@@ -65,14 +115,14 @@ function StarRating({ value, onChange }: StarRatingProps) {
     const halfValue = index - 0.5;
 
     if (rating === fullValue) {
-      // full -> half
-      onChange(halfValue);
-    } else if (rating === halfValue) {
-      // half -> clear
+      // full -> clear
       onChange(null);
-    } else {
-      // anything else -> full
+    } else if (rating === halfValue) {
+      // half -> full
       onChange(fullValue);
+    } else {
+      // anything else -> half (first tap lands on half)
+      onChange(halfValue);
     }
   };
 
@@ -99,7 +149,7 @@ function StarRating({ value, onChange }: StarRatingProps) {
           cursor: "pointer",
           padding: 0,
           lineHeight: 1,
-          flex: 1,
+          flex: "none",
           textAlign: "center",
           color: isFull || isHalf
             ? theme.palette.primary.main
@@ -116,9 +166,9 @@ function StarRating({ value, onChange }: StarRatingProps) {
       style={{
         display: "flex",
         alignItems: "center",
-        gap: 0,
-        width: "100%",
-        justifyContent: "space-between",
+        gap: 12,
+        width: "auto",
+        justifyContent: "center",
       }}
     >
       {stars}
@@ -128,6 +178,11 @@ function StarRating({ value, onChange }: StarRatingProps) {
 
 function DayDetail({ userId }: DayDetailProps) {
   const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
+  const tastingPlaceholder = useMemo(
+    () => TASTING_PLACEHOLDERS[Math.floor(Math.random() * TASTING_PLACEHOLDERS.length)],
+    []
+  );
 
   const { year, dayNumber } = useParams();
   const navigate = useNavigate();
@@ -146,6 +201,7 @@ function DayDetail({ userId }: DayDetailProps) {
   const [tastingMode, setTastingMode] = useState<TastingMode>("purist");
 
   const [tags, setTags] = useState<string[]>([]);
+  const [wouldBuy, setWouldBuy] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -155,6 +211,9 @@ function DayDetail({ userId }: DayDetailProps) {
   const celebratedMilestones = useRef<Set<number>>(new Set());
   const hasCelebrationRef = useRef(false);
   const prevStreakRef = useRef(0);
+  // Tracks whether the user already had a saved rating when this page loaded.
+  // Used to fire competitive awards only on a first-ever rating, not re-saves.
+  const hadSavedRatingRef = useRef(false);
 
   useEffect(() => {
     const load = async () => {
@@ -208,6 +267,7 @@ function DayDetail({ userId }: DayDetailProps) {
           if (tasting.rating != null) {
             const clamped = Math.max(0, Math.min(5, tasting.rating));
             setRating(clamped);
+            hadSavedRatingRef.current = true; // already rated — competitive awards won't re-fire
           } else {
             setRating(null);
           }
@@ -223,6 +283,7 @@ function DayDetail({ userId }: DayDetailProps) {
           }
 
           setTags(tasting.tags ?? []);
+          setWouldBuy(tasting.would_buy ?? false);
         }
       }
 
@@ -239,6 +300,7 @@ function DayDetail({ userId }: DayDetailProps) {
     setNotes("");
     setTastingSliders(defaultTastingSliders);
     setTags([]);
+    setWouldBuy(false);
     setIsDirty(false);
     await saveTasting({
       userId,
@@ -285,13 +347,27 @@ function DayDetail({ userId }: DayDetailProps) {
 
     if (result.success) {
       setIsDirty(false);
+
+      // First-ever rating for this day: check for competitive awards (fire & forget)
+      if (!hadSavedRatingRef.current && rating !== null && seasonId) {
+        hadSavedRatingRef.current = true;
+        void checkCompetitiveAwards({
+          userId,
+          whiskeyDayId: whiskey.id,
+          seasonId,
+          dayNumber: whiskey.day_number,
+          whiskeyName: whiskey.name ?? `Day ${whiskey.day_number}`,
+        });
+      }
+
       hasCelebrationRef.current = false;
       await checkCelebration(rating);
       if (!hasCelebrationRef.current) {
-        navigate(`/whiskey/${whiskey.id}`);
+        navigate(`/whiskey/${year}/${whiskey.day_number}`);
       }
     } else {
-      setSaveMessage("Error saving tasting");
+      const msg = (result.error as { message?: string } | null)?.message;
+      setSaveMessage(msg ? `Save failed: ${msg}` : "Error saving tasting");
       setSnackbarOpen(true);
     }
   };
@@ -373,6 +449,23 @@ function DayDetail({ userId }: DayDetailProps) {
     setSnackbarOpen(true);
   };
 
+  const handleToggleWouldBuy = async () => {
+    if (!whiskey) return;
+    const newValue = !wouldBuy;
+    setWouldBuy(newValue);
+    // Auto-save immediately (no rating required) — same pattern as Reveal
+    await saveTasting({
+      userId,
+      whiskeyDayId: whiskey.id,
+      rating,
+      notes,
+      revealed,
+      tastingSliders,
+      tags,
+      wouldBuy: newValue,
+    });
+  };
+
   const updateSlider = (key: keyof TastingSliderValues, value: number) => {
     setTastingSliders((prev) => ({
       ...prev,
@@ -418,19 +511,19 @@ function DayDetail({ userId }: DayDetailProps) {
     key: keyof TastingSliderValues;
     label: string;
     Icon:
-      | typeof LocalBarRoundedIcon
-      | typeof RestaurantRoundedIcon
+      | typeof IcecreamRoundedIcon
       | typeof WaterDropRoundedIcon
-      | typeof LocalFireDepartmentRoundedIcon
-      | typeof ParkRoundedIcon
-      | typeof FitnessCenterRoundedIcon;
+      | typeof WhatshotRoundedIcon
+      | typeof OutdoorGrillRoundedIcon
+      | typeof HourglassEmptyRoundedIcon
+      | typeof BalanceRoundedIcon;
   }[] = [
-    { key: "sweetness", label: "Sweetness", Icon: LocalBarRoundedIcon },
-    { key: "fruit", label: "Fruit", Icon: RestaurantRoundedIcon },
-    { key: "spice", label: "Spice", Icon: WaterDropRoundedIcon },
-    { key: "smoke", label: "Smoke", Icon: LocalFireDepartmentRoundedIcon },
-    { key: "oak", label: "Oak", Icon: ParkRoundedIcon },
-    { key: "body", label: "Body", Icon: FitnessCenterRoundedIcon },
+    { key: "sweetness", label: "Sweetness", Icon: IcecreamRoundedIcon },
+    { key: "body",      label: "Body",      Icon: WaterDropRoundedIcon },
+    { key: "heat",      label: "Heat",      Icon: WhatshotRoundedIcon },
+    { key: "char",      label: "Char",      Icon: OutdoorGrillRoundedIcon },
+    { key: "linger",    label: "Linger",    Icon: HourglassEmptyRoundedIcon },
+    { key: "balance",   label: "Balance",   Icon: BalanceRoundedIcon },
   ];
 
   return (
@@ -583,273 +676,496 @@ function DayDetail({ userId }: DayDetailProps) {
           )}
         </div>
 
-        {/* Divider */}
-        <Divider
-          orientation="vertical"
-          flexItem
-          style={{ alignSelf: "stretch" }}
-        />
+        {/* Divider — only shown on desktop where the action sidebar exists */}
+        {isDesktop && (
+          <Divider
+            orientation="vertical"
+            flexItem
+            style={{ alignSelf: "stretch" }}
+          />
+        )}
 
-        {/* Right: chevron button linking to WhiskeyDetail */}
+        {/* Right: action sidebar — desktop only */}
+        {isDesktop && (
         <div
           style={{
-            flex: "0 0 20%",
+            flex: "0 0 172px",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            flexDirection: "column",
+            alignItems: "stretch",
+            justifyContent: "space-between",
           }}
         >
-          <button
-            type="button"
-            onClick={() => navigate(`/whiskey/${whiskey.id}`)}
-            disabled={!revealed}
-            title="View full tasting notes"
-            style={{
-              border: revealed ? "1px solid rgba(139,90,43,0.25)" : "none",
-              backgroundColor: !revealed
-                ? "transparent"
-                : theme.palette.background.paper,
-              padding: 10,
-              margin: 0,
-              cursor: !revealed ? "default" : "pointer",
-              color: !revealed
-                ? theme.palette.text.disabled
-                : theme.palette.primary.main,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "50%",
-              boxShadow: revealed
-                ? "0 1px 4px rgba(100,60,20,0.15)"
-                : "none",
-              transition: "box-shadow 0.15s, background-color 0.15s",
-            }}
-          >
-            <ChevronRightRoundedIcon
-              style={{ fontSize: "1.6rem" }}
-            />
-          </button>
+          <>
+              {/* Top: Save + Would Buy + Reset + Reveal */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {!isDirty && rating !== null ? (
+                  /* Saved — transform into navigation chevron */
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/whiskey/${year}/${whiskey.day_number}`)}
+                    title="View full tasting notes"
+                    style={{
+                      padding: "8px 16px",
+                      backgroundColor: theme.palette.primary.main,
+                      color: theme.palette.primary.contrastText,
+                      border: "none",
+                      borderRadius: theme.shape.borderRadius,
+                      cursor: "pointer",
+                      font: "inherit",
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                    }}
+                  >
+                    <ChevronRightRoundedIcon style={{ fontSize: "1.4rem" }} />
+                  </button>
+                ) : (
+                  /* Unsaved — regular Save button */
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={saving || !isDirty}
+                    style={{
+                      padding: "8px 16px",
+                      backgroundColor:
+                        saving || !isDirty
+                          ? theme.palette.action.disabledBackground
+                          : theme.palette.primary.main,
+                      color:
+                        saving || !isDirty
+                          ? theme.palette.text.disabled
+                          : theme.palette.primary.contrastText,
+                      border: "none",
+                      borderRadius: theme.shape.borderRadius,
+                      cursor: saving || !isDirty ? "default" : "pointer",
+                      font: "inherit",
+                      fontWeight: 600,
+                      width: "100%",
+                    }}
+                  >
+                    {saving ? "Saving…" : "Save"}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleToggleWouldBuy}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "8px 16px",
+                    borderRadius: theme.shape.borderRadius,
+                    border: `1.5px solid ${wouldBuy ? theme.palette.primary.main : theme.palette.divider}`,
+                    background: wouldBuy
+                      ? `color-mix(in srgb, ${theme.palette.primary.main} 12%, transparent)`
+                      : "transparent",
+                    color: wouldBuy
+                      ? theme.palette.primary.main
+                      : theme.palette.text.secondary,
+                    cursor: "pointer",
+                    font: "inherit",
+                    fontSize: "0.9rem",
+                    fontWeight: 500,
+                    width: "100%",
+                    transition: "border-color 0.15s, background 0.15s, color 0.15s",
+                  }}
+                >
+                  {wouldBuy
+                    ? <BookmarkRoundedIcon style={{ fontSize: "1.1rem" }} />
+                    : <BookmarkBorderRoundedIcon style={{ fontSize: "1.1rem" }} />}
+                  Would Buy
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  disabled={rating === null && notes === "" && tags.length === 0}
+                  style={{
+                    border: "none",
+                    background: "none",
+                    padding: "4px 8px",
+                    margin: 0,
+                    cursor: rating === null && notes === "" && tags.length === 0 ? "default" : "pointer",
+                    color: rating === null && notes === "" && tags.length === 0
+                      ? theme.palette.text.disabled
+                      : theme.palette.text.secondary,
+                    font: "inherit",
+                    fontSize: "0.85rem",
+                    fontWeight: 400,
+                    textAlign: "center",
+                    width: "100%",
+                  }}
+                >
+                  Reset
+                </button>
+
+                {!revealed && (
+                  <button
+                    type="button"
+                    onClick={handleReveal}
+                    style={{
+                      border: "none",
+                      background: "none",
+                      padding: "4px 8px",
+                      margin: 0,
+                      cursor: "pointer",
+                      color: theme.palette.primary.main,
+                      font: "inherit",
+                      fontWeight: 500,
+                      textAlign: "center",
+                    }}
+                  >
+                    Reveal
+                  </button>
+                )}
+              </div>
+
+          </>
         </div>
+        )}
       </div>
 
       <Divider style={{ margin: "24px 0" }} />
 
+      {/* ── Rating section: two-column on desktop, single-column on mobile ── */}
       <div
         style={{
           marginTop: 12,
-          maxWidth: 520,
+          maxWidth: isDesktop ? 1040 : 520,
           marginLeft: "auto",
           marginRight: "auto",
         }}
       >
-        {/* Star rating block */}
-        <StarRating
-          value={rating}
-          onChange={(val) => {
-            setRating(val);
-            setIsDirty(true);
-          }}
-        />
-
-        {/* Tasting attribute sliders */}
-        <div style={{ marginTop: 24 }}>
-          {sliderDefs.map(({ key, label, Icon }) => (
-            <div
-              key={key}
-              style={{
-                marginBottom: 16,
-              }}
-            >
-              <Typography
-                variant="subtitle2"
-                component="label"
-                style={{ display: "block", marginBottom: 4 }}
-              >
-                {label}
-              </Typography>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    position: "relative",
-                    flex: 1,
-                    paddingInline: 4,
-                    minHeight: 40,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <Slider
-                    min={1}
-                    max={5}
-                    step={0.5}
-                    marks={[
-                      { value: 1 },
-                      { value: 2 },
-                      { value: 3 },
-                      { value: 4 },
-                      { value: 5 },
-                    ]}
-                    value={tastingSliders[key]}
-                    onChange={(_, newValue) =>
-                      updateSlider(key, newValue as number)
-                    }
-                    valueLabelDisplay="off"
-                    sx={{
-                      marginLeft: 3.5, // ~28px
-                      "& .MuiSlider-thumb": {
-                        height: 24,
-                        width: 12,
-                        borderRadius: 999,
-                      },
-                      "& .MuiSlider-track": {
-                        height: 6,
-                        borderRadius: 999,
-                      },
-                      "& .MuiSlider-rail": {
-                        height: 6,
-                        borderRadius: 999,
-                      },
-                      "& .MuiSlider-mark": {
-                        height: 10,
-                        width: 3,
-                        borderRadius: 999,
-                      },
-                      "& .MuiSlider-markActive": {
-                        backgroundColor: theme.palette.primary.main,
-                        height: 12,
-                        width: 4,
-                      },
-                    }}
-                  />
-                  <Icon
-                    fontSize="small"
-                    style={{
-                      position: "absolute",
-                      left: 0,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      color: theme.palette.primary.main,
-                    }}
-                  />
-                </div>
-                <span style={{ width: 36, textAlign: "right" }}>
-                  {tastingSliders[key].toFixed(1)}
-                </span>
-              </div>
-            </div>
-          ))}
+        {/* Star rating — centered above both columns */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: isDesktop ? 36 : 16, marginBottom: isDesktop ? 40 : 32 }}>
+          <StarRating
+            value={rating}
+            onChange={(val) => {
+              setRating(val);
+              setIsDirty(true);
+            }}
+          />
+          <Typography
+            variant="caption"
+            style={{
+              marginTop: 10,
+              color: theme.palette.text.secondary,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              fontWeight: 700,
+              visibility: rating !== null ? "visible" : "hidden",
+            }}
+          >
+            {rating !== null ? RATING_LABELS[rating] : "placeholder"}
+          </Typography>
         </div>
 
-        {/* Flavor tags */}
-        <FlavorTagPicker
-          selected={tags}
-          onChange={(newTags) => {
-            setTags(newTags);
-            setIsDirty(true);
-          }}
-        />
-
-        {/* Notes */}
-        <Typography
-          variant="subtitle2"
-          component="label"
-          style={{ display: "block", marginTop: 16, marginBottom: 8 }}
-        >
-          Notes
-        </Typography>
-        <textarea
-          rows={4}
-          style={{
-            width: "100%",
-            padding: 8,
-            fontFamily: "inherit",
-            borderRadius: 8,
-            border: `1px solid ${theme.palette.divider}`,
-            backgroundColor: theme.palette.background.paper,
-            color: theme.palette.text.primary,
-          }}
-          value={notes}
-          onChange={(e) => {
-            setNotes(e.target.value);
-            setIsDirty(true);
-          }}
-          placeholder="What did you taste? Sweet, smoky, fruity, spicy, etc."
-        />
-
-        {/* Reveal + Save actions */}
+        {/* Columns wrapper */}
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 8,
-            marginTop: 16,
+            flexDirection: isDesktop ? "row" : "column",
+            alignItems: isDesktop ? "flex-start" : undefined,
+            gap: 0,
           }}
         >
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !isDirty}
+          {/* ── LEFT column: sliders ── */}
+          <div style={{ flex: isDesktop ? "0 0 42%" : undefined, minWidth: 0 }}>
+            {/* Tasting attribute sliders */}
+            <div style={{ marginTop: 0 }}>
+              {sliderDefs.map(({ key, label, Icon }) => (
+                <div
+                  key={key}
+                  style={{
+                    marginBottom: 16,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    component="label"
+                    style={{
+                      display: "block",
+                      marginBottom: 4,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      color: theme.palette.text.primary,
+                      opacity: 0.5,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {label}
+                  </Typography>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
+                      style={{
+                        position: "relative",
+                        flex: 1,
+                        paddingInline: 4,
+                        minHeight: 40,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Slider
+                        min={1}
+                        max={5}
+                        step={0.5}
+                        marks={[
+                          { value: 1 },
+                          { value: 2 },
+                          { value: 3 },
+                          { value: 4 },
+                          { value: 5 },
+                        ]}
+                        value={tastingSliders[key]}
+                        onChange={(_, newValue) =>
+                          updateSlider(key, newValue as number)
+                        }
+                        valueLabelDisplay="off"
+                        sx={{
+                          marginLeft: 3.5, // ~28px
+                          "& .MuiSlider-thumb": {
+                            height: 24,
+                            width: 12,
+                            borderRadius: 999,
+                          },
+                          "& .MuiSlider-track": {
+                            height: 6,
+                            borderRadius: 999,
+                          },
+                          "& .MuiSlider-rail": {
+                            height: 6,
+                            borderRadius: 999,
+                          },
+                          "& .MuiSlider-mark": {
+                            height: 10,
+                            width: 3,
+                            borderRadius: 999,
+                          },
+                          "& .MuiSlider-markActive": {
+                            backgroundColor: theme.palette.primary.main,
+                            height: 12,
+                            width: 4,
+                          },
+                        }}
+                      />
+                      <Icon
+                        fontSize="small"
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          color: theme.palette.primary.main,
+                        }}
+                      />
+                    </div>
+                    <span style={{ width: 36, textAlign: "right" }}>
+                      {tastingSliders[key].toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Vertical rule (desktop only) ── */}
+          {isDesktop && (
+            <Divider
+              orientation="vertical"
+              flexItem
+              style={{ margin: "0 44px" }}
+            />
+          )}
+
+          {/* ── RIGHT column: flavor tags ── */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Horizontal divider on mobile only */}
+            {!isDesktop && <Divider style={{ margin: "28px 0 0" }} />}
+
+            <FlavorTagPicker
+              selected={tags}
+              onChange={(newTags) => {
+                setTags(newTags);
+                setIsDirty(true);
+              }}
+              topMargin={isDesktop ? 0 : undefined}
+            />
+          </div>
+        </div>
+
+        {/* Tasting Notes — full width below both columns */}
+        <div style={{ marginTop: 28 }}>
+          <Typography
+            variant="subtitle1"
+            component="label"
+            style={{ display: "block", marginBottom: 14, fontWeight: 700 }}
+          >
+            Tasting Notes
+          </Typography>
+          <textarea
+            rows={4}
             style={{
-              padding: "8px 24px",
-              backgroundColor:
-                saving || !isDirty
-                  ? theme.palette.action.disabledBackground
-                  : theme.palette.primary.main,
-              color:
-                saving || !isDirty
-                  ? theme.palette.text.disabled
-                  : theme.palette.primary.contrastText,
-              border: "none",
-              borderRadius: theme.shape.borderRadius,
-              cursor: saving || !isDirty ? "default" : "pointer",
-              fontWeight: 600,
-              minWidth: 160,
+              width: "100%",
+              padding: 8,
+              fontFamily: "inherit",
+              borderRadius: 8,
+              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              color: theme.palette.text.primary,
+              boxSizing: "border-box",
+            }}
+            value={notes}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              setIsDirty(true);
+            }}
+            placeholder={notes ? undefined : tastingPlaceholder}
+          />
+        </div>
+
+        {/* Save + Would Buy + Reset + Reveal — mobile only (desktop versions live in the info card sidebar) */}
+        {!isDesktop && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+              marginTop: 24,
             }}
           >
-            {saving ? "Saving..." : "Save"}
-          </button>
+            {/* Save / Chevron */}
+            {!isDirty && rating !== null ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/whiskey/${year}/${whiskey.day_number}`)}
+                title="View full tasting notes"
+                style={{
+                  padding: "8px 24px",
+                  backgroundColor: theme.palette.primary.main,
+                  color: theme.palette.primary.contrastText,
+                  border: "none",
+                  borderRadius: theme.shape.borderRadius,
+                  cursor: "pointer",
+                  font: "inherit",
+                  fontWeight: 600,
+                  minWidth: 160,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ChevronRightRoundedIcon style={{ fontSize: "1.4rem" }} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving || !isDirty}
+                style={{
+                  padding: "8px 24px",
+                  backgroundColor:
+                    saving || !isDirty
+                      ? theme.palette.action.disabledBackground
+                      : theme.palette.primary.main,
+                  color:
+                    saving || !isDirty
+                      ? theme.palette.text.disabled
+                      : theme.palette.primary.contrastText,
+                  border: "none",
+                  borderRadius: theme.shape.borderRadius,
+                  cursor: saving || !isDirty ? "default" : "pointer",
+                  font: "inherit",
+                  fontWeight: 600,
+                  minWidth: 160,
+                }}
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+            )}
 
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={rating === null && notes === "" && tags.length === 0}
-            style={{
-              border: "none",
-              background: "none",
-              padding: "4px 8px",
-              margin: 0,
-              cursor: rating === null && notes === "" && tags.length === 0 ? "default" : "pointer",
-              color: rating === null && notes === "" && tags.length === 0
-                ? theme.palette.text.disabled
-                : theme.palette.text.secondary,
-              font: "inherit",
-              fontSize: "0.85rem",
-              fontWeight: 400,
-            }}
-          >
-            Reset
-          </button>
-
-          {!revealed && (
+            {/* Would Buy */}
             <button
               type="button"
-              onClick={handleReveal}
+              onClick={handleToggleWouldBuy}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                padding: "8px 24px",
+                minWidth: 160,
+                borderRadius: theme.shape.borderRadius,
+                border: `1.5px solid ${wouldBuy ? theme.palette.primary.main : theme.palette.divider}`,
+                background: wouldBuy
+                  ? `color-mix(in srgb, ${theme.palette.primary.main} 12%, transparent)`
+                  : "transparent",
+                color: wouldBuy
+                  ? theme.palette.primary.main
+                  : theme.palette.text.secondary,
+                cursor: "pointer",
+                font: "inherit",
+                fontSize: "0.9rem",
+                fontWeight: 500,
+                transition: "border-color 0.15s, background 0.15s, color 0.15s",
+              }}
+            >
+              {wouldBuy
+                ? <BookmarkRoundedIcon style={{ fontSize: "1.1rem" }} />
+                : <BookmarkBorderRoundedIcon style={{ fontSize: "1.1rem" }} />}
+              Would Buy
+            </button>
+
+            {/* Reset */}
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={rating === null && notes === "" && tags.length === 0}
               style={{
                 border: "none",
                 background: "none",
                 padding: "4px 8px",
                 margin: 0,
-                cursor: "pointer",
-                color: theme.palette.primary.main,
+                cursor: rating === null && notes === "" && tags.length === 0 ? "default" : "pointer",
+                color: rating === null && notes === "" && tags.length === 0
+                  ? theme.palette.text.disabled
+                  : theme.palette.text.secondary,
                 font: "inherit",
-                fontWeight: 500,
+                fontSize: "0.85rem",
+                fontWeight: 400,
               }}
             >
-              Reveal
+              Reset
             </button>
-          )}
-        </div>
+
+            {/* Reveal */}
+            {!revealed && (
+              <button
+                type="button"
+                onClick={handleReveal}
+                style={{
+                  border: "none",
+                  background: "none",
+                  padding: "4px 8px",
+                  margin: 0,
+                  cursor: "pointer",
+                  color: theme.palette.primary.main,
+                  font: "inherit",
+                  fontWeight: 500,
+                }}
+              >
+                Reveal
+              </button>
+            )}
+          </div>
+        )}
       </div>
       <Snackbar
         open={snackbarOpen}
@@ -867,7 +1183,7 @@ function DayDetail({ userId }: DayDetailProps) {
           type={celebration}
           onDismiss={() => {
             setCelebration(null);
-            navigate(`/whiskey/${whiskey.id}`);
+            navigate(`/whiskey/${year}/${whiskey.day_number}`);
           }}
         />
       )}

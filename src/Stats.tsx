@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -158,8 +158,79 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
     return false;
   };
 
+  // Most polarizing = highest (max - min) spread with at least 2 raters
+  // Only surface it if the user can see group data for that day
+  const mostPolarizing = useMemo(() => {
+    const eligible = stats.filter(
+      (d) =>
+        d.min_rating !== null &&
+        d.max_rating !== null &&
+        d.rating_count >= 2 &&
+        canSeeGroupAverage(d)
+    );
+    if (eligible.length === 0) return null;
+    return eligible.reduce((best, d) => {
+      const spread = (d.max_rating ?? 0) - (d.min_rating ?? 0);
+      const bestSpread = (best.max_rating ?? 0) - (best.min_rating ?? 0);
+      return spread > bestSpread ? d : best;
+    });
+  }, [stats, canSeeGroupAverage]);
+
+  // Most consensus = lowest (max - min) spread with at least 2 raters
+  const mostConsensus = useMemo(() => {
+    const eligible = stats.filter(
+      (d) =>
+        d.min_rating !== null &&
+        d.max_rating !== null &&
+        d.rating_count >= 2 &&
+        canSeeGroupAverage(d)
+    );
+    if (eligible.length === 0) return null;
+    return eligible.reduce((best, d) => {
+      const spread = (d.max_rating ?? 0) - (d.min_rating ?? 0);
+      const bestSpread = (best.max_rating ?? 0) - (best.min_rating ?? 0);
+      return spread < bestSpread ? d : best;
+    });
+  }, [stats, canSeeGroupAverage]);
+
+  // Top rated = highest avg_rating with at least 2 raters
+  const topRated = useMemo(() => {
+    const eligible = stats.filter(
+      (d) => d.avg_rating !== null && d.rating_count >= 2 && canSeeGroupAverage(d)
+    );
+    if (eligible.length === 0) return null;
+    return eligible.reduce((best, d) =>
+      (d.avg_rating ?? 0) > (best.avg_rating ?? 0) ? d : best
+    );
+  }, [stats, canSeeGroupAverage]);
+
   return (
     <div style={{ paddingTop: 8 }}>
+
+      {/* Recap CTA — past seasons only */}
+      {!loading && !error && hasStats && currentYear < todayYear && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+          <button
+            onClick={() => navigate(`/recap/${currentYear}`)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 18px",
+              borderRadius: 20,
+              border: `1px solid ${theme.palette.primary.main}`,
+              background: "none",
+              color: theme.palette.primary.main,
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              letterSpacing: "0.02em",
+            }}
+          >
+            🥃 View {currentYear} Recap
+          </button>
+        </div>
+      )}
 
       {loading && (
         <p style={{ fontSize: "0.9rem", color: "#666" }}>Loading stats…</p>
@@ -199,6 +270,112 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
               userRatings={userRatings}
             />
           </div>
+
+          {/* Recap callout row — past seasons only */}
+          {currentYear < todayYear && (mostPolarizing || mostConsensus || topRated) && (() => {
+            const bubbleStyle: React.CSSProperties = {
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 14px",
+              borderRadius: 12,
+              border: `1px solid ${theme.palette.divider}`,
+              background: theme.palette.background.paper,
+              minWidth: 0,
+            };
+            const labelStyle: React.CSSProperties = {
+              margin: 0,
+              fontSize: "0.72rem",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              color: theme.palette.text.secondary,
+              marginBottom: 2,
+            };
+            const valueStyle: React.CSSProperties = {
+              margin: 0,
+              fontSize: "0.9rem",
+              fontWeight: 700,
+              fontVariantNumeric: "tabular-nums",
+              color: theme.palette.primary.main,
+            };
+            const nameStyle: React.CSSProperties = {
+              margin: 0,
+              fontSize: "0.9rem",
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            };
+
+            const polarizingLabel = mostPolarizing
+              ? (mostPolarizing.name ?? `Day ${mostPolarizing.day_number}`)
+              : null;
+            const polarizingSpread = mostPolarizing
+              ? ((mostPolarizing.max_rating ?? 0) - (mostPolarizing.min_rating ?? 0)).toFixed(1)
+              : null;
+
+            const consensusLabel = mostConsensus
+              ? (mostConsensus.name ?? `Day ${mostConsensus.day_number}`)
+              : null;
+            const consensusSpread = mostConsensus
+              ? ((mostConsensus.max_rating ?? 0) - (mostConsensus.min_rating ?? 0)).toFixed(1)
+              : null;
+
+            const topLabel = topRated
+              ? (topRated.name ?? `Day ${topRated.day_number}`)
+              : null;
+            const topAvg = topRated
+              ? (topRated.avg_rating ?? 0).toFixed(2)
+              : null;
+
+            return (
+              <div style={{
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                gap: 8,
+                marginBottom: 16,
+              }}>
+                {mostPolarizing && polarizingLabel && (
+                  <div style={bubbleStyle}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={labelStyle}>Most Polarizing</p>
+                      <p style={nameStyle}>{polarizingLabel}</p>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <p style={labelStyle}>Spread</p>
+                      <p style={valueStyle}>{polarizingSpread}</p>
+                    </div>
+                  </div>
+                )}
+                {mostConsensus && consensusLabel && (
+                  <div style={bubbleStyle}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={labelStyle}>Most Consensus</p>
+                      <p style={nameStyle}>{consensusLabel}</p>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <p style={labelStyle}>Spread</p>
+                      <p style={valueStyle}>{consensusSpread}</p>
+                    </div>
+                  </div>
+                )}
+                {topRated && topLabel && (
+                  <div style={bubbleStyle}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={labelStyle}>Top Rated</p>
+                      <p style={nameStyle}>{topLabel}</p>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <p style={labelStyle}>Avg</p>
+                      <p style={valueStyle}>{topAvg}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* One-line list following Material 3 list patterns */}
           <div
@@ -289,7 +466,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                   <div
                     key={d.whiskey_day_id}
                     role="listitem"
-                    onClick={isMobile && canViewDetails ? () => navigate(`/whiskey/${d.whiskey_day_id}`) : undefined}
+                    onClick={isMobile && canViewDetails ? () => navigate(`/whiskey/${currentYear}/${d.day_number}`) : undefined}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -407,7 +584,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                       ) : (
                         <button
                           type="button"
-                          onClick={() => navigate(`/whiskey/${d.whiskey_day_id}`)}
+                          onClick={() => navigate(`/whiskey/${currentYear}/${d.day_number}`)}
                           disabled={!canViewDetails}
                           style={{
                             border: "none",

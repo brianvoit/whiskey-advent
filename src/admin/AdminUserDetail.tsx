@@ -56,6 +56,7 @@ import type { TastingMode } from "../api/profiles";
 
 type AdminUserDetailProps = {
   currentUserId: string;
+  resolvedUserId?: string; // pre-resolved UUID when navigating via slug
 };
 
 type ConfirmAction =
@@ -90,8 +91,9 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminUserDetail({ currentUserId }: AdminUserDetailProps) {
-  const { userId } = useParams<{ userId: string }>();
+export default function AdminUserDetail({ currentUserId, resolvedUserId }: AdminUserDetailProps) {
+  const { userId: paramUserId } = useParams<{ userId: string }>();
+  const userId = resolvedUserId ?? paramUserId;
   const navigate   = useNavigate();
   const theme      = useTheme();
 

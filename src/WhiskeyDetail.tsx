@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { usePageMeta } from "./hooks/usePageMeta";
+import { trackWhiskeyView } from "./gtag";
 import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -23,15 +25,17 @@ type WhiskeyDayInfo = {
   distillery: string | null;
   age: string | null;
   blurb: string | null;
+  info_url: string | null;
+  image_url: string | null;
 };
 
 type WhiskeyTastingSliders = {
-  oak: number | null;
-  body: number | null;
-  fruit: number | null;
-  smoke: number | null;
-  spice: number | null;
   sweetness: number | null;
+  body: number | null;
+  heat: number | null;
+  char: number | null;
+  linger: number | null;
+  balance: number | null;
 };
 
 type WhiskeyTastingDetail = {
@@ -47,7 +51,8 @@ type WhiskeyTastingDetail = {
 };
 
 type WhiskeyDetailRouteParams = {
-  whiskeyDayId?: string;
+  year?: string;
+  dayNumber?: string;
 };
 
 type WhiskeyDetailProps = {
@@ -64,11 +69,11 @@ type SortColumn =
   | "name"
   | "rating"
   | "sweetness"
-  | "fruit"
-  | "spice"
-  | "smoke"
-  | "oak"
-  | "body";
+  | "body"
+  | "heat"
+  | "char"
+  | "linger"
+  | "balance";
 
 type SortDirection = "asc" | "desc";
 
@@ -82,7 +87,7 @@ function getFullNameFromTasting(t: WhiskeyTastingDetail): string {
 
 
 function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, lastName }: WhiskeyDetailProps) {
-  const { whiskeyDayId } = useParams<WhiskeyDetailRouteParams>();
+  const { year: yearParam, dayNumber: dayNumberParam } = useParams<WhiskeyDetailRouteParams>();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -107,15 +112,16 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
 
   useEffect(() => {
     const load = async () => {
-      if (!whiskeyDayId) {
-        setError("Missing whiskey id.");
+      if (!yearParam || !dayNumberParam) {
+        setError("Missing whiskey location.");
         setLoading(false);
         return;
       }
 
-      const dayId = parseInt(whiskeyDayId, 10);
-      if (Number.isNaN(dayId)) {
-        setError("Invalid whiskey id.");
+      const seasonYear = parseInt(yearParam, 10);
+      const dayNum = parseInt(dayNumberParam, 10);
+      if (Number.isNaN(seasonYear) || Number.isNaN(dayNum)) {
+        setError("Invalid whiskey location.");
         setLoading(false);
         return;
       }
@@ -124,14 +130,31 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
       setError(null);
 
       try {
-        // 1) Load the whiskey day info
+        // 1) Resolve season year → season id
+        const { data: seasonRow, error: seasonError } = await supabase
+          .from("seasons")
+          .select("id")
+          .eq("year", seasonYear)
+          .maybeSingle();
+
+        if (seasonError || !seasonRow) {
+          setError("Season not found.");
+          setLoading(false);
+          return;
+        }
+
+        // 2) Load the whiskey day info by season + day number
         const { data: whiskeyRows, error: whiskeyError } = await supabase
           .from("whiskey_days")
           .select(
-            "id, season_id, day_number, name, type, region, country, abv, distillery, age, blurb"
+            "id, season_id, day_number, name, type, region, country, abv, distillery, age, blurb, info_url, image_url"
           )
-          .eq("id", dayId)
+          .eq("season_id", seasonRow.id)
+          .eq("day_number", dayNum)
           .maybeSingle();
+
+        // reassign dayId for the rest of the function
+        const dayId = (whiskeyRows as any)?.id as number | undefined;
 
         if (whiskeyError) {
           console.error("Error loading whiskey detail:", whiskeyError);
@@ -140,7 +163,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
           return;
         }
 
-        if (!whiskeyRows) {
+        if (!whiskeyRows || !dayId) {
           setWhiskey(null);
           setTastings([]);
           setLoading(false);
@@ -150,7 +173,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
         setWhiskey(whiskeyRows as WhiskeyDayInfo);
         setSeasonId((whiskeyRows as any).season_id ?? null);
 
-        // 2) Load all tastings for this whiskey (no join yet)
+        // 3) Load all tastings for this whiskey (no join yet)
         const { data: tastingRows, error: tastingError } = await supabase
           .from("tastings")
           .select("user_id, rating, notes, tasting_sliders, tags, revealed")
@@ -228,31 +251,15 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                 typeof rawSliders === "string"
                   ? JSON.parse(rawSliders)
                   : rawSliders;
+              const toNum = (v: unknown) =>
+                v === null || v === undefined ? null : Number(v);
               sliders = {
-                oak:
-                  parsed.oak === null || parsed.oak === undefined
-                    ? null
-                    : Number(parsed.oak),
-                body:
-                  parsed.body === null || parsed.body === undefined
-                    ? null
-                    : Number(parsed.body),
-                fruit:
-                  parsed.fruit === null || parsed.fruit === undefined
-                    ? null
-                    : Number(parsed.fruit),
-                smoke:
-                  parsed.smoke === null || parsed.smoke === undefined
-                    ? null
-                    : Number(parsed.smoke),
-                spice:
-                  parsed.spice === null || parsed.spice === undefined
-                    ? null
-                    : Number(parsed.spice),
-                sweetness:
-                  parsed.sweetness === null || parsed.sweetness === undefined
-                    ? null
-                    : Number(parsed.sweetness),
+                sweetness: toNum(parsed.sweetness),
+                body:      toNum(parsed.body),
+                heat:      toNum(parsed.heat),
+                char:      toNum(parsed.char),
+                linger:    toNum(parsed.linger),
+                balance:   toNum(parsed.balance),
               };
             } catch (e) {
               console.error(
@@ -297,10 +304,34 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
     };
 
     void load();
-  }, [whiskeyDayId]);
+  }, [yearParam, dayNumberParam]);
 
 
   const hasTastings = tastings.length > 0;
+
+  // Dynamic page title + OG meta for sharing
+  const metaDescription = [whiskey?.distillery, whiskey?.type, whiskey?.country]
+    .filter(Boolean)
+    .join(" · ");
+  usePageMeta({
+    title: whiskey ? `Day ${whiskey.day_number} — ${whiskey.name ?? "Unknown"}` : undefined,
+    description: metaDescription || undefined,
+    image: whiskey?.image_url ?? undefined,
+  });
+
+  // GA4: fire whiskey_view once per load with whiskey metadata
+  useEffect(() => {
+    if (!whiskey || !yearParam || !dayNumberParam) return;
+    trackWhiskeyView({
+      whiskey_name:       whiskey.name       ?? "Unknown",
+      whiskey_type:       whiskey.type,
+      whiskey_distillery: whiskey.distillery,
+      whiskey_age:        whiskey.age,
+      whiskey_abv:        whiskey.abv,
+      season_year:        parseInt(yearParam, 10),
+      day_number:         parseInt(dayNumberParam, 10),
+    });
+  }, [whiskey?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tagCounts = useMemo(() => {
     const validTags = new Set<string>(FLAVOR_TAGS);
@@ -342,24 +373,13 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
       if (sortColumn === "rating") {
         aVal = a.rating;
         bVal = b.rating;
-      } else if (sortColumn === "sweetness") {
-        aVal = getSliderVal(a, "sweetness");
-        bVal = getSliderVal(b, "sweetness");
-      } else if (sortColumn === "fruit") {
-        aVal = getSliderVal(a, "fruit");
-        bVal = getSliderVal(b, "fruit");
-      } else if (sortColumn === "spice") {
-        aVal = getSliderVal(a, "spice");
-        bVal = getSliderVal(b, "spice");
-      } else if (sortColumn === "smoke") {
-        aVal = getSliderVal(a, "smoke");
-        bVal = getSliderVal(b, "smoke");
-      } else if (sortColumn === "oak") {
-        aVal = getSliderVal(a, "oak");
-        bVal = getSliderVal(b, "oak");
-      } else if (sortColumn === "body") {
-        aVal = getSliderVal(a, "body");
-        bVal = getSliderVal(b, "body");
+      } else if (
+        sortColumn === "sweetness" || sortColumn === "body" ||
+        sortColumn === "heat" || sortColumn === "char" ||
+        sortColumn === "linger" || sortColumn === "balance"
+      ) {
+        aVal = getSliderVal(a, sortColumn);
+        bVal = getSliderVal(b, sortColumn);
       }
 
       if (aVal == null && bVal == null) return 0;
@@ -606,11 +626,24 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
         <p
           style={{
             margin: 0,
-            marginBottom: 20,
+            marginBottom: whiskey.info_url ? 8 : 20,
             fontSize: "0.95rem",
           }}
         >
           {whiskey.blurb}
+        </p>
+      )}
+
+      {whiskey.info_url && (
+        <p style={{ margin: 0, marginBottom: 20, fontSize: "0.9rem" }}>
+          <a
+            href={whiskey.info_url}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: theme.palette.primary.main, fontWeight: 500 }}
+          >
+            Learn more →
+          </a>
         </p>
       )}
 
@@ -730,12 +763,12 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
               const fmt = (val: number | null | undefined) =>
                 val == null ? "—" : Number(val).toFixed(1);
               const flavorCols: [string, string][] = [
-                ["Sweet", fmt(sliders?.sweetness ?? null)],
-                ["Fruit", fmt(sliders?.fruit ?? null)],
-                ["Spice", fmt(sliders?.spice ?? null)],
-                ["Smoke", fmt(sliders?.smoke ?? null)],
-                ["Oak", fmt(sliders?.oak ?? null)],
-                ["Body", fmt(sliders?.body ?? null)],
+                ["Sweet",   fmt(sliders?.sweetness ?? null)],
+                ["Body",    fmt(sliders?.body    ?? null)],
+                ["Heat",    fmt(sliders?.heat    ?? null)],
+                ["Char",    fmt(sliders?.char    ?? null)],
+                ["Linger",  fmt(sliders?.linger  ?? null)],
+                ["Balance", fmt(sliders?.balance ?? null)],
               ];
               return (
                 <div
@@ -832,53 +865,23 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
               >
                 {renderSortLabel("Overall", "rating")}
               </div>
-              <div
-                style={{
-                  gridColumn: "4 / 5",
-                  textAlign: "center",
-                }}
-              >
+              <div style={{ gridColumn: "4 / 5", textAlign: "center" }}>
                 {renderSortLabel("Sweet", "sweetness")}
               </div>
-              <div
-                style={{
-                  gridColumn: "5 / 6",
-                  textAlign: "center",
-                }}
-              >
-                {renderSortLabel("Fruit", "fruit")}
-              </div>
-              <div
-                style={{
-                  gridColumn: "6 / 7",
-                  textAlign: "center",
-                }}
-              >
-                {renderSortLabel("Spice", "spice")}
-              </div>
-              <div
-                style={{
-                  gridColumn: "7 / 8",
-                  textAlign: "center",
-                }}
-              >
-                {renderSortLabel("Smoke", "smoke")}
-              </div>
-              <div
-                style={{
-                  gridColumn: "8 / 9",
-                  textAlign: "center",
-                }}
-              >
-                {renderSortLabel("Oak", "oak")}
-              </div>
-              <div
-                style={{
-                  gridColumn: "9 / 10",
-                  textAlign: "center",
-                }}
-              >
+              <div style={{ gridColumn: "5 / 6", textAlign: "center" }}>
                 {renderSortLabel("Body", "body")}
+              </div>
+              <div style={{ gridColumn: "6 / 7", textAlign: "center" }}>
+                {renderSortLabel("Heat", "heat")}
+              </div>
+              <div style={{ gridColumn: "7 / 8", textAlign: "center" }}>
+                {renderSortLabel("Char", "char")}
+              </div>
+              <div style={{ gridColumn: "8 / 9", textAlign: "center" }}>
+                {renderSortLabel("Linger", "linger")}
+              </div>
+              <div style={{ gridColumn: "9 / 10", textAlign: "center" }}>
+                {renderSortLabel("Balance", "balance")}
               </div>
             </div>
 
@@ -964,77 +967,21 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                       : "—"}
                   </div>
 
-                  {/* Sweetness spanning both rows */}
-                  <div
-                    style={{
-                      gridRow: "1 / span 2",
-                      gridColumn: "4 / 5",
-                      textAlign: "center",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {fmt(sliders?.sweetness ?? null)}
-                  </div>
-
-                  {/* Fruit spanning both rows */}
-                  <div
-                    style={{
-                      gridRow: "1 / span 2",
-                      gridColumn: "5 / 6",
-                      textAlign: "center",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {fmt(sliders?.fruit ?? null)}
-                  </div>
-
-                  {/* Spice spanning both rows */}
-                  <div
-                    style={{
-                      gridRow: "1 / span 2",
-                      gridColumn: "6 / 7",
-                      textAlign: "center",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {fmt(sliders?.spice ?? null)}
-                  </div>
-
-                  {/* Smoke spanning both rows */}
-                  <div
-                    style={{
-                      gridRow: "1 / span 2",
-                      gridColumn: "7 / 8",
-                      textAlign: "center",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {fmt(sliders?.smoke ?? null)}
-                  </div>
-
-                  {/* Oak spanning both rows */}
-                  <div
-                    style={{
-                      gridRow: "1 / span 2",
-                      gridColumn: "8 / 9",
-                      textAlign: "center",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {fmt(sliders?.oak ?? null)}
-                  </div>
-
-                  {/* Body spanning both rows */}
-                  <div
-                    style={{
-                      gridRow: "1 / span 2",
-                      gridColumn: "9 / 10",
-                      textAlign: "center",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {fmt(sliders?.body ?? null)}
-                  </div>
+                  {(["sweetness", "body", "heat", "char", "linger", "balance"] as const).map(
+                    (key, i) => (
+                      <div
+                        key={key}
+                        style={{
+                          gridRow: "1 / span 2",
+                          gridColumn: `${i + 4} / ${i + 5}`,
+                          textAlign: "center",
+                          fontVariantNumeric: "tabular-nums",
+                        }}
+                      >
+                        {fmt(sliders?.[key] ?? null)}
+                      </div>
+                    )
+                  )}
 
                   {/* Notes row under the name, spanning all non-avatar columns */}
                   {tasting.notes && tasting.notes.trim().length > 0 && (
@@ -1062,7 +1009,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
       {seasonId !== null && (
         <CommentsSection
           seasonId={seasonId}
-          whiskeyDayId={parseInt(whiskeyDayId!, 10)}
+          whiskeyDayId={whiskey.id}
           userId={userId}
           isAdmin={isAdmin}
           currentUser={currentUserProfile ?? undefined}

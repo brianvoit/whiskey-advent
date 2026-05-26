@@ -7,6 +7,7 @@ import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import UserAvatar from "./components/UserAvatar";
 import { getTastersForYear, type TasterSummary } from "./api/tasters";
+import { toSlug } from "./utils/slug";
 
 type TastersProps = {
   currentYear: number;
@@ -108,9 +109,9 @@ export default function Tasters({ currentYear, currentUserId }: TastersProps) {
               key={taster.id}
               role="button"
               tabIndex={0}
-              onClick={() => navigate(`/tasters/${taster.id}`)}
+              onClick={() => navigate(`/tasters/${toSlug(taster.first_name, taster.last_name)}`)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") navigate(`/tasters/${taster.id}`);
+                if (e.key === "Enter" || e.key === " ") navigate(`/tasters/${toSlug(taster.first_name, taster.last_name)}`);
               }}
               style={{
                 display: "flex",

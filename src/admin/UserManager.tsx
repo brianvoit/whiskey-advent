@@ -15,6 +15,7 @@ import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { getAllProfiles, type AdminProfile } from "../api/admin";
 import UserAvatar from "../components/UserAvatar";
+import { toSlug } from "../utils/slug";
 
 type UserManagerProps = {
   currentUserId: string;
@@ -56,7 +57,7 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
       <Box
         key={profile.id}
         component="button"
-        onClick={() => navigate(`/profile/${profile.id}`)}
+        onClick={() => navigate(`/profile/${toSlug(profile.first_name, profile.last_name)}`)}
         sx={{
           display: "flex", alignItems: "center", gap: 2,
           px: 2, py: 1.5, width: "100%", textAlign: "left",

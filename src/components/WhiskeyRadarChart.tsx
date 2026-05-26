@@ -11,12 +11,12 @@ import { Box, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 
 type SliderData = {
-  oak: number | null;
-  body: number | null;
-  fruit: number | null;
-  smoke: number | null;
-  spice: number | null;
   sweetness: number | null;
+  body: number | null;
+  heat: number | null;
+  char: number | null;
+  linger: number | null;
+  balance: number | null;
 };
 
 export type RadarTasting = {
@@ -32,12 +32,12 @@ type WhiskeyRadarChartProps = {
 };
 
 const SLIDER_KEYS: { key: keyof SliderData; label: string }[] = [
-  { key: "sweetness", label: "Sweet" },
-  { key: "fruit",     label: "Fruit" },
-  { key: "spice",     label: "Spice" },
-  { key: "smoke",     label: "Smoke" },
-  { key: "oak",       label: "Oak" },
-  { key: "body",      label: "Body" },
+  { key: "sweetness", label: "Sweet"   },
+  { key: "body",      label: "Body"    },
+  { key: "heat",      label: "Heat"    },
+  { key: "char",      label: "Char"    },
+  { key: "linger",    label: "Linger"  },
+  { key: "balance",   label: "Balance" },
 ];
 
 export default function WhiskeyRadarChart({

@@ -293,7 +293,7 @@ const StatsChart: FC<StatsChartProps> = ({
             tickLine={false}
             axisLine={{ stroke: gridColor }}
             tick={{ fontSize: 11, fill: axisColor }}
-            padding={{ left: 4, right: 4 }}
+            padding={{ left: 24, right: 24 }}
           />
           <YAxis
             domain={[Y_MIN, Y_MAX]}

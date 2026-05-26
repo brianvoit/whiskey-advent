@@ -18,6 +18,21 @@
     <meta name="apple-mobile-web-app-title" content="Whiskey Advent" />
 
     <title>Whiskey Advent</title>
+
+    <!-- OpenGraph base (overridden per-page by usePageMeta hook) -->
+    <meta property="og:site_name" content="Whiskey Advent" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Whiskey Advent" />
+    <meta property="og:description" content="A private whiskey advent calendar." />
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KEWQN3XQ5S"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-KEWQN3XQ5S', { send_page_view: false });
+    </script>
   </head>
   <body>
     <div id="root"></div>

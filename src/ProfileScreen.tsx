@@ -1,4 +1,5 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { subscribeToPush, unsubscribeFromPush } from "./api/pushSubscriptions";
 import { supabase } from "./supabaseClient";
 import type { Profile, RevealPreferences, TastingMode } from "./api/profiles";
@@ -33,6 +34,9 @@ import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import Brightness4RoundedIcon from "@mui/icons-material/Brightness4Rounded";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
+import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import { getWouldBuyList, type WouldBuyEntry } from "./api/tastings";
 
 type ProfileScreenProps = {
   profile: Profile;
@@ -40,6 +44,7 @@ type ProfileScreenProps = {
   userEmail: string;
   hasEmailAuth?: boolean;
   onProfileUpdated: (profile: Profile) => void;
+  currentYear: number;
 };
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
@@ -56,7 +61,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onProfileUpdated }: ProfileScreenProps) {
+function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onProfileUpdated, currentYear }: ProfileScreenProps) {
   const [firstName, setFirstName] = useState(profile.first_name ?? "");
   const [lastName, setLastName] = useState(profile.last_name ?? "");
   const [seeGroupAverages, setSeeGroupAverages] = useState<boolean>(
@@ -78,6 +83,15 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
   const [passwordResetSent, setPasswordResetSent] = useState(false);
   const [passwordResetSending, setPasswordResetSending] = useState(false);
   const [passwordResetError, setPasswordResetError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
+
+  // Would-buy list
+  const [wouldBuyList, setWouldBuyList] = useState<WouldBuyEntry[]>([]);
+  useEffect(() => {
+    if (!currentYear) return;
+    void getWouldBuyList(userId, currentYear).then(setWouldBuyList);
+  }, [userId, currentYear]);
 
   // Avatar upload
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -482,6 +496,90 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
           </Typography>
         </Paper>
       )}
+
+      {/* ── Bottles I'd Buy ── */}
+      <Paper variant="outlined" sx={{ p: 3 }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: wouldBuyList.length > 0 ? 2 : 0 }}>
+          <BookmarkRoundedIcon fontSize="small" color="primary" />
+          <SectionHeader>Bottles I'd Buy</SectionHeader>
+        </Stack>
+        {wouldBuyList.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            Tap the bookmark on any rating page to flag bottles you'd like to buy.
+          </Typography>
+        ) : (
+          <div
+            style={{
+              borderRadius: 8,
+              border: "1px solid",
+              borderColor: "inherit",
+              overflow: "hidden",
+            }}
+          >
+            {wouldBuyList.map((entry, i) => (
+              <button
+                key={entry.whiskey_day_id}
+                type="button"
+                onClick={() => navigate(`/whiskey/${currentYear}/${entry.day_number}`)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderTop: i === 0 ? "none" : "1px solid",
+                  borderLeft: "none",
+                  borderRight: "none",
+                  borderBottom: "none",
+                  background: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  font: "inherit",
+                  gap: 8,
+                }}
+              >
+                {/* Day number */}
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ width: 40, flexShrink: 0, textAlign: "center", fontVariantNumeric: "tabular-nums" }}
+                >
+                  {entry.day_number}
+                </Typography>
+                {/* Name + distillery */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="body2"
+                    fontWeight={500}
+                    sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {entry.name ?? `Day ${entry.day_number}`}
+                  </Typography>
+                  {entry.distillery && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}
+                    >
+                      {entry.distillery}
+                    </Typography>
+                  )}
+                </Box>
+                {/* Rating */}
+                {entry.rating !== null && (
+                  <Typography
+                    variant="body2"
+                    color="primary"
+                    sx={{ flexShrink: 0, fontVariantNumeric: "tabular-nums", fontWeight: 600 }}
+                  >
+                    {entry.rating.toFixed(1)}★
+                  </Typography>
+                )}
+                <KeyboardArrowRightIcon fontSize="small" sx={{ flexShrink: 0, opacity: 0.4 }} />
+              </button>
+            ))}
+          </div>
+        )}
+      </Paper>
 
       {/* ── Feedback ── */}
       {error   && <Alert severity="error">{error}</Alert>}

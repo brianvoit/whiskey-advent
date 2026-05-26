@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import ChatBubbleOutlineRoundedIcon from "@mui/icons-material/ChatBubbleOutlineRounded";
+import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
 import { useTheme } from "@mui/material/styles";
 import { supabase } from "../supabaseClient";
 import {
@@ -211,15 +212,24 @@ export default function NotificationsDrawer({ open, onClose, onAllRead, userId }
                 }} />
               )}
 
-              <ChatBubbleOutlineRoundedIcon
-                sx={{ fontSize: 18, color: "text.secondary", flexShrink: 0, mt: 0.25 }}
-              />
+              {n.type?.startsWith("award_") ? (
+                <EmojiEventsRoundedIcon
+                  sx={{ fontSize: 18, color: "primary.main", flexShrink: 0, mt: 0.25 }}
+                />
+              ) : (
+                <ChatBubbleOutlineRoundedIcon
+                  sx={{ fontSize: 18, color: "text.secondary", flexShrink: 0, mt: 0.25 }}
+                />
+              )}
 
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
                   variant="body2"
                   fontWeight={n.read ? 400 : 600}
-                  sx={{ lineHeight: 1.4 }}
+                  sx={{
+                    lineHeight: 1.4,
+                    color: n.type?.startsWith("award_") ? "primary.main" : "text.primary",
+                  }}
                 >
                   {/* Show body but strip anything after " · " (whiskey name) for
                       backwards-compat with old notifications that included it */}

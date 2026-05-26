@@ -18,12 +18,12 @@ import { FLAVOR_TAGS } from "./FlavorTagPicker";
 const VALID_TAGS = new Set<string>(FLAVOR_TAGS);
 
 const SLIDER_DIMS = [
-  { key: "sweetness", label: "Sweet" },
-  { key: "fruit",     label: "Fruit" },
-  { key: "spice",     label: "Spice" },
-  { key: "smoke",     label: "Smoke" },
-  { key: "oak",       label: "Oak" },
-  { key: "body",      label: "Body" },
+  { key: "sweetness", label: "Sweet"   },
+  { key: "body",      label: "Body"    },
+  { key: "heat",      label: "Heat"    },
+  { key: "char",      label: "Char"    },
+  { key: "linger",    label: "Linger"  },
+  { key: "balance",   label: "Balance" },
 ] as const;
 
 type FlavorLevel = "low" | "any" | "high";
@@ -39,8 +39,8 @@ type SearchFilters = {
 };
 
 const defaultFlavorLevels: Record<DimKey, FlavorLevel> = {
-  sweetness: "any", fruit: "any", spice: "any",
-  smoke: "any", oak: "any", body: "any",
+  sweetness: "any", body: "any", heat: "any",
+  char: "any", linger: "any", balance: "any",
 };
 
 const defaultFilters: SearchFilters = {
@@ -51,22 +51,18 @@ const defaultFilters: SearchFilters = {
 };
 
 /** Normalize type — data is now canonical; safety net for any legacy entries. */
+/** Data is now canonical from the editor — just trim whitespace. */
 function normalizeType(type: string): string {
-  const t = type.toLowerCase();
-  if (t.includes("single malt")) return "Single Malt";
-  if (t.includes("blended malt")) return "Blended Malt";
-  if (t.includes("blended"))     return "Blended";
-  if (t.includes("rye"))         return "Rye";
   return type.trim();
 }
 
-/** Collapse common USA/United States variants into one label. */
+/** Keep USA collapse as a safety net for any remaining legacy rows. */
 function normalizeCountry(country: string): string {
   const c = country.toLowerCase().trim();
-  if (c === "usa" || c === "us" || c === "united states" || c === "united states of america") {
+  if (c === "usa" || c === "us" || c === "united states of america") {
     return "United States";
   }
-  return country;
+  return country.trim();
 }
 
 function scoreEntry(
@@ -723,7 +719,7 @@ function SearchContent({
                     type="button"
                     className="search-result-btn"
                     onClick={() => {
-                      navigate(`/whiskey/${entry.whiskey_day_id}`);
+                      navigate(`/whiskey/${entry.season_year}/${entry.day_number}`);
                       onClose();
                     }}
                     style={{

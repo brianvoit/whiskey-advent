@@ -9,6 +9,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { supabase } from "./supabaseClient";
 import UserAvatar from "./components/UserAvatar";
 import { getTasterHistory, type TasterHistoryEntry } from "./api/tasters";
+import { resolveSlugToUserId } from "./utils/slug";
 import { FLAVOR_TAGS } from "./components/FlavorTagPicker";
 
 const VALID_TAGS = new Set<string>(FLAVOR_TAGS);
@@ -40,18 +41,31 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
-  const { tasterId } = useParams<{ tasterId: string }>();
+  const { tasterId: tasterSlug } = useParams<{ tasterId: string }>();
 
   const [profile, setProfile] = useState<TasterProfile | null>(null);
   const [history, setHistory] = useState<TasterHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resolvedId, setResolvedId] = useState<string | null>(null);
 
-  const targetId = tasterId ?? currentUserId;
-  const isMe = targetId === currentUserId;
+  const isMe = resolvedId === currentUserId;
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+
+      // Resolve slug → UUID (handles legacy UUID params too)
+      const targetId = tasterSlug
+        ? await resolveSlugToUserId(tasterSlug)
+        : currentUserId;
+
+      if (!targetId) {
+        setLoading(false);
+        return;
+      }
+
+      setResolvedId(targetId);
+
       const [{ data: profileData }, historyData] = await Promise.all([
         supabase
           .from("profiles")
@@ -65,7 +79,7 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
       setLoading(false);
     };
     void load();
-  }, [targetId, currentYear]);
+  }, [tasterSlug, currentUserId, currentYear]);
 
   const displayName = getDisplayName(profile);
   const totalRated = history.length;
@@ -167,22 +181,22 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
             {history.map((entry) => {
               const sliders = entry.tasting_sliders;
               const flavorCols: [string, string][] = [
-                ["Sweet", fmt(sliders?.sweetness)],
-                ["Fruit", fmt(sliders?.fruit)],
-                ["Spice", fmt(sliders?.spice)],
-                ["Smoke", fmt(sliders?.smoke)],
-                ["Oak", fmt(sliders?.oak)],
-                ["Body", fmt(sliders?.body)],
+                ["Sweet",   fmt(sliders?.sweetness)],
+                ["Body",    fmt(sliders?.body)],
+                ["Heat",    fmt(sliders?.heat)],
+                ["Char",    fmt(sliders?.char)],
+                ["Linger",  fmt(sliders?.linger)],
+                ["Balance", fmt(sliders?.balance)],
               ];
               return (
                 <div
                   key={entry.whiskey_day_id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => navigate(`/whiskey/${entry.whiskey_day_id}`)}
+                  onClick={() => navigate(`/whiskey/${currentYear}/${entry.day_number}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ")
-                      navigate(`/whiskey/${entry.whiskey_day_id}`);
+                      navigate(`/whiskey/${currentYear}/${entry.day_number}`);
                   }}
                   style={{
                     borderRadius: theme.shape.borderRadius,
@@ -263,11 +277,11 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
               <div>Whiskey</div>
               <div style={{ textAlign: "center" }}>Overall</div>
               <div style={{ textAlign: "center" }}>Sweet</div>
-              <div style={{ textAlign: "center" }}>Fruit</div>
-              <div style={{ textAlign: "center" }}>Spice</div>
-              <div style={{ textAlign: "center" }}>Smoke</div>
-              <div style={{ textAlign: "center" }}>Oak</div>
               <div style={{ textAlign: "center" }}>Body</div>
+              <div style={{ textAlign: "center" }}>Heat</div>
+              <div style={{ textAlign: "center" }}>Char</div>
+              <div style={{ textAlign: "center" }}>Linger</div>
+              <div style={{ textAlign: "center" }}>Balance</div>
             </div>
 
             {/* Rows */}
@@ -282,10 +296,10 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
                   key={entry.whiskey_day_id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => navigate(`/whiskey/${entry.whiskey_day_id}`)}
+                  onClick={() => navigate(`/whiskey/${currentYear}/${entry.day_number}`)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ")
-                      navigate(`/whiskey/${entry.whiskey_day_id}`);
+                      navigate(`/whiskey/${currentYear}/${entry.day_number}`);
                   }}
                   style={{
                     display: "grid",
@@ -337,7 +351,7 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
                   </div>
 
                   {/* Slider values spanning all rows */}
-                  {(["overall", "sweetness", "fruit", "spice", "smoke", "oak", "body"] as const).map(
+                  {(["overall", "sweetness", "body", "heat", "char", "linger", "balance"] as const).map(
                     (key, i) => {
                       const val =
                         key === "overall"

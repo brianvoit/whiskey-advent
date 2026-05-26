@@ -98,9 +98,9 @@ function NavItem({ label, active, onClick, avatarFirstName, avatarLastName, avat
   );
 }
 
-function BottomNav({ currentPath, onNavigate, userId, avatarFirstName, avatarLastName, avatarUrl, avatarEmail, isAdmin, pendingCount = 0 }: BottomNavProps) {
+function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, avatarUrl, avatarEmail, isAdmin, pendingCount = 0 }: BottomNavProps) {
   const theme = useTheme();
-  const profilePath = userId ? `/profile/${userId}` : "/profile";
+  const profilePath = "/profile";
 
   const goTo = (path: string) => {
     if (currentPath !== path) {
