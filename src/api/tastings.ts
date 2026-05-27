@@ -36,7 +36,9 @@ export type WouldBuyEntry = {
   name: string | null;
   distillery: string | null;
   type: string | null;
+  image_url: string | null;
   rating: number | null;
+  avg_rating: number | null;
   season_year: number;
 };
 
@@ -134,23 +136,75 @@ export async function getWouldBuyList(
     .from("tastings")
     .select(
       `whiskey_day_id, rating,
-       whiskey_days!inner(day_number, name, distillery, type, season_id)`
+       whiskey_days!inner(day_number, name, distillery, type, image_url, season_id)`
     )
     .eq("user_id", userId)
     .eq("would_buy", true)
     .eq("whiskey_days.season_id", seasonData.id);
 
-  if (error || !data) return [];
+  if (error) {
+    console.error("getWouldBuyList error:", error);
+    // If image_url column doesn't exist, retry without it
+    if (error.message?.includes("image_url")) {
+      const { data: fallback, error: fallbackError } = await supabase
+        .from("tastings")
+        .select(
+          `whiskey_day_id, rating,
+           whiskey_days!inner(day_number, name, distillery, type, season_id)`
+        )
+        .eq("user_id", userId)
+        .eq("would_buy", true)
+        .eq("whiskey_days.season_id", seasonData.id);
+      if (fallbackError || !fallback) return [];
+      return (fallback as any[]).map((t) => ({
+        whiskey_day_id: t.whiskey_day_id as number,
+        day_number: (t.whiskey_days?.day_number ?? 0) as number,
+        name: (t.whiskey_days?.name ?? null) as string | null,
+        distillery: (t.whiskey_days?.distillery ?? null) as string | null,
+        type: (t.whiskey_days?.type ?? null) as string | null,
+        image_url: null as string | null,
+        rating: (t.rating ?? null) as number | null,
+        avg_rating: null as number | null,
+        season_year: year,
+      })).sort((a, b) => a.day_number - b.day_number);
+    }
+    return [];
+  }
+  if (!data) return [];
 
-  return (data as any[])
-    .map((t) => ({
-      whiskey_day_id: t.whiskey_day_id as number,
-      day_number: (t.whiskey_days?.day_number ?? 0) as number,
-      name: (t.whiskey_days?.name ?? null) as string | null,
-      distillery: (t.whiskey_days?.distillery ?? null) as string | null,
-      type: (t.whiskey_days?.type ?? null) as string | null,
-      rating: (t.rating ?? null) as number | null,
-      season_year: year,
-    }))
-    .sort((a, b) => a.day_number - b.day_number);
+  const entries = (data as any[]).map((t) => ({
+    whiskey_day_id: t.whiskey_day_id as number,
+    day_number: (t.whiskey_days?.day_number ?? 0) as number,
+    name: (t.whiskey_days?.name ?? null) as string | null,
+    distillery: (t.whiskey_days?.distillery ?? null) as string | null,
+    type: (t.whiskey_days?.type ?? null) as string | null,
+    image_url: (t.whiskey_days?.image_url ?? null) as string | null,
+    rating: (t.rating ?? null) as number | null,
+    avg_rating: null as number | null,
+    season_year: year,
+  }));
+
+  // Fetch group averages for all whiskey_day_ids in one query
+  const ids = entries.map((e) => e.whiskey_day_id);
+  if (ids.length > 0) {
+    const { data: allRatings } = await supabase
+      .from("tastings")
+      .select("whiskey_day_id, rating")
+      .in("whiskey_day_id", ids)
+      .not("rating", "is", null);
+
+    if (allRatings) {
+      const sumMap = new Map<number, { sum: number; count: number }>();
+      for (const r of allRatings as { whiskey_day_id: number; rating: number }[]) {
+        const prev = sumMap.get(r.whiskey_day_id) ?? { sum: 0, count: 0 };
+        sumMap.set(r.whiskey_day_id, { sum: prev.sum + r.rating, count: prev.count + 1 });
+      }
+      for (const e of entries) {
+        const s = sumMap.get(e.whiskey_day_id);
+        if (s && s.count > 0) e.avg_rating = Math.round((s.sum / s.count) * 10) / 10;
+      }
+    }
+  }
+
+  return entries.sort((a, b) => a.day_number - b.day_number);
 }

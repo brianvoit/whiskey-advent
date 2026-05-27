@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { subscribeToPush, unsubscribeFromPush } from "./api/pushSubscriptions";
 import { supabase } from "./supabaseClient";
@@ -36,7 +37,111 @@ import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
+import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
 import { getWouldBuyList, type WouldBuyEntry } from "./api/tastings";
+
+function WouldBuyRow({
+  entry,
+  isFirst,
+  onClick,
+}: {
+  entry: WouldBuyEntry;
+  isFirst: boolean;
+  onClick: () => void;
+}) {
+  const theme = useTheme();
+  const [imgError, setImgError] = useState(false);
+  const showImage = Boolean(entry.image_url && !imgError);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+        padding: "8px 12px 8px 8px",
+        borderTop: isFirst ? "none" : `1px solid ${theme.palette.divider}`,
+        borderLeft: "none",
+        borderRight: "none",
+        borderBottom: "none",
+        background: "none",
+        cursor: "pointer",
+        textAlign: "left",
+        font: "inherit",
+        gap: 12,
+      }}
+    >
+      {/* Thumbnail with day chip */}
+      <div style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 8, overflow: "hidden", position: "relative" }}>
+        {showImage ? (
+          <img
+            src={entry.image_url!}
+            alt={entry.name ?? `Day ${entry.day_number}`}
+            onError={() => setImgError(true)}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <div style={{
+            width: "100%", height: "100%",
+            background: "linear-gradient(135deg, #c8923a 0%, #a0601a 100%)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <span style={{ fontSize: "1.2rem", opacity: 0.5, lineHeight: 1 }}>🥃</span>
+          </div>
+        )}
+        <div style={{
+          position: "absolute", bottom: 3, right: 3,
+          padding: "1px 5px", borderRadius: 999,
+          background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)",
+          fontSize: "0.65rem", fontWeight: 700, color: "#fff", lineHeight: 1.6,
+        }}>
+          {entry.day_number}
+        </div>
+      </div>
+
+      {/* Name + distillery */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontWeight: 600, fontSize: "0.9rem",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          color: theme.palette.text.primary, marginBottom: 2,
+        }}>
+          {entry.name ?? `Day ${entry.day_number}`}
+        </div>
+        {entry.distillery && (
+          <div style={{
+            fontSize: "0.78rem", color: theme.palette.text.secondary,
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          }}>
+            {entry.distillery}
+          </div>
+        )}
+      </div>
+
+      {/* Ratings */}
+      <div style={{
+        flexShrink: 0, display: "flex", flexDirection: "column",
+        alignItems: "flex-end", gap: 2,
+        fontSize: "0.75rem", fontVariantNumeric: "tabular-nums",
+        color: theme.palette.text.secondary,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <PersonRoundedIcon style={{ fontSize: "0.85rem", opacity: entry.rating !== null ? 0.9 : 0.4 }} />
+          <span>{entry.rating !== null ? entry.rating.toFixed(1) : "—"}</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <GroupRoundedIcon style={{ fontSize: "0.85rem", opacity: entry.avg_rating !== null ? 0.9 : 0.4 }} />
+          <span>{entry.avg_rating !== null ? entry.avg_rating.toFixed(1) : "—"}</span>
+        </div>
+      </div>
+
+      <KeyboardArrowRightIcon fontSize="small" sx={{ flexShrink: 0, opacity: 0.4 }} />
+    </button>
+  );
+}
 import { usePageMeta } from "./hooks/usePageMeta";
 
 type ProfileScreenProps = {
@@ -49,9 +154,9 @@ type ProfileScreenProps = {
 };
 
 const THEME_OPTIONS: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
+  { value: "system", label: "System", icon: <Brightness4RoundedIcon fontSize="small" /> },
   { value: "light",  label: "Day",    icon: <LightModeRoundedIcon fontSize="small" /> },
   { value: "dark",   label: "Night",  icon: <DarkModeRoundedIcon fontSize="small" /> },
-  { value: "system", label: "System", icon: <Brightness4RoundedIcon fontSize="small" /> },
 ];
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -124,6 +229,7 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
     }
   };
 
+  const theme = useTheme();
   const { mode, setMode } = useAppTheme();
 
   const initialTastingMode: TastingMode =
@@ -175,11 +281,14 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
       setNotifPermission(result);
       if (result !== "granted") return;
     }
-    const sub = await subscribeToPush(userId);
-    if (sub) {
-      setNotificationsEnabled(true);
-    } else {
-      setError("Could not set up notifications. Make sure you're on a supported browser.");
+    // Optimistically enable — the preference is saved regardless of whether
+    // this browser successfully registers a push subscription.
+    setNotificationsEnabled(true);
+    try {
+      await subscribeToPush(userId);
+    } catch {
+      // Push subscription failed (e.g. dev environment, unsupported browser).
+      // The opt-in preference is still saved on next Save click.
     }
   };
 
@@ -249,7 +358,7 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
     <Stack spacing={3} sx={{ maxWidth: 860, mx: "auto", pt: 1, pb: 6 }}>
 
       {/* ── Identity ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
+      <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 6px rgba(0,0,0,0.10)" }}>
         <Stack spacing={3}>
           {/* Avatar row */}
           <Stack direction="row" spacing={2.5} alignItems="center">
@@ -347,15 +456,12 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
       </Paper>
 
       {/* ── Tasting mode ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
+      <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 6px rgba(0,0,0,0.10)" }}>
         <SectionHeader>Tasting mode</SectionHeader>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Choose how much information you see before revealing each day.
         </Typography>
-        <Stack
-          direction={{ xs: "column", md: "row" }}
-          spacing={1.5}
-        >
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
           {(Object.keys(modeCopy) as TastingMode[]).map((key) => {
             const { title, bullets } = modeCopy[key];
             return (
@@ -369,15 +475,7 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
             );
           })}
         </Stack>
-      </Paper>
-
-      {/* ── Spoiler preferences ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
-        <SectionHeader>Spoiler preferences</SectionHeader>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Purist mode hides whiskey details for current and future seasons until
-          you reveal that day.
-        </Typography>
+        <Divider sx={{ my: 2 }} />
         <FormControlLabel
           control={
             <Switch
@@ -391,80 +489,77 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
             </Typography>
           }
         />
-        <Typography variant="body2" color="text.disabled" sx={{ mt: 1.5, fontSize: "0.78rem" }}>
-          Changing these settings later may reveal more information for upcoming days.
-        </Typography>
       </Paper>
 
-      {/* ── Theme ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
-        <SectionHeader>Theme</SectionHeader>
-        <RadioGroup
-          value={mode}
-          onChange={(e) => setMode(e.target.value as ThemeMode)}
-          sx={{ mt: 1 }}
-        >
-          {THEME_OPTIONS.map(({ value, label, icon }) => (
-            <FormControlLabel
-              key={value}
-              value={value}
-              control={<Radio size="small" />}
-              label={
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
-                  {icon}
-                  <Typography variant="body2">{label}</Typography>
-                </Stack>
-              }
-            />
-          ))}
-        </RadioGroup>
-      </Paper>
+      {/* ── Theme + Notifications — side by side on desktop ── */}
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={3} alignItems="stretch">
 
-      {/* ── Notifications ── */}
-      {notifPermission !== "unsupported" && (
-        <Paper variant="outlined" sx={{ p: 3 }}>
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-            <NotificationsRoundedIcon fontSize="small" color="action" />
-            <SectionHeader>Notifications</SectionHeader>
-          </Stack>
-          {notifPermission === "denied" && (
-            <Typography variant="body2" color="warning.main" sx={{ mb: 1.5 }}>
-              Notifications are blocked. Enable them in your browser or device settings.
-            </Typography>
-          )}
-          <Stack spacing={1.5}>
-            <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Switch
-                checked={notificationsEnabled}
-                onChange={(e) => handleNotificationToggle(e.target.checked)}
-                size="small"
+        {/* Theme */}
+        <Paper variant="outlined" sx={{ p: 3, flex: 1, boxShadow: "0 2px 6px rgba(0,0,0,0.10)" }}>
+          <SectionHeader>Theme</SectionHeader>
+          <RadioGroup
+            value={mode}
+            onChange={(e) => setMode(e.target.value as ThemeMode)}
+            sx={{ mt: 1 }}
+          >
+            {THEME_OPTIONS.map(({ value, label, icon }) => (
+              <FormControlLabel
+                key={value}
+                value={value}
+                control={<Radio size="small" />}
+                label={
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ py: 0.25 }}>
+                    {icon}
+                    <Typography variant="body2">{label}</Typography>
+                  </Stack>
+                }
               />
-              <Typography variant="body2">
-                Remind me each day in December to taste
-              </Typography>
-            </Stack>
-            <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Switch
-                checked={commentNotificationsEnabled}
-                onChange={(e) => setCommentNotificationsEnabled(e.target.checked)}
-                size="small"
-              />
-              <Typography variant="body2">
-                Notify me when someone leaves a comment
-              </Typography>
-            </Stack>
-          </Stack>
-          {notifPermission === "granted" && notificationsEnabled && (
-            <Typography variant="body2" color="text.disabled" sx={{ mt: 1.5, fontSize: "0.78rem" }}>
-              You'll receive a daily reminder during the advent season.
-            </Typography>
-          )}
+            ))}
+          </RadioGroup>
         </Paper>
-      )}
+
+        {/* Notifications */}
+        {notifPermission !== "unsupported" && (
+          <Paper variant="outlined" sx={{ p: 3, flex: 1, boxShadow: "0 2px 6px rgba(0,0,0,0.10)" }}>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+              <NotificationsRoundedIcon fontSize="small" color="action" />
+              <SectionHeader>Notifications</SectionHeader>
+            </Stack>
+            {notifPermission === "denied" && (
+              <Typography variant="body2" color="warning.main" sx={{ mb: 1.5 }}>
+                Notifications are blocked. Enable them in your browser or device settings.
+              </Typography>
+            )}
+            <Stack spacing={1.5}>
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Switch
+                  checked={notificationsEnabled}
+                  onChange={(e) => handleNotificationToggle(e.target.checked)}
+                  size="small"
+                />
+                <Typography variant="body2">
+                  Daily Tasting Reminder in December
+                </Typography>
+              </Stack>
+              <Stack direction="row" alignItems="center" spacing={1.5}>
+                <Switch
+                  checked={commentNotificationsEnabled}
+                  onChange={(e) => setCommentNotificationsEnabled(e.target.checked)}
+                  size="small"
+                />
+                <Typography variant="body2">
+                  Comments on whiskies
+                </Typography>
+              </Stack>
+            </Stack>
+          </Paper>
+        )}
+
+      </Stack>
 
       {/* ── Account ── */}
       {hasEmailAuth && (
-        <Paper variant="outlined" sx={{ p: 3 }}>
+        <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 6px rgba(0,0,0,0.10)" }}>
           <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
             <LockResetRoundedIcon fontSize="small" color="action" />
             <SectionHeader>Account</SectionHeader>
@@ -500,8 +595,8 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
       )}
 
       {/* ── Bottles I'd Buy ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: wouldBuyList.length > 0 ? 2 : 0 }}>
+      <div>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: wouldBuyList.length > 0 ? 1.5 : 0 }}>
           <BookmarkRoundedIcon fontSize="small" color="primary" />
           <SectionHeader>Bottles I'd Buy</SectionHeader>
         </Stack>
@@ -512,76 +607,24 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
         ) : (
           <div
             style={{
-              borderRadius: 8,
-              border: "1px solid",
-              borderColor: "inherit",
+              borderRadius: 12,
+              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
               overflow: "hidden",
             }}
           >
             {wouldBuyList.map((entry, i) => (
-              <button
+              <WouldBuyRow
                 key={entry.whiskey_day_id}
-                type="button"
+                entry={entry}
+                isFirst={i === 0}
                 onClick={() => navigate(`/whiskey/${currentYear}/${entry.day_number}`)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderTop: i === 0 ? "none" : "1px solid",
-                  borderLeft: "none",
-                  borderRight: "none",
-                  borderBottom: "none",
-                  background: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  font: "inherit",
-                  gap: 8,
-                }}
-              >
-                {/* Day number */}
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ width: 40, flexShrink: 0, textAlign: "center", fontVariantNumeric: "tabular-nums" }}
-                >
-                  {entry.day_number}
-                </Typography>
-                {/* Name + distillery */}
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    variant="body2"
-                    fontWeight={500}
-                    sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                  >
-                    {entry.name ?? `Day ${entry.day_number}`}
-                  </Typography>
-                  {entry.distillery && (
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}
-                    >
-                      {entry.distillery}
-                    </Typography>
-                  )}
-                </Box>
-                {/* Rating */}
-                {entry.rating !== null && (
-                  <Typography
-                    variant="body2"
-                    color="primary"
-                    sx={{ flexShrink: 0, fontVariantNumeric: "tabular-nums", fontWeight: 600 }}
-                  >
-                    {entry.rating.toFixed(1)}★
-                  </Typography>
-                )}
-                <KeyboardArrowRightIcon fontSize="small" sx={{ flexShrink: 0, opacity: 0.4 }} />
-              </button>
+              />
             ))}
           </div>
         )}
-      </Paper>
+      </div>
 
       {/* ── Feedback ── */}
       {error   && <Alert severity="error">{error}</Alert>}
@@ -590,19 +633,19 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
       {/* ── Actions ── */}
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Button
+          variant="text"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          sx={{ color: "text.primary", textTransform: "uppercase", fontWeight: 400 }}
+        >
+          {signingOut ? "Signing out…" : "Sign out"}
+        </Button>
+        <Button
           variant="contained"
           onClick={handleSave}
           disabled={saving || !isDirty}
         >
           {saving ? "Saving…" : "Save"}
-        </Button>
-        <Button
-          variant="text"
-          color="error"
-          onClick={handleSignOut}
-          disabled={signingOut}
-        >
-          {signingOut ? "Signing out…" : "Sign out"}
         </Button>
       </Stack>
 
