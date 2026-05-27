@@ -20,7 +20,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'icon.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Whiskey Advent',
-        short_name: 'Whisk·Advent',
+        short_name: 'Whiskey Advent',
         description: 'Track your whiskey advent calendar tastings',
         theme_color: '#7c2d12',
         background_color: '#0f172a',
