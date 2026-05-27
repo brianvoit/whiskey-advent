@@ -284,6 +284,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
               borderRadius: 12,
               border: `1px solid ${theme.palette.divider}`,
               background: theme.palette.background.paper,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
               minWidth: 0,
             };
             const labelStyle: React.CSSProperties = {
@@ -384,6 +385,8 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
             style={{
               borderRadius: 12,
               border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
               overflow: "hidden",
             }}
           >

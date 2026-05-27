@@ -525,7 +525,7 @@ function DayDetail({ userId }: DayDetailProps) {
     { key: "body",      label: "Body",      Icon: WaterDropRoundedIcon },
     { key: "heat",      label: "Heat",      Icon: WhatshotRoundedIcon },
     { key: "char",      label: "Char",      Icon: OutdoorGrillRoundedIcon },
-    { key: "linger",    label: "Linger",    Icon: HourglassEmptyRoundedIcon },
+    { key: "linger",    label: "Finish",    Icon: HourglassEmptyRoundedIcon },
     { key: "balance",   label: "Balance",   Icon: BalanceRoundedIcon },
   ];
 
@@ -1072,7 +1072,7 @@ function DayDetail({ userId }: DayDetailProps) {
                   justifyContent: "center",
                 }}
               >
-                <ChevronRightRoundedIcon style={{ fontSize: "1.4rem" }} />
+                Details <ChevronRightRoundedIcon style={{ fontSize: "1.4rem", marginLeft: 2 }} />
               </button>
             ) : (
               <button

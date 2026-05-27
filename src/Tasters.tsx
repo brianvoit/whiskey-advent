@@ -69,6 +69,8 @@ export default function Tasters({ currentYear, currentUserId }: TastersProps) {
         style={{
           borderRadius: 12,
           border: `1px solid ${theme.palette.divider}`,
+          backgroundColor: theme.palette.background.paper,
+          boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
           overflow: "hidden",
         }}
       >

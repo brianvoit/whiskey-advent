@@ -22,7 +22,7 @@ const SLIDER_DIMS = [
   { key: "body",      label: "Body"    },
   { key: "heat",      label: "Heat"    },
   { key: "char",      label: "Char"    },
-  { key: "linger",    label: "Linger"  },
+  { key: "linger",    label: "Finish"  },
   { key: "balance",   label: "Balance" },
 ] as const;
 

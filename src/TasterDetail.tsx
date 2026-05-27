@@ -187,7 +187,7 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
                 ["Body",    fmt(sliders?.body)],
                 ["Heat",    fmt(sliders?.heat)],
                 ["Char",    fmt(sliders?.char)],
-                ["Linger",  fmt(sliders?.linger)],
+                ["Finish",  fmt(sliders?.linger)],
                 ["Balance", fmt(sliders?.balance)],
               ];
               return (
@@ -256,6 +256,8 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
             style={{
               borderRadius: theme.shape.borderRadius,
               border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
               overflow: "hidden",
             }}
           >
@@ -282,7 +284,7 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
               <div style={{ textAlign: "center" }}>Body</div>
               <div style={{ textAlign: "center" }}>Heat</div>
               <div style={{ textAlign: "center" }}>Char</div>
-              <div style={{ textAlign: "center" }}>Linger</div>
+              <div style={{ textAlign: "center" }}>Finish</div>
               <div style={{ textAlign: "center" }}>Balance</div>
             </div>
 

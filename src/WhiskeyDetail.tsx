@@ -816,7 +816,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                 ["Body",    fmt(sliders?.body    ?? null)],
                 ["Heat",    fmt(sliders?.heat    ?? null)],
                 ["Char",    fmt(sliders?.char    ?? null)],
-                ["Linger",  fmt(sliders?.linger  ?? null)],
+                ["Finish",  fmt(sliders?.linger  ?? null)],
                 ["Balance", fmt(sliders?.balance ?? null)],
               ];
               return (
@@ -922,7 +922,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                 {renderSortLabel("Char", "char")}
               </div>
               <div style={{ gridColumn: "8 / 9", textAlign: "center" }}>
-                {renderSortLabel("Linger", "linger")}
+                {renderSortLabel("Finish", "linger")}
               </div>
               <div style={{ gridColumn: "9 / 10", textAlign: "center" }}>
                 {renderSortLabel("Balance", "balance")}

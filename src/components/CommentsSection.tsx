@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTheme } from "@mui/material/styles";
 import UserAvatar from "./UserAvatar";
 import Typography from "@mui/material/Typography";
@@ -72,11 +72,6 @@ type CommentComposerProps = {
   posting: boolean;
   onChange: (value: string) => void;
   onSend: () => void;
-  currentUser?: {
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-  };
 };
 
 function CommentComposer({
@@ -84,46 +79,26 @@ function CommentComposer({
   posting,
   onChange,
   onSend,
-  currentUser,
 }: CommentComposerProps) {
   const theme = useTheme();
-  const isSendDisabled = posting || value.trim().length === 0;
-  const composerBorder = `1px solid ${theme.palette.divider}`;
+  const hasText = value.trim().length > 0;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 12,
-        padding: 12,
-        borderRadius: theme.shape.borderRadius,
-        border: composerBorder,
-        backgroundColor: theme.palette.background.paper,
-        marginBottom: 16,
-      }}
-    >
-      <UserAvatar
-        size="md"
-        firstName={currentUser?.first_name ?? null}
-        lastName={currentUser?.last_name ?? null}
-        avatarUrl={currentUser?.avatar_url ?? null}
-        ariaLabel="Your profile"
+    <div style={{ marginBottom: 16 }}>
+      <TextField
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Join the conversation"
+        multiline
+        minRows={2}
+        maxRows={6}
+        fullWidth
+        variant="outlined"
+        size="small"
+        sx={{ "& .MuiOutlinedInput-root": { backgroundColor: theme.palette.background.paper } }}
       />
 
-      <div style={{ flex: 1 }}>
-        <TextField
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Add a comment…"
-          multiline
-          minRows={2}
-          maxRows={6}
-          fullWidth
-          variant="outlined"
-          size="small"
-        />
-
+      {hasText && (
         <div
           style={{
             marginTop: 8,
@@ -134,14 +109,22 @@ function CommentComposer({
         >
           <Button
             size="small"
+            variant="text"
+            onClick={() => onChange("")}
+            disabled={posting}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="small"
             variant="contained"
             onClick={onSend}
-            disabled={isSendDisabled}
+            disabled={posting}
           >
-            {posting ? "Sending…" : "Send"}
+            {posting ? "Posting…" : "Comment"}
           </Button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -214,6 +197,7 @@ function InlineReplyComposer({
 type CommentThreadProps = {
   comment: CommentWithMeta;
   replies: CommentWithMeta[];
+  allComments: CommentWithMeta[];
   isAdmin: boolean;
   replyForId: string | null;
   replyBody: string;
@@ -228,6 +212,7 @@ type CommentThreadProps = {
 function CommentThread({
   comment,
   replies,
+  allComments,
   isAdmin,
   replyForId,
   replyBody,
@@ -256,6 +241,158 @@ function CommentThread({
     onSendReply(comment.id);
   };
 
+  function renderReplyNode(
+    reply: CommentWithMeta,
+    isLast: boolean,
+    connectorLeft: number,
+    connectorWidth: number,
+  ): JSX.Element {
+    const subReplies = allComments.filter(c => c.parent_comment_id === reply.id);
+    const hasSubReplies = subReplies.length > 0;
+
+    const replyAuthor = reply.author;
+    const replyName = formatDisplayName(replyAuthor?.first_name, replyAuthor?.last_name);
+    const replyCreatedLabel = formatDateTimeLabel(reply.created_at);
+    const replyUserReactionSet = new Set(reply.userReactions);
+    const replyIsActive = replyForId === reply.id;
+
+    return (
+      <div
+        key={reply.id}
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 8,
+          position: "relative",
+        }}
+      >
+        {/* L-shaped connector from parent thread line to this reply */}
+        <div style={{
+          position: "absolute",
+          left: connectorLeft,
+          top: 0,
+          width: connectorWidth,
+          height: 12,
+          borderLeft: `2px solid ${theme.palette.divider}`,
+          borderBottom: `2px solid ${theme.palette.divider}`,
+          borderBottomLeftRadius: 6,
+          boxSizing: "border-box",
+        }} />
+        {/* Mask: hides the parent thread line below where the curve has fully swept away (last reply only) */}
+        {isLast && (
+          <div style={{
+            position: "absolute",
+            left: connectorLeft,
+            top: 10,
+            bottom: 0,
+            width: 2,
+            backgroundColor: theme.palette.background.paper,
+          }} />
+        )}
+        {/* Thread line downward to own sub-replies */}
+        {hasSubReplies && (
+          <div style={{
+            position: "absolute",
+            left: 11,
+            top: 28,
+            bottom: 0,
+            width: 2,
+            backgroundColor: theme.palette.divider,
+          }} />
+        )}
+
+        <UserAvatar
+          size="xs"
+          firstName={replyAuthor?.first_name ?? null}
+          lastName={replyAuthor?.last_name ?? null}
+          avatarUrl={replyAuthor?.avatar_url ?? null}
+          ariaLabel={`${replyName} profile`}
+        />
+
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", columnGap: 8 }}>
+            <Typography variant="body2" style={{ fontWeight: 600, alignSelf: "center" }}>
+              {replyName}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" style={{ whiteSpace: "nowrap", alignSelf: "center", paddingRight: 6 }}>
+              {replyCreatedLabel}
+            </Typography>
+            <Typography
+              variant="body2"
+              style={{ gridColumn: "1 / -1", marginTop: 4, whiteSpace: "pre-wrap" }}
+            >
+              {reply.body}
+            </Typography>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => onToggleReply(reply.id)}
+                sx={{ pl: 0, textTransform: "uppercase", color: "text.secondary", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", minWidth: 0 }}
+              >
+                Reply
+              </Button>
+              {isAdmin && (
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => onDelete(reply.id)}
+                  sx={{ textTransform: "uppercase", color: "text.secondary", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", minWidth: 0 }}
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end", marginTop: 4 }}>
+              {reactionOrder.map((type) => {
+                const count = reply.reactions[type];
+                const isActive = replyUserReactionSet.has(type);
+                return (
+                  <div key={type} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => onToggleReaction(reply.id, type)}
+                      style={{ padding: 4, opacity: count === 0 && !isActive ? 0.4 : 1 }}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: isActive ? theme.palette.primary.main : theme.palette.text.secondary }}>
+                        {reactionIcons[type]}
+                      </span>
+                    </IconButton>
+                    {count > 0 && (
+                      <Typography variant="caption" color="text.secondary">{count}</Typography>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <InlineReplyComposer
+            active={replyIsActive}
+            value={replyBody}
+            posting={posting}
+            indent={0}
+            onChange={onReplyBodyChange}
+            onCancel={() => {
+              onToggleReply(reply.id);
+              onReplyBodyChange("");
+            }}
+            onSend={() => onSendReply(reply.id)}
+          />
+
+          {/* Recursive sub-replies */}
+          {hasSubReplies && (
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+              {subReplies.map((sub, idx) =>
+                renderReplyNode(sub, idx === subReplies.length - 1, -21, 21)
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -271,6 +408,7 @@ function CommentThread({
           display: "flex",
           alignItems: "flex-start",
           gap: 8,
+          position: "relative",
         }}
       >
         <UserAvatar
@@ -280,6 +418,18 @@ function CommentThread({
           avatarUrl={author?.avatar_url ?? null}
           ariaLabel={`${displayName} profile`}
         />
+
+        {/* Vertical connector: abs-positioned from below avatar to bottom of thread */}
+        {hasReplies && (
+          <div style={{
+            position: "absolute",
+            left: 15,
+            top: 36,
+            bottom: 0,
+            width: 2,
+            backgroundColor: theme.palette.divider,
+          }} />
+        )}
 
         <div style={{ flex: 1 }}>
           {/* Grid: col 1 = content, col 2 = timestamp/reactions. Body spans both so it fills full width. */}
@@ -359,134 +509,12 @@ function CommentThread({
             onSend={handleRootSendReply}
           />
 
-          {/* Replies */}
+          {/* Replies — rendered recursively via renderReplyNode */}
           {hasReplies && (
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                paddingLeft: 16,
-                borderLeft: `2px solid ${theme.palette.divider}`,
-              }}
-            >
-              {replies.map((reply) => {
-                const replyAuthor = reply.author;
-                const replyName = formatDisplayName(
-                  replyAuthor?.first_name,
-                  replyAuthor?.last_name
-                );
-                const replyCreatedLabel = formatDateTimeLabel(reply.created_at);
-
-                const replyUserReactionSet = new Set(reply.userReactions);
-                const replyIsActive = replyForId === reply.id;
-
-                const handleReplyClick = () => {
-                  onToggleReply(reply.id);
-                };
-
-                const handleReplySend = () => {
-                  onSendReply(reply.id);
-                };
-
-                return (
-                  <div
-                    key={reply.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 8,
-                    }}
-                  >
-                    <UserAvatar
-                      size="xs"
-                      firstName={replyAuthor?.first_name ?? null}
-                      lastName={replyAuthor?.last_name ?? null}
-                      avatarUrl={replyAuthor?.avatar_url ?? null}
-                      ariaLabel={`${replyName} profile`}
-                    />
-
-                    <div style={{ flex: 1 }}>
-                      {/* Grid: same as root — body spans full width */}
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", columnGap: 8 }}>
-                        {/* Row 1: Name | Timestamp */}
-                        <Typography variant="body2" style={{ fontWeight: 600, alignSelf: "center" }}>
-                          {replyName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" style={{ whiteSpace: "nowrap", alignSelf: "center", paddingRight: 6 }}>
-                          {replyCreatedLabel}
-                        </Typography>
-
-                        {/* Row 2: Body — spans full width */}
-                        <Typography
-                          variant="body2"
-                          style={{ gridColumn: "1 / -1", marginTop: 4, whiteSpace: "pre-wrap" }}
-                        >
-                          {reply.body}
-                        </Typography>
-
-                        {/* Row 3: REPLY/DELETE | Reactions */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-                          <Button
-                            size="small"
-                            variant="text"
-                            onClick={handleReplyClick}
-                            sx={{ pl: 0, textTransform: "uppercase", color: "text.secondary", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", minWidth: 0 }}
-                          >
-                            Reply
-                          </Button>
-                          {isAdmin && (
-                            <Button
-                              size="small"
-                              variant="text"
-                              onClick={() => onDelete(reply.id)}
-                              sx={{ textTransform: "uppercase", color: "text.secondary", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", minWidth: 0 }}
-                            >
-                              Delete
-                            </Button>
-                          )}
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end", marginTop: 4 }}>
-                          {reactionOrder.map((type) => {
-                            const count = reply.reactions[type];
-                            const isActive = replyUserReactionSet.has(type);
-                            return (
-                              <div key={type} style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => onToggleReaction(reply.id, type)}
-                                  style={{ padding: 4, opacity: count === 0 && !isActive ? 0.4 : 1 }}
-                                >
-                                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: isActive ? theme.palette.primary.main : theme.palette.text.secondary }}>
-                                    {reactionIcons[type]}
-                                  </span>
-                                </IconButton>
-                                {count > 0 && (
-                                  <Typography variant="caption" color="text.secondary">{count}</Typography>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <InlineReplyComposer
-                        active={replyIsActive}
-                        value={replyBody}
-                        posting={posting}
-                        indent={0}
-                        onChange={onReplyBodyChange}
-                        onCancel={() => {
-                          onToggleReply(reply.id);
-                          onReplyBodyChange("");
-                        }}
-                        onSend={handleReplySend}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+              {replies.map((reply, idx) =>
+                renderReplyNode(reply, idx === replies.length - 1, -25, 25)
+              )}
             </div>
           )}
         </div>
@@ -629,9 +657,21 @@ export default function CommentsSection({
     }
   };
 
-  const rootComments = comments.filter((c) => !c.parent_comment_id);
+  // Enrich the current user's own comments with the OAuth-resolved avatar URL when
+  // profiles.avatar_url is null (e.g. Google OAuth users who haven't uploaded a photo).
+  const enrichedComments = useMemo(() => {
+    const resolvedUrl = currentUser?.avatar_url ?? null;
+    if (!resolvedUrl) return comments;
+    return comments.map(c =>
+      c.user_id === userId && c.author && !c.author.avatar_url
+        ? { ...c, author: { ...c.author, avatar_url: resolvedUrl } }
+        : c
+    );
+  }, [comments, userId, currentUser?.avatar_url]);
+
+  const rootComments = enrichedComments.filter((c) => !c.parent_comment_id);
   const getReplies = (parentId: string) =>
-    comments.filter((c) => c.parent_comment_id === parentId);
+    enrichedComments.filter((c) => c.parent_comment_id === parentId);
 
   return (
     <div
@@ -650,7 +690,7 @@ export default function CommentsSection({
           fontWeight: 600,
         }}
       >
-        Comments
+        Conversation
       </Typography>
 
       {error && (
@@ -668,7 +708,6 @@ export default function CommentsSection({
         posting={posting}
         onChange={setNewBody}
         onSend={handleSend}
-        currentUser={currentUser}
       />
 
       {loading && (
@@ -700,6 +739,7 @@ export default function CommentsSection({
               key={comment.id}
               comment={comment}
               replies={getReplies(comment.id)}
+              allComments={enrichedComments}
               isAdmin={isAdmin}
               replyForId={replyForId}
               replyBody={replyBody}

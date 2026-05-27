@@ -115,7 +115,9 @@ const AdventCard: React.FC<AdventCardProps> = ({
           background: theme.palette.background.paper,
           cursor: isDisabled ? "default" : "pointer",
           textAlign: "left",
-          boxShadow: isToday ? `0 0 0 1px ${theme.palette.primary.main}` : "none",
+          boxShadow: isToday
+            ? `0 0 0 1px ${theme.palette.primary.main}, 0 2px 6px rgba(0,0,0,0.10)`
+            : "0 2px 6px rgba(0,0,0,0.10)",
           opacity: isDisabled ? 0.7 : 1,
         }}
       >

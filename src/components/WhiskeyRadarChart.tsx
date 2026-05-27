@@ -36,7 +36,7 @@ const SLIDER_KEYS: { key: keyof SliderData; label: string }[] = [
   { key: "body",      label: "Body"    },
   { key: "heat",      label: "Heat"    },
   { key: "char",      label: "Char"    },
-  { key: "linger",    label: "Linger"  },
+  { key: "linger",    label: "Finish"  },
   { key: "balance",   label: "Balance" },
 ];
 
