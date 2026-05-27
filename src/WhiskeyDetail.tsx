@@ -5,6 +5,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
+import BookmarkBorderRoundedIcon from "@mui/icons-material/BookmarkBorderRounded";
 import WhiskeyChart from "./components/WhiskeyChart";
 import WhiskeyRadarChart from "./components/WhiskeyRadarChart";
 import UserAvatar from "./components/UserAvatar";
@@ -108,6 +110,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
 
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
   const [imgFailed, setImgFailed] = useState(false);
+  const [wouldBuy, setWouldBuy] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("rating");
   const [sortDirection, setSortDirection] =
     useState<SortDirection>("desc");
@@ -178,7 +181,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
         // 3) Load all tastings for this whiskey (no join yet)
         const { data: tastingRows, error: tastingError } = await supabase
           .from("tastings")
-          .select("user_id, rating, notes, tasting_sliders, tags, revealed")
+          .select("user_id, rating, notes, tasting_sliders, tags, revealed, would_buy")
           .eq("whiskey_day_id", dayId);
 
         if (tastingError) {
@@ -296,6 +299,8 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
 
         const mine = mapped.find((t) => t.user_id === userId);
         setIsRevealedForMe(Boolean(mine?.revealed));
+        const myRaw = (tastingRows as any[])?.find((r: any) => r.user_id === userId);
+        setWouldBuy(Boolean(myRaw?.would_buy));
 
         setLoading(false);
       } catch (e) {
@@ -310,6 +315,18 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
 
 
   const hasTastings = tastings.length > 0;
+
+  const handleToggleWouldBuy = async () => {
+    if (!whiskey) return;
+    const next = !wouldBuy;
+    setWouldBuy(next);
+    await supabase
+      .from("tastings")
+      .upsert(
+        { user_id: userId, whiskey_day_id: whiskey.id, would_buy: next },
+        { onConflict: "user_id,whiskey_day_id" }
+      );
+  };
 
   // Dynamic page title + OG meta for sharing
   const metaDescription = [whiskey?.distillery, whiskey?.type, whiskey?.country]
@@ -511,8 +528,8 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
 
   return (
     <div style={centeredStyle}>
-      {/* Back button */}
-      <div style={{ marginBottom: 12 }}>
+      {/* Back button row — Would Buy on right (desktop only) */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -532,6 +549,55 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
           <ArrowBackIcon fontSize="small" />
           <span>Back</span>
         </button>
+
+        {/* Would Buy — desktop: full button; mobile: bare icon */}
+        {isMobile ? (
+          <button
+            type="button"
+            onClick={handleToggleWouldBuy}
+            style={{
+              border: "none",
+              background: "none",
+              padding: 4,
+              cursor: "pointer",
+              color: wouldBuy ? theme.palette.primary.main : theme.palette.text.secondary,
+              display: "inline-flex",
+              alignItems: "center",
+              transition: "color 0.15s",
+            }}
+          >
+            {wouldBuy
+              ? <BookmarkRoundedIcon style={{ fontSize: "1.6rem" }} />
+              : <BookmarkBorderRoundedIcon style={{ fontSize: "1.6rem" }} />}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleToggleWouldBuy}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 16px",
+              borderRadius: theme.shape.borderRadius,
+              border: `1.5px solid ${wouldBuy ? theme.palette.primary.main : theme.palette.divider}`,
+              background: wouldBuy
+                ? `color-mix(in srgb, ${theme.palette.primary.main} 12%, transparent)`
+                : theme.palette.background.paper,
+              color: wouldBuy ? theme.palette.primary.main : theme.palette.text.secondary,
+              cursor: "pointer",
+              font: "inherit",
+              fontSize: "0.9rem",
+              fontWeight: 500,
+              transition: "border-color 0.15s, background 0.15s, color 0.15s",
+            }}
+          >
+            {wouldBuy
+              ? <BookmarkRoundedIcon style={{ fontSize: "1.1rem" }} />
+              : <BookmarkBorderRoundedIcon style={{ fontSize: "1.1rem" }} />}
+            Would Buy
+          </button>
+        )}
       </div>
 
       {/* Header row: eyebrow / name / meta / blurb  +  image box (desktop only) */}
@@ -633,12 +699,11 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
           )}
         </div>
 
-        {/* Image box — square: height=100% of row, width derived from aspect-ratio. Desktop only. */}
+        {/* Square image — desktop only */}
         {!isMobile && (
           <div
             style={{
-              alignSelf: "stretch",
-              height: "100%",
+              width: 240,
               aspectRatio: "1",
               borderRadius: theme.shape.borderRadius,
               overflow: "hidden",
@@ -649,6 +714,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              flexShrink: 0,
             }}
           >
             {whiskey.image_url && !imgFailed ? (
@@ -697,7 +763,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
       )}
 
       {/* Charts row: rating distribution + flavor radar */}
-      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, marginBottom: 24 }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, marginBottom: 24, marginTop: isMobile ? 0 : 40 }}>
         <section style={{ flex: "3 1 0", minWidth: 0 }}>
           <h3
             style={{

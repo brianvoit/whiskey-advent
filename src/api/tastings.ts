@@ -208,3 +208,79 @@ export async function getWouldBuyList(
 
   return entries.sort((a, b) => a.day_number - b.day_number);
 }
+
+/** Fetch all would-buy entries for a user across every season. */
+export async function getAllWouldBuyList(userId: string): Promise<WouldBuyEntry[]> {
+  const { data, error } = await supabase
+    .from("tastings")
+    .select(
+      `whiskey_day_id, rating,
+       whiskey_days!inner(day_number, name, distillery, type, image_url, seasons!inner(year))`
+    )
+    .eq("user_id", userId)
+    .eq("would_buy", true);
+
+  if (error) {
+    console.error("getAllWouldBuyList error:", error);
+    // Retry without image_url if the column isn't present
+    if (error.message?.includes("image_url")) {
+      const { data: fallback, error: fallbackError } = await supabase
+        .from("tastings")
+        .select(
+          `whiskey_day_id, rating,
+           whiskey_days!inner(day_number, name, distillery, type, seasons!inner(year))`
+        )
+        .eq("user_id", userId)
+        .eq("would_buy", true);
+      if (fallbackError || !fallback) return [];
+      return buildEntries(fallback as any[], true);
+    }
+    return [];
+  }
+  if (!data) return [];
+
+  const entries = buildEntries(data as any[], false);
+
+  // Fetch group averages in one query
+  const ids = entries.map((e) => e.whiskey_day_id);
+  if (ids.length > 0) {
+    const { data: allRatings } = await supabase
+      .from("tastings")
+      .select("whiskey_day_id, rating")
+      .in("whiskey_day_id", ids)
+      .not("rating", "is", null);
+
+    if (allRatings) {
+      const sumMap = new Map<number, { sum: number; count: number }>();
+      for (const r of allRatings as { whiskey_day_id: number; rating: number }[]) {
+        const prev = sumMap.get(r.whiskey_day_id) ?? { sum: 0, count: 0 };
+        sumMap.set(r.whiskey_day_id, { sum: prev.sum + r.rating, count: prev.count + 1 });
+      }
+      for (const e of entries) {
+        const s = sumMap.get(e.whiskey_day_id);
+        if (s && s.count > 0) e.avg_rating = Math.round((s.sum / s.count) * 10) / 10;
+      }
+    }
+  }
+
+  // Sort: newest season first, then by day number within a season
+  return entries.sort((a, b) =>
+    b.season_year !== a.season_year
+      ? b.season_year - a.season_year
+      : a.day_number - b.day_number
+  );
+}
+
+function buildEntries(rows: any[], noImage: boolean): WouldBuyEntry[] {
+  return rows.map((t) => ({
+    whiskey_day_id: t.whiskey_day_id as number,
+    day_number: (t.whiskey_days?.day_number ?? 0) as number,
+    name: (t.whiskey_days?.name ?? null) as string | null,
+    distillery: (t.whiskey_days?.distillery ?? null) as string | null,
+    type: (t.whiskey_days?.type ?? null) as string | null,
+    image_url: noImage ? null : ((t.whiskey_days?.image_url ?? null) as string | null),
+    rating: (t.rating ?? null) as number | null,
+    avg_rating: null as number | null,
+    season_year: (t.whiskey_days?.seasons?.year ?? 0) as number,
+  }));
+}

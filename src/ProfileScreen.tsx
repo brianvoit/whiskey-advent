@@ -3,7 +3,7 @@ import { useTheme } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import { subscribeToPush, unsubscribeFromPush } from "./api/pushSubscriptions";
 import { supabase } from "./supabaseClient";
-import type { Profile, RevealPreferences, TastingMode } from "./api/profiles";
+import type { Profile, TastingMode } from "./api/profiles";
 import { uploadAvatar } from "./api/avatars";
 import { useAppTheme } from "./theme";
 import type { ThemeMode } from "./theme";
@@ -39,7 +39,7 @@ import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import GroupRoundedIcon from "@mui/icons-material/GroupRounded";
-import { getWouldBuyList, type WouldBuyEntry } from "./api/tastings";
+import { getAllWouldBuyList, type WouldBuyEntry } from "./api/tastings";
 
 function WouldBuyRow({
   entry,
@@ -167,7 +167,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onProfileUpdated, currentYear }: ProfileScreenProps) {
+function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onProfileUpdated }: ProfileScreenProps) {
   usePageMeta({ title: "My Profile" });
   const [firstName, setFirstName] = useState(profile.first_name ?? "");
   const [lastName, setLastName] = useState(profile.last_name ?? "");
@@ -183,9 +183,7 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [passwordResetSent, setPasswordResetSent] = useState(false);
   const [passwordResetSending, setPasswordResetSending] = useState(false);
@@ -193,12 +191,11 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
 
   const navigate = useNavigate();
 
-  // Would-buy list
+  // Would-buy list — all seasons, not filtered by the currently selected year
   const [wouldBuyList, setWouldBuyList] = useState<WouldBuyEntry[]>([]);
   useEffect(() => {
-    if (!currentYear) return;
-    void getWouldBuyList(userId, currentYear).then(setWouldBuyList);
-  }, [userId, currentYear]);
+    void getAllWouldBuyList(userId).then(setWouldBuyList);
+  }, [userId]);
 
   // Avatar upload
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -238,23 +235,6 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
   const [modeDialogOpen, setModeDialogOpen] = useState(false);
   const [modeDialogTarget, setModeDialogTarget] = useState<TastingMode | null>(null);
 
-  const initialFirstName = profile.first_name ?? "";
-  const initialLastName = profile.last_name ?? "";
-  const initialSeeGroupAverages =
-    profile.reveal_preferences?.see_group_averages_pre_reveal ?? true;
-  const initialThemeMode = (profile.theme_mode as ThemeMode | null) ?? "system";
-  const initialNotificationsOptIn        = profile.notifications_opt_in ?? false;
-  const initialCommentNotificationsOptIn = profile.comment_notifications_opt_in ?? true;
-
-  const isDirty =
-    firstName !== initialFirstName ||
-    lastName !== initialLastName ||
-    seeGroupAverages !== initialSeeGroupAverages ||
-    mode !== initialThemeMode ||
-    pendingMode !== initialTastingMode ||
-    notificationsEnabled !== initialNotificationsOptIn ||
-    commentNotificationsEnabled !== initialCommentNotificationsOptIn;
-
   const handleModeSelect = (nextMode: TastingMode) => {
     if (nextMode === pendingMode) return;
     if (isMoreRelaxed(initialTastingMode, nextMode)) {
@@ -262,12 +242,14 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
       setModeDialogOpen(true);
     } else {
       setPendingMode(nextMode);
+      void saveProfile({ tasting_mode: nextMode });
     }
   };
 
   const handleNotificationToggle = async (enabled: boolean) => {
     if (!enabled) {
       setNotificationsEnabled(false);
+      void saveProfile({ notifications_opt_in: false });
       await unsubscribeFromPush(userId);
       return;
     }
@@ -281,14 +263,14 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
       setNotifPermission(result);
       if (result !== "granted") return;
     }
-    // Optimistically enable — the preference is saved regardless of whether
-    // this browser successfully registers a push subscription.
+    // Optimistically enable and persist immediately
     setNotificationsEnabled(true);
+    void saveProfile({ notifications_opt_in: true });
     try {
       await subscribeToPush(userId);
     } catch {
       // Push subscription failed (e.g. dev environment, unsupported browser).
-      // The opt-in preference is still saved on next Save click.
+      // Preference is already saved above.
     }
   };
 
@@ -307,41 +289,21 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  // Auto-save helper — call with only the fields that changed
+  const saveProfile = async (updates: Record<string, unknown>) => {
     setError(null);
-    setSuccess(null);
-
-    const prefs: RevealPreferences = {
-      see_group_averages_pre_reveal: seeGroupAverages,
-    };
-
     const { data, error } = await supabase
       .from("profiles")
-      .update({
-        first_name: firstName || null,
-        last_name: lastName || null,
-        reveal_preferences: prefs,
-        theme_mode: mode,
-        tasting_mode: pendingMode,
-        notifications_opt_in: notificationsEnabled,
-        comment_notifications_opt_in: commentNotificationsEnabled,
-      })
+      .update(updates)
       .eq("id", profile.id)
-      .select(
-        "id, first_name, last_name, avatar_url, role, onboarding_complete, reveal_preferences, theme_mode, tasting_mode, notifications_opt_in, comment_notifications_opt_in"
-      )
+      .select("*")
       .single();
 
-    setSaving(false);
-
-    if (error || !data) {
-      setError("There was a problem saving your changes. Please try again.");
+    if (error) {
+      setError("Couldn't save changes. Please try again.");
       return;
     }
-
-    onProfileUpdated(data as Profile);
-    setSuccess("Profile updated.");
+    if (data) onProfileUpdated(data as Profile);
   };
 
   const handleSignOut = async () => {
@@ -435,12 +397,13 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
             <Alert severity="error" sx={{ py: 0.5 }}>{avatarError}</Alert>
           )}
 
-          {/* Name fields */}
+          {/* Name fields — auto-save on blur */}
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
             <TextField
               label="First name"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
+              onBlur={() => void saveProfile({ first_name: firstName.trim() || null })}
               fullWidth
               size="small"
             />
@@ -448,12 +411,45 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
               label="Last name"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
+              onBlur={() => void saveProfile({ last_name: lastName.trim() || null })}
               fullWidth
               size="small"
             />
           </Stack>
         </Stack>
       </Paper>
+
+      {/* ── Bottles I'd Buy ── */}
+      <div>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: wouldBuyList.length > 0 ? 1.5 : 0 }}>
+          <BookmarkRoundedIcon fontSize="small" color="primary" />
+          <SectionHeader>Bottles I'd Buy</SectionHeader>
+        </Stack>
+        {wouldBuyList.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            Tap the bookmark on any rating page to flag bottles you'd like to buy.
+          </Typography>
+        ) : (
+          <div
+            style={{
+              borderRadius: 12,
+              border: `1px solid ${theme.palette.divider}`,
+              backgroundColor: theme.palette.background.paper,
+              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
+              overflow: "hidden",
+            }}
+          >
+            {wouldBuyList.map((entry, i) => (
+              <WouldBuyRow
+                key={entry.whiskey_day_id}
+                entry={entry}
+                isFirst={i === 0}
+                onClick={() => navigate(`/whiskey/${entry.season_year}/${entry.day_number}`)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── Tasting mode ── */}
       <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 6px rgba(0,0,0,0.10)" }}>
@@ -480,7 +476,11 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
           control={
             <Switch
               checked={seeGroupAverages}
-              onChange={(e) => setSeeGroupAverages(e.target.checked)}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setSeeGroupAverages(v);
+                void saveProfile({ reveal_preferences: { see_group_averages_pre_reveal: v } });
+              }}
             />
           }
           label={
@@ -499,7 +499,11 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
           <SectionHeader>Theme</SectionHeader>
           <RadioGroup
             value={mode}
-            onChange={(e) => setMode(e.target.value as ThemeMode)}
+            onChange={(e) => {
+              const v = e.target.value as ThemeMode;
+              setMode(v);
+              void saveProfile({ theme_mode: v });
+            }}
             sx={{ mt: 1 }}
           >
             {THEME_OPTIONS.map(({ value, label, icon }) => (
@@ -544,7 +548,11 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
               <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Switch
                   checked={commentNotificationsEnabled}
-                  onChange={(e) => setCommentNotificationsEnabled(e.target.checked)}
+                  onChange={(e) => {
+                    const v = e.target.checked;
+                    setCommentNotificationsEnabled(v);
+                    void saveProfile({ comment_notifications_opt_in: v });
+                  }}
                   size="small"
                 />
                 <Typography variant="body2">
@@ -594,44 +602,11 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
         </Paper>
       )}
 
-      {/* ── Bottles I'd Buy ── */}
-      <div>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: wouldBuyList.length > 0 ? 1.5 : 0 }}>
-          <BookmarkRoundedIcon fontSize="small" color="primary" />
-          <SectionHeader>Bottles I'd Buy</SectionHeader>
-        </Stack>
-        {wouldBuyList.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            Tap the bookmark on any rating page to flag bottles you'd like to buy.
-          </Typography>
-        ) : (
-          <div
-            style={{
-              borderRadius: 12,
-              border: `1px solid ${theme.palette.divider}`,
-              backgroundColor: theme.palette.background.paper,
-              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
-              overflow: "hidden",
-            }}
-          >
-            {wouldBuyList.map((entry, i) => (
-              <WouldBuyRow
-                key={entry.whiskey_day_id}
-                entry={entry}
-                isFirst={i === 0}
-                onClick={() => navigate(`/whiskey/${currentYear}/${entry.day_number}`)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
       {/* ── Feedback ── */}
-      {error   && <Alert severity="error">{error}</Alert>}
-      {success && <Alert severity="success">{success}</Alert>}
+      {error && <Alert severity="error">{error}</Alert>}
 
       {/* ── Actions ── */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Stack alignItems="center">
         <Button
           variant="text"
           onClick={handleSignOut}
@@ -639,13 +614,6 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
           sx={{ color: "text.primary", textTransform: "uppercase", fontWeight: 400 }}
         >
           {signingOut ? "Signing out…" : "Sign out"}
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleSave}
-          disabled={saving || !isDirty}
-        >
-          {saving ? "Saving…" : "Save"}
         </Button>
       </Stack>
 
@@ -670,7 +638,10 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
           <Button
             variant="contained"
             onClick={() => {
-              if (modeDialogTarget) setPendingMode(modeDialogTarget);
+              if (modeDialogTarget) {
+                setPendingMode(modeDialogTarget);
+                void saveProfile({ tasting_mode: modeDialogTarget });
+              }
               setModeDialogOpen(false);
               setModeDialogTarget(null);
             }}
