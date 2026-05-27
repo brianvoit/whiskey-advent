@@ -107,6 +107,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
   } | null>(null);
 
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
+  const [imgFailed, setImgFailed] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>("rating");
   const [sortDirection, setSortDirection] =
     useState<SortDirection>("desc");
@@ -533,8 +534,8 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
         </button>
       </div>
 
-      {/* Header row: eyebrow / name / meta / blurb  +  image box */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, marginBottom: 20 }}>
+      {/* Header row: eyebrow / name / meta / blurb  +  image box (desktop only) */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: 20, marginBottom: 20 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Eyebrow */}
           <p
@@ -560,6 +561,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
               fontSize: "1.85rem",
               fontWeight: 600,
               fontFamily: '"Lora", "Georgia", serif',
+              lineHeight: isMobile ? 1.4 : undefined,
             }}
           >
             {titleName}
@@ -631,15 +633,48 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
           )}
         </div>
 
-        {/* Image box — square: height=100% of row, width derived from aspect-ratio */}
+        {/* Image box — square: height=100% of row, width derived from aspect-ratio. Desktop only. */}
+        {!isMobile && (
+          <div
+            style={{
+              alignSelf: "stretch",
+              height: "100%",
+              aspectRatio: "1",
+              borderRadius: theme.shape.borderRadius,
+              overflow: "hidden",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
+              background: theme.palette.mode === "dark"
+                ? "linear-gradient(145deg, #2a1c0c 0%, #3d2510 55%, #2e1a09 100%)"
+                : "linear-gradient(145deg, #eedcbf 0%, #c8945a 55%, #9e6535 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {whiskey.image_url && !imgFailed ? (
+              <img
+                src={whiskey.image_url}
+                alt={titleName}
+                onError={() => setImgFailed(true)}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <span style={{ fontSize: "3rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile image — full-width, between details and charts */}
+      {isMobile && (
         <div
           style={{
-            alignSelf: "stretch",
-            height: "100%",
-            aspectRatio: "1",
+            width: "100%",
+            aspectRatio: "4/3",
             borderRadius: theme.shape.borderRadius,
             overflow: "hidden",
             boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
+            marginBottom: 20,
             background: theme.palette.mode === "dark"
               ? "linear-gradient(145deg, #2a1c0c 0%, #3d2510 55%, #2e1a09 100%)"
               : "linear-gradient(145deg, #eedcbf 0%, #c8945a 55%, #9e6535 100%)",
@@ -648,9 +683,18 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
             justifyContent: "center",
           }}
         >
-          <span style={{ fontSize: "3rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
+          {whiskey.image_url && !imgFailed ? (
+            <img
+              src={whiskey.image_url}
+              alt={titleName}
+              onError={() => setImgFailed(true)}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <span style={{ fontSize: "3rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Charts row: rating distribution + flavor radar */}
       <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, marginBottom: 24 }}>

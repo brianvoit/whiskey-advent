@@ -354,7 +354,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                 {mostConsensus && consensusLabel && (
                   <div style={bubbleStyle}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={labelStyle}>Most Consensus</p>
+                      <p style={labelStyle}>Greatest Consensus</p>
                       <p style={nameStyle}>{consensusLabel}</p>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
