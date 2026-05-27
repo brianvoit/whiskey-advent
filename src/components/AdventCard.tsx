@@ -186,6 +186,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
         >
           <div
             style={{
+              fontFamily: '"Lora", "Georgia", serif',
               fontWeight: 600,
               fontSize: "0.9rem",
               whiteSpace: "nowrap",
@@ -344,7 +345,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
           padding: "8px 10px 8px",
         }}
       >
-          {/* Headline + subhead */}
+          {/* Headline */}
           <div
             style={{
               minHeight: 0,
@@ -356,8 +357,10 @@ const AdventCard: React.FC<AdventCardProps> = ({
               <Typography
                 variant="body1"
                 style={{
+                  fontFamily: '"Lora", "Georgia", serif',
                   fontWeight: 600,
-                  marginBottom: displaySubhead ? 2 : 0,
+                  fontSize: "1.03rem",
+                  marginBottom: 0,
                   whiteSpace: "normal",
                   overflow: "hidden",
                   display: "-webkit-box",
@@ -370,7 +373,20 @@ const AdventCard: React.FC<AdventCardProps> = ({
                 {displayHeadline}
               </Typography>
             ) : null}
-            {displaySubhead ? (
+          </div>
+
+          {/* Bottom row: distillery + rating + action "button" */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              marginTop: 6,
+              ...(hideDetails && isFutureDay ? { filter: "blur(5px)", userSelect: "none", pointerEvents: "none" } : {}),
+            }}
+          >
+            {/* Distillery name */}
+            {displaySubhead && (
               <Typography
                 variant="body2"
                 style={{
@@ -378,21 +394,17 @@ const AdventCard: React.FC<AdventCardProps> = ({
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
+                  ...(hideDetails ? { filter: "blur(5px)", userSelect: "none", pointerEvents: "none" } : {}),
                 }}
               >
                 {displaySubhead}
               </Typography>
-            ) : null}
-          </div>
-
-          {/* Bottom row: rating + action "button" */}
-          <div
+            )}
+<div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginTop: 6,
-              ...(hideDetails && isFutureDay ? { filter: "blur(5px)", userSelect: "none", pointerEvents: "none" } : {}),
             }}
           >
             {/* Rating row (bottom-left) */}
@@ -453,6 +465,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
             >
               {actionLabel}
             </div>
+          </div>
           </div>
         </div>
 
