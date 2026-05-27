@@ -552,39 +552,12 @@ function DayDetail({ userId }: DayDetailProps) {
         <span>Back</span>
       </button>
 
-      {/* Masthead — matches WhiskeyDetail layout */}
-      <div
-        style={{
-          borderRadius: 20,
-          padding: "16px 20px",
-          background: whiskey.image_url
-            ? `linear-gradient(135deg, rgba(216,191,170,0.55), rgba(180,150,130,0.55)), url(${whiskey.image_url}) center/cover no-repeat`
-            : "linear-gradient(135deg, rgba(216,191,170,0.9), rgba(180,150,130,0.9))",
-          marginBottom: 20,
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-          minHeight: whiskey.image_url ? 140 : "auto",
-        }}
-      >
-        <div style={{ fontSize: "1.1rem", fontWeight: 600 }}>
-          Day {whiskey.day_number}
-        </div>
-        {(whiskey.region || whiskey.country) && (revealed || isExplorer || isRelaxed) && (
-          <div style={{ fontSize: "0.9rem", textAlign: "right" }}>
-            {whiskey.region ?? ""}
-            {whiskey.region && whiskey.country ? ", " : ""}
-            {whiskey.country ?? ""}
-          </div>
-        )}
-      </div>
-
       <div
         style={{
           display: "flex",
           alignItems: "stretch",
           gap: 16,
-          marginTop: 16,
+          marginTop: 8,
         }}
       >
         {/* Left: whiskey info or placeholder */}
@@ -600,6 +573,23 @@ function DayDetail({ userId }: DayDetailProps) {
             </Typography>
           ) : (
             <>
+              {/* Day eyebrow — always visible once any detail shows */}
+              <Typography
+                variant="caption"
+                style={{
+                  display: "block",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.12em",
+                  color: theme.palette.text.secondary,
+                  opacity: 0.6,
+                  marginBottom: 4,
+                  lineHeight: 1,
+                }}
+              >
+                Day {whiskey.day_number}
+              </Typography>
+
               {showName && whiskey.name && (
                 <Typography
                   variant="h4"
@@ -607,6 +597,7 @@ function DayDetail({ userId }: DayDetailProps) {
                   style={{
                     marginTop: 0,
                     marginBottom: 4,
+                    fontSize: "1.85rem",
                   }}
                 >
                   {whiskey.name}
@@ -642,6 +633,12 @@ function DayDetail({ userId }: DayDetailProps) {
                     {whiskey.distillery && (
                       <Typography variant="body2">
                         <strong>Distillery:</strong> {whiskey.distillery}
+                      </Typography>
+                    )}
+                    {showType && (whiskey.region || whiskey.country) && (
+                      <Typography variant="body2">
+                        <strong>Region:</strong>{" "}
+                        {[whiskey.region, whiskey.country].filter(Boolean).join(", ")}
                       </Typography>
                     )}
                     {whiskey.age && (
@@ -696,7 +693,7 @@ function DayDetail({ userId }: DayDetailProps) {
             display: "flex",
             flexDirection: "column",
             alignItems: "stretch",
-            justifyContent: "space-between",
+            justifyContent: "center",
           }}
         >
           <>
@@ -723,7 +720,7 @@ function DayDetail({ userId }: DayDetailProps) {
                       width: "100%",
                     }}
                   >
-                    <ChevronRightRoundedIcon style={{ fontSize: "1.4rem" }} />
+                    Details <ChevronRightRoundedIcon style={{ fontSize: "1.1rem", marginLeft: 2 }} />
                   </button>
                 ) : (
                   /* Unsaved — regular Save button */
@@ -766,7 +763,7 @@ function DayDetail({ userId }: DayDetailProps) {
                     border: `1.5px solid ${wouldBuy ? theme.palette.primary.main : theme.palette.divider}`,
                     background: wouldBuy
                       ? `color-mix(in srgb, ${theme.palette.primary.main} 12%, transparent)`
-                      : "transparent",
+                      : theme.palette.background.paper,
                     color: wouldBuy
                       ? theme.palette.primary.main
                       : theme.palette.text.secondary,
@@ -791,15 +788,17 @@ function DayDetail({ userId }: DayDetailProps) {
                   style={{
                     border: "none",
                     background: "none",
-                    padding: "4px 8px",
+                    padding: "4px 0",
                     margin: 0,
                     cursor: rating === null && notes === "" && tags.length === 0 ? "default" : "pointer",
                     color: rating === null && notes === "" && tags.length === 0
                       ? theme.palette.text.disabled
                       : theme.palette.text.secondary,
                     font: "inherit",
-                    fontSize: "0.85rem",
-                    fontWeight: 400,
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
                     textAlign: "center",
                     width: "100%",
                   }}
@@ -1006,9 +1005,17 @@ function DayDetail({ userId }: DayDetailProps) {
         {/* Tasting Notes — full width below both columns */}
         <div style={{ marginTop: 28 }}>
           <Typography
-            variant="subtitle1"
+            variant="caption"
             component="label"
-            style={{ display: "block", marginBottom: 14, fontWeight: 700 }}
+            style={{
+              display: "block",
+              marginBottom: 8,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              opacity: 0.5,
+              lineHeight: 1,
+            }}
           >
             Tasting Notes
           </Typography>
@@ -1134,15 +1141,17 @@ function DayDetail({ userId }: DayDetailProps) {
               style={{
                 border: "none",
                 background: "none",
-                padding: "4px 8px",
+                padding: "4px 0",
                 margin: 0,
                 cursor: rating === null && notes === "" && tags.length === 0 ? "default" : "pointer",
                 color: rating === null && notes === "" && tags.length === 0
                   ? theme.palette.text.disabled
                   : theme.palette.text.secondary,
                 font: "inherit",
-                fontSize: "0.85rem",
-                fontWeight: 400,
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
               }}
             >
               Reset

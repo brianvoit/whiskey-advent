@@ -91,6 +91,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
 
   const [whiskey, setWhiskey] = useState<WhiskeyDayInfo | null>(null);
   const [tastings, setTastings] = useState<WhiskeyTastingDetail[]>([]);
@@ -504,14 +505,8 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
   }
 
   const titleName = whiskey.name ?? "Unknown whiskey";
-  const locationText =
-    whiskey.region && whiskey.country
-      ? `${whiskey.region}, ${whiskey.country}`
-      : whiskey.country ?? "";
 
-  const centeredStyle: CSSProperties = isMobile
-    ? { paddingTop: 8 }
-    : { paddingTop: 8, maxWidth: "66.67%", marginLeft: "auto", marginRight: "auto" };
+  const centeredStyle: CSSProperties = { paddingTop: 8 };
 
   return (
     <div style={centeredStyle}>
@@ -538,114 +533,124 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
         </button>
       </div>
 
-      {/* Masthead / cover row */}
-      <div
-        style={{
-          borderRadius: 20,
-          padding: "16px 20px",
-          background:
-            "linear-gradient(135deg, rgba(216, 191, 170, 0.9), rgba(180, 150, 130, 0.9))",
-          marginBottom: 20,
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-        }}
-      >
-        <div
-          style={{
-            fontSize: "1.1rem",
-            fontWeight: 600,
-          }}
-        >
-          Day {whiskey.day_number}
-        </div>
-        {locationText && (
+      {/* Header row: eyebrow / name / meta / blurb  +  image box */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20, marginBottom: 20 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* Eyebrow */}
+          <p
+            style={{
+              margin: 0,
+              marginBottom: 4,
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.12em",
+              color: theme.palette.text.secondary,
+              opacity: 0.6,
+              lineHeight: 1,
+            }}
+          >
+            Day {whiskey.day_number}
+          </p>
+
+          <h2
+            style={{
+              margin: 0,
+              marginBottom: 4,
+              fontSize: "1.85rem",
+              fontWeight: 600,
+              fontFamily: '"Lora", "Georgia", serif',
+            }}
+          >
+            {titleName}
+          </h2>
+
+          {whiskey.type && (
+            <p
+              style={{
+                margin: 0,
+                marginBottom: 4,
+                fontSize: "1rem",
+                fontWeight: 500,
+              }}
+            >
+              {whiskey.type}
+            </p>
+          )}
+
           <div
             style={{
               fontSize: "0.9rem",
+              color: theme.palette.text.secondary,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              marginBottom: whiskey.blurb || whiskey.info_url ? 12 : 0,
             }}
           >
-            {locationText}
+            {whiskey.distillery && (
+              <p style={{ margin: 0 }}>
+                <strong>Distillery:</strong> {whiskey.distillery}
+              </p>
+            )}
+            {(whiskey.region || whiskey.country) && (
+              <p style={{ margin: 0 }}>
+                <strong>Region:</strong>{" "}
+                {[whiskey.region, whiskey.country].filter(Boolean).join(", ")}
+              </p>
+            )}
+            {whiskey.age && (
+              <p style={{ margin: 0 }}>
+                <strong>Age:</strong> {whiskey.age}
+              </p>
+            )}
+            {whiskey.abv != null && (
+              <p style={{ margin: 0 }}>
+                <strong>ABV:</strong> {whiskey.abv}%
+              </p>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Detail text under masthead */}
-      <h2
-        style={{
-          margin: 0,
-          marginBottom: 4,
-          fontSize: "1.3rem",
-          fontWeight: 600,
-        }}
-      >
-        {titleName}
-      </h2>
+          {whiskey.blurb && (
+            <p style={{ margin: 0, marginBottom: whiskey.info_url ? 8 : 0, fontSize: "0.95rem" }}>
+              {whiskey.blurb}
+            </p>
+          )}
 
-      {whiskey.type && (
-        <p
+          {whiskey.info_url && (
+            <p style={{ margin: 0, fontSize: "0.9rem" }}>
+              <a
+                href={whiskey.info_url}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: theme.palette.primary.main, fontWeight: 500 }}
+              >
+                Learn more →
+              </a>
+            </p>
+          )}
+        </div>
+
+        {/* Image box — square: height=100% of row, width derived from aspect-ratio */}
+        <div
           style={{
-            margin: 0,
-            marginBottom: 4,
-            fontSize: "1rem",
-            fontWeight: 500,
+            alignSelf: "stretch",
+            height: "100%",
+            aspectRatio: "1",
+            borderRadius: theme.shape.borderRadius,
+            overflow: "hidden",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
+            background: theme.palette.mode === "dark"
+              ? "linear-gradient(145deg, #2a1c0c 0%, #3d2510 55%, #2e1a09 100%)"
+              : "linear-gradient(145deg, #eedcbf 0%, #c8945a 55%, #9e6535 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {whiskey.type}
-        </p>
-      )}
-
-      <div
-        style={{
-          marginBottom: 12,
-          fontSize: "0.9rem",
-          color: theme.palette.text.secondary,
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-        }}
-      >
-        {whiskey.distillery && (
-          <p style={{ margin: 0 }}>
-            <strong>Distillery:</strong> {whiskey.distillery}
-          </p>
-        )}
-        {whiskey.age && (
-          <p style={{ margin: 0 }}>
-            <strong>Age:</strong> {whiskey.age}
-          </p>
-        )}
-        {whiskey.abv != null && (
-          <p style={{ margin: 0 }}>
-            <strong>ABV:</strong> {whiskey.abv}%
-          </p>
-        )}
+          <span style={{ fontSize: "3rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
+        </div>
       </div>
-
-      {whiskey.blurb && (
-        <p
-          style={{
-            margin: 0,
-            marginBottom: whiskey.info_url ? 8 : 20,
-            fontSize: "0.95rem",
-          }}
-        >
-          {whiskey.blurb}
-        </p>
-      )}
-
-      {whiskey.info_url && (
-        <p style={{ margin: 0, marginBottom: 20, fontSize: "0.9rem" }}>
-          <a
-            href={whiskey.info_url}
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: theme.palette.primary.main, fontWeight: 500 }}
-          >
-            Learn more →
-          </a>
-        </p>
-      )}
 
       {/* Charts row: rating distribution + flavor radar */}
       <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 16, marginBottom: 24 }}>
@@ -778,6 +783,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                     border: `1px solid ${theme.palette.divider}`,
                     padding: "10px 12px",
                     background: theme.palette.background.paper,
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
                   }}
                 >
                   {/* Top row: avatar + name + overall */}
@@ -827,6 +833,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
               borderRadius: theme.shape.borderRadius,
               border: `1px solid ${theme.palette.divider}`,
               overflow: "hidden",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
             }}
           >
             {/* Header row */}
@@ -842,20 +849,13 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                 fontSize: "0.8rem",
               }}
             >
-              {/* Empty avatar column header to align with rows */}
-              <div style={{ gridColumn: "1 / 2" }} />
-
-              {/* User column header */}
-              <div
-                style={{
-                  gridColumn: "2 / 3",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
+              {/* "User" label centered above the avatar column */}
+              <div style={{ gridColumn: "1 / 2", display: "flex", justifyContent: "center", alignItems: "center" }}>
                 {renderSortLabel("User", "name")}
               </div>
+
+              {/* Name column — no separate header */}
+              <div style={{ gridColumn: "2 / 3" }} />
 
               <div
                 style={{
@@ -912,15 +912,15 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                     backgroundColor:
                       hoveredUserId === tasting.user_id
                         ? theme.palette.action.hover
-                        : undefined,
+                        : theme.palette.background.paper,
                     transition: "background-color 0.15s",
                     cursor: "default",
                   }}
                 >
-                  {/* Avatar spanning both rows */}
+                  {/* Avatar — spans 2 rows when notes exist, 1 row otherwise */}
                   <div
                     style={{
-                      gridRow: "1 / span 2",
+                      gridRow: tasting.notes?.trim() ? "1 / span 2" : "1 / 2",
                       gridColumn: "1 / 2",
                       display: "flex",
                       alignItems: "center",
@@ -939,7 +939,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                     />
                   </div>
 
-                  {/* Name on first row */}
+                  {/* Name — vertically centered when no notes */}
                   <div
                     style={{
                       gridRow: "1 / 2",
@@ -948,6 +948,8 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
+                      alignSelf: tasting.notes?.trim() ? "start" : "center",
+                      fontWeight: 600,
                     }}
                   >
                     {fullName}
@@ -983,16 +985,17 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
                     )
                   )}
 
-                  {/* Notes row under the name, spanning all non-avatar columns */}
+                  {/* Notes row under the name — constrained to name column so it wraps before Overall */}
                   {tasting.notes && tasting.notes.trim().length > 0 && (
                     <div
                       style={{
                         gridRow: "2 / 3",
-                        gridColumn: "2 / 10",
+                        gridColumn: "2 / 3",
                         fontSize: "0.8rem",
                         color: theme.palette.text.secondary,
                         whiteSpace: "normal",
                         wordBreak: "break-word",
+                        minWidth: 0,
                       }}
                     >
                       {tasting.notes}
@@ -1007,13 +1010,21 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
 
       {/* Comments */}
       {seasonId !== null && (
-        <CommentsSection
-          seasonId={seasonId}
-          whiskeyDayId={whiskey.id}
-          userId={userId}
-          isAdmin={isAdmin}
-          currentUser={currentUserProfile ?? undefined}
-        />
+        <div
+          style={{
+            maxWidth: isDesktop ? 1040 : 520,
+            marginLeft: "auto",
+            marginRight: "auto",
+          }}
+        >
+          <CommentsSection
+            seasonId={seasonId}
+            whiskeyDayId={whiskey.id}
+            userId={userId}
+            isAdmin={isAdmin}
+            currentUser={currentUserProfile ?? undefined}
+          />
+        </div>
       )}
     </div>
   );

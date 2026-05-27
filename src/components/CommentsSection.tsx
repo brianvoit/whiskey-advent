@@ -263,6 +263,7 @@ function CommentThread({
         borderRadius: theme.shape.borderRadius,
         border: `1px solid ${theme.palette.divider}`,
         backgroundColor: theme.palette.background.paper,
+        boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
       }}
     >
       <div
@@ -281,59 +282,67 @@ function CommentThread({
         />
 
         <div style={{ flex: 1 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline",
-            }}
-          >
-            <Typography variant="body2" style={{ fontWeight: 600 }}>
-              {displayName}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {createdLabel}
-            </Typography>
-          </div>
-
-          <Typography
-            variant="body2"
-            style={{ marginTop: 4, whiteSpace: "pre-wrap" }}
-          >
-            {comment.body}
-          </Typography>
-
-          {/* Reactions + actions */}
-          <div style={{ marginTop: 6 }}>
-            {/* Reaction icons row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {reactionOrder.map((type) => {
-                const count = comment.reactions[type];
-                const isActive = userReactionSet.has(type);
-                return (
-                  <div key={type} style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => onToggleReaction(comment.id, type)}
-                      style={{ padding: 4, opacity: count === 0 && !isActive ? 0.4 : 1 }}
-                    >
-                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: isActive ? theme.palette.primary.main : theme.palette.text.secondary }}>
-                        {reactionIcons[type]}
-                      </span>
-                    </IconButton>
-                    {count > 0 && (
-                      <Typography variant="caption" color="text.secondary">{count}</Typography>
-                    )}
-                  </div>
-                );
-              })}
+          <div style={{ display: "flex", gap: 8 }}>
+            {/* Left: name + body + reply/delete */}
+            <div style={{ flex: 1 }}>
+              <Typography variant="body2" style={{ fontWeight: 600 }}>
+                {displayName}
+              </Typography>
+              <Typography
+                variant="body2"
+                style={{ marginTop: 4, whiteSpace: "pre-wrap" }}
+              >
+                {comment.body}
+              </Typography>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={handleRootReplyClick}
+                  sx={{ pl: 0, textTransform: "uppercase", color: "text.secondary", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", minWidth: 0 }}
+                >
+                  Reply
+                </Button>
+                {isAdmin && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    onClick={() => onDelete(comment.id)}
+                    sx={{ textTransform: "uppercase", color: "text.secondary", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", minWidth: 0 }}
+                  >
+                    Delete
+                  </Button>
+                )}
+              </div>
             </div>
-            {/* Reply / Delete row */}
-            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-              <Button size="small" variant="text" onClick={handleRootReplyClick}>Reply</Button>
-              {isAdmin && (
-                <Button size="small" variant="text" color="error" onClick={() => onDelete(comment.id)}>Delete</Button>
-              )}
+
+            {/* Right: timestamp top, reactions bottom — aligned with REPLY/DELETE */}
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "flex-end", flexShrink: 0 }}>
+              <Typography variant="caption" color="text.secondary">
+                {createdLabel}
+              </Typography>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {reactionOrder.map((type) => {
+                  const count = comment.reactions[type];
+                  const isActive = userReactionSet.has(type);
+                  return (
+                    <div key={type} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onToggleReaction(comment.id, type)}
+                        style={{ padding: 4, opacity: count === 0 && !isActive ? 0.4 : 1 }}
+                      >
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: isActive ? theme.palette.primary.main : theme.palette.text.secondary }}>
+                          {reactionIcons[type]}
+                        </span>
+                      </IconButton>
+                      {count > 0 && (
+                        <Typography variant="caption" color="text.secondary">{count}</Typography>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -400,60 +409,70 @@ function CommentThread({
                     />
 
                     <div style={{ flex: 1 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "baseline",
-                        }}
-                      >
-                        <Typography
-                          variant="body2"
-                          style={{ fontWeight: 600 }}
-                        >
-                          {replyName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {replyCreatedLabel}
-                        </Typography>
-                      </div>
-
-                      <Typography
-                        variant="body2"
-                        style={{ marginTop: 4, whiteSpace: "pre-wrap" }}
-                      >
-                        {reply.body}
-                      </Typography>
-
-                      {/* Reactions + actions */}
-                      <div style={{ marginTop: 6 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          {reactionOrder.map((type) => {
-                            const count = reply.reactions[type];
-                            const isActive = replyUserReactionSet.has(type);
-                            return (
-                              <div key={type} style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => onToggleReaction(reply.id, type)}
-                                  style={{ padding: 4, opacity: count === 0 && !isActive ? 0.4 : 1 }}
-                                >
-                                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: isActive ? theme.palette.primary.main : theme.palette.text.secondary }}>
-                                    {reactionIcons[type]}
-                                  </span>
-                                </IconButton>
-                                {count > 0 && (
-                                  <Typography variant="caption" color="text.secondary">{count}</Typography>
-                                )}
-                              </div>
-                            );
-                          })}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {/* Left: name + body + reply/delete */}
+                        <div style={{ flex: 1 }}>
+                          <Typography
+                            variant="body2"
+                            style={{ fontWeight: 600 }}
+                          >
+                            {replyName}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            style={{ marginTop: 4, whiteSpace: "pre-wrap" }}
+                          >
+                            {reply.body}
+                          </Typography>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={handleReplyClick}
+                              sx={{ pl: 0, textTransform: "uppercase", color: "text.secondary", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", minWidth: 0 }}
+                            >
+                              Reply
+                            </Button>
+                            {isAdmin && (
+                              <Button
+                                size="small"
+                                variant="text"
+                                onClick={() => onDelete(reply.id)}
+                                sx={{ textTransform: "uppercase", color: "text.secondary", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", minWidth: 0 }}
+                              >
+                                Delete
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
-                          <Button size="small" variant="text" onClick={handleReplyClick}>Reply</Button>
-                          {isAdmin && (
-                            <Button size="small" variant="text" color="error" onClick={() => onDelete(reply.id)}>Delete</Button>
-                          )}
+
+                        {/* Right: timestamp top, reactions bottom — aligned with REPLY/DELETE */}
+                        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", alignItems: "flex-end", flexShrink: 0 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {replyCreatedLabel}
+                          </Typography>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            {reactionOrder.map((type) => {
+                              const count = reply.reactions[type];
+                              const isActive = replyUserReactionSet.has(type);
+                              return (
+                                <div key={type} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => onToggleReaction(reply.id, type)}
+                                    style={{ padding: 4, opacity: count === 0 && !isActive ? 0.4 : 1 }}
+                                  >
+                                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: isActive ? theme.palette.primary.main : theme.palette.text.secondary }}>
+                                      {reactionIcons[type]}
+                                    </span>
+                                  </IconButton>
+                                  {count > 0 && (
+                                    <Typography variant="caption" color="text.secondary">{count}</Typography>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
 

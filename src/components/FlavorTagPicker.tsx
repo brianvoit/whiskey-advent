@@ -57,15 +57,7 @@ export default function FlavorTagPicker({ selected, onChange, topMargin }: Flavo
 
   return (
     <div>
-      <Typography
-        variant="subtitle1"
-        component="h3"
-        style={{ display: "block", marginTop: topMargin ?? 20, marginBottom: 14, fontWeight: 700 }}
-      >
-        Flavor Notes
-      </Typography>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, marginTop: topMargin ?? 20 }}>
         {FLAVOR_GROUPS.map((group) => (
           <div key={group.label}>
             {/* Group label */}
@@ -77,8 +69,8 @@ export default function FlavorTagPicker({ selected, onChange, topMargin }: Flavo
                 textTransform: "uppercase",
                 letterSpacing: "0.1em",
                 color: "text.primary",
-                opacity: 0.5,
-                mb: 0.75,
+                opacity: 0.45,
+                mb: 1,
                 lineHeight: 1,
               }}
             >

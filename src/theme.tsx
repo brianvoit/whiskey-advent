@@ -10,7 +10,7 @@ import CssBaseline from "@mui/material/CssBaseline";
 
 const baseSans =
   '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-const accentSerif = '"Fraunces", "Times New Roman", serif';
+const accentSerif = '"Lora", "Georgia", serif';
 
 export type ThemeMode = "light" | "dark" | "system";
 

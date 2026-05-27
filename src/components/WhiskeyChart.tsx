@@ -209,6 +209,7 @@ export default function WhiskeyChart({
         border: `1px solid ${border}`,
         borderRadius: `${theme.shape.borderRadius}px`,
         backgroundColor: bg,
+        boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
         px: 2,
         py: 2,
       }}

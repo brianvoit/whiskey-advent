@@ -86,6 +86,7 @@ export default function WhiskeyRadarChart({
         border: `1px solid ${theme.palette.divider}`,
         borderRadius: `${theme.shape.borderRadius}px`,
         backgroundColor: bg,
+        boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
         px: 2,
         py: 2,
       }}
