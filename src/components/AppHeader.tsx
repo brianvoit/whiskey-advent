@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import NotificationsRoundedIcon from "@mui/icons-material/NotificationsRounded";
 import { useTheme } from "@mui/material/styles";
@@ -10,10 +11,13 @@ type AppHeaderProps = {
   unreadNotifications?: number;
   onNotificationsClick?: () => void;
   onSearchClick?: () => void;
+  /** When set, shows a "View {recapYear} Recap" button centered in the header */
+  recapYear?: number;
 };
 
-function AppHeader({ currentYear, streak = 0, onYearClick, unreadNotifications = 0, onNotificationsClick, onSearchClick }: AppHeaderProps) {
+function AppHeader({ currentYear, streak = 0, onYearClick, unreadNotifications = 0, onNotificationsClick, onSearchClick, recapYear }: AppHeaderProps) {
   const theme = useTheme();
+  const navigate = useNavigate();
   const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
 
   const handleYearClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -50,24 +54,51 @@ function AppHeader({ currentYear, streak = 0, onYearClick, unreadNotifications =
         Whiskey Advent
       </h1>
 
-      {/* Center: streak (desktop only) */}
-      {isDesktop && streak > 0 && (
-        <span
+      {/* Center: recap button (past years) OR streak (current year, desktop only) */}
+      {recapYear ? (
+        <button
+          type="button"
+          onClick={() => navigate(`/recap/${recapYear}`)}
           style={{
             position: "absolute",
             left: "50%",
             transform: "translateX(-50%)",
-            fontSize: "0.72rem",
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 16px",
+            borderRadius: 20,
+            border: `1px solid ${theme.palette.primary.main}`,
+            background: "none",
             color: theme.palette.primary.main,
+            fontWeight: 700,
+            fontSize: "0.8rem",
+            cursor: "pointer",
             whiteSpace: "nowrap",
-            pointerEvents: "none",
+            font: "inherit",
           }}
         >
-          {streak} day streak
-        </span>
+          View {recapYear} Recap
+        </button>
+      ) : (
+        isDesktop && streak > 0 && (
+          <span
+            style={{
+              position: "absolute",
+              left: "50%",
+              transform: "translateX(-50%)",
+              fontSize: "0.72rem",
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: theme.palette.primary.main,
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+            }}
+          >
+            {streak} day streak
+          </span>
+        )
       )}
 
       {/* Right side: Search + Bell + year */}

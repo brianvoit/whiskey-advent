@@ -9,6 +9,13 @@ import {
   defaultTastingSliders,
 } from "./api/tastings";
 import { checkCompetitiveAwards } from "./api/awards";
+import {
+  trackViewDayRating,
+  trackRateWhiskey,
+  trackAddTastingNote,
+  trackWouldBuyToggle,
+  trackStreakMilestone,
+} from "./gtag";
 import { usePageMeta } from "./hooks/usePageMeta";
 import Divider from "@mui/material/Divider";
 import { supabase } from "./supabaseClient";
@@ -259,6 +266,15 @@ function DayDetail({ userId }: DayDetailProps) {
       setWhiskey(match);
       setLoading(false);
 
+      // GA4: funnel step 2 — user opened the rating screen
+      if (match) {
+        trackViewDayRating({
+          whiskey_name: match.name ?? `Day ${match.day_number}`,
+          day_number:   match.day_number,
+          season_year:  seasonYear,
+        });
+      }
+
       if (match) {
         const tasting = (await getTastingForDay(
           userId,
@@ -351,6 +367,19 @@ function DayDetail({ userId }: DayDetailProps) {
     if (result.success) {
       setIsDirty(false);
 
+      // GA4: only fire on the first-ever rating save, not re-saves
+      if (!hadSavedRatingRef.current && rating !== null && year) {
+        const ctx = {
+          whiskey_name: whiskey.name ?? `Day ${whiskey.day_number}`,
+          day_number:   whiskey.day_number,
+          season_year:  parseInt(year, 10),
+        };
+        trackRateWhiskey({ ...ctx, rating, has_notes: notes.trim().length > 0, has_tags: tags.length > 0 });
+        if (notes.trim().length > 0) {
+          trackAddTastingNote({ ...ctx, note_length: notes.trim().length });
+        }
+      }
+
       // First-ever rating for this day: check for competitive awards (fire & forget)
       if (!hadSavedRatingRef.current && rating !== null && seasonId) {
         hadSavedRatingRef.current = true;
@@ -414,9 +443,11 @@ function DayDetail({ userId }: DayDetailProps) {
       celebratedMilestones.current.add(milestone);
       hasCelebrationRef.current = true;
       setCelebration(`streak_${milestone}` as CelebrationType);
+      trackStreakMilestone({ milestone, milestone_type: "streak" });
     } else if (newRatingsMap.size === allDays.length) {
       hasCelebrationRef.current = true;
       setCelebration("season_end");
+      trackStreakMilestone({ milestone: allDays.length, milestone_type: "season_end" });
     }
   };
 
@@ -467,6 +498,15 @@ function DayDetail({ userId }: DayDetailProps) {
       tags,
       wouldBuy: newValue,
     });
+    // GA4
+    if (year) {
+      trackWouldBuyToggle({
+        whiskey_name: whiskey.name ?? `Day ${whiskey.day_number}`,
+        day_number:   whiskey.day_number,
+        season_year:  parseInt(year, 10),
+        would_buy:    newValue,
+      });
+    }
   };
 
   const updateSlider = (key: keyof TastingSliderValues, value: number) => {
@@ -578,6 +618,7 @@ function DayDetail({ userId }: DayDetailProps) {
                 variant="caption"
                 style={{
                   display: "block",
+                  fontSize: isDesktop ? "0.94rem" : undefined,
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.12em",
@@ -597,7 +638,7 @@ function DayDetail({ userId }: DayDetailProps) {
                   style={{
                     marginTop: 0,
                     marginBottom: 4,
-                    fontSize: "1.85rem",
+                    fontSize: isDesktop ? "2.2rem" : "1.85rem",
                   }}
                 >
                   {whiskey.name}
@@ -877,7 +918,7 @@ function DayDetail({ userId }: DayDetailProps) {
           }}
         >
           {/* ── LEFT column: sliders ── */}
-          <div style={{ flex: isDesktop ? "0 0 42%" : undefined, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             {/* Tasting attribute sliders */}
             <div style={{ marginTop: 0 }}>
               {sliderDefs.map(({ key, label, Icon }) => (

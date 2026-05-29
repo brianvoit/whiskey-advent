@@ -391,9 +391,6 @@ const AdventCard: React.FC<AdventCardProps> = ({
                 variant="body2"
                 style={{
                   color: theme.palette.text.secondary,
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
                   ...(hideDetails ? { filter: "blur(5px)", userSelect: "none", pointerEvents: "none" } : {}),
                 }}
               >

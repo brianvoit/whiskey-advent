@@ -208,31 +208,14 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
 
   return (
     <div style={{ paddingTop: 8 }}>
-
-      {/* Recap CTA — past seasons only */}
-      {!loading && !error && hasStats && currentYear < todayYear && (
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-          <button
-            onClick={() => navigate(`/recap/${currentYear}`)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 18px",
-              borderRadius: 20,
-              border: `1px solid ${theme.palette.primary.main}`,
-              background: "none",
-              color: theme.palette.primary.main,
-              fontWeight: 700,
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              letterSpacing: "0.02em",
-            }}
-          >
-            🥃 View {currentYear} Recap
-          </button>
-        </div>
-      )}
+      <style>{`
+        .stats-row, .stats-bubble {
+          transition: background 0.15s ease;
+        }
+        .stats-row:hover, .stats-bubble:hover {
+          background: rgba(184,115,51,0.07) !important;
+        }
+      `}</style>
 
       {loading && (
         <p style={{ fontSize: "0.9rem", color: "#666" }}>Loading stats…</p>
@@ -286,6 +269,9 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
               background: theme.palette.background.paper,
               boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
               minWidth: 0,
+              cursor: "pointer",
+              font: "inherit",
+              textAlign: "left",
             };
             const labelStyle: React.CSSProperties = {
               margin: 0,
@@ -341,40 +327,43 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                 marginBottom: 16,
               }}>
                 {mostPolarizing && polarizingLabel && (
-                  <div style={bubbleStyle}>
+                  <button className="stats-bubble" style={bubbleStyle} onClick={() => navigate(`/whiskey/${currentYear}/${mostPolarizing.day_number}`)}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={labelStyle}>Most Polarizing</p>
                       <p style={nameStyle}>{polarizingLabel}</p>
                     </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ textAlign: "center", flexShrink: 0 }}>
                       <p style={labelStyle}>Spread</p>
                       <p style={valueStyle}>{polarizingSpread}</p>
                     </div>
-                  </div>
+                    <KeyboardArrowRightIcon fontSize="small" style={{ color: theme.palette.text.secondary, flexShrink: 0, opacity: 0.5 }} />
+                  </button>
                 )}
                 {mostConsensus && consensusLabel && (
-                  <div style={bubbleStyle}>
+                  <button className="stats-bubble" style={bubbleStyle} onClick={() => navigate(`/whiskey/${currentYear}/${mostConsensus.day_number}`)}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={labelStyle}>Greatest Consensus</p>
                       <p style={nameStyle}>{consensusLabel}</p>
                     </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ textAlign: "center", flexShrink: 0 }}>
                       <p style={labelStyle}>Spread</p>
                       <p style={valueStyle}>{consensusSpread}</p>
                     </div>
-                  </div>
+                    <KeyboardArrowRightIcon fontSize="small" style={{ color: theme.palette.text.secondary, flexShrink: 0, opacity: 0.5 }} />
+                  </button>
                 )}
                 {topRated && topLabel && (
-                  <div style={bubbleStyle}>
+                  <button className="stats-bubble" style={bubbleStyle} onClick={() => navigate(`/whiskey/${currentYear}/${topRated.day_number}`)}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={labelStyle}>Top Rated</p>
                       <p style={nameStyle}>{topLabel}</p>
                     </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ textAlign: "center", flexShrink: 0 }}>
                       <p style={labelStyle}>Avg</p>
                       <p style={valueStyle}>{topAvg}</p>
                     </div>
-                  </div>
+                    <KeyboardArrowRightIcon fontSize="small" style={{ color: theme.palette.text.secondary, flexShrink: 0, opacity: 0.5 }} />
+                  </button>
                 )}
               </div>
             );
@@ -415,9 +404,6 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
               </div>
               {!isMobile && (
                 <div style={{ width: 90, textAlign: "center", flexShrink: 0 }}>Count</div>
-              )}
-              {!isMobile && (
-                <div style={{ width: 1, alignSelf: "stretch", backgroundColor: theme.palette.divider, marginLeft: 4, marginRight: 4 }} />
               )}
               <div style={{ width: isMobile ? 28 : 40, flexShrink: 0 }} />
             </div>
@@ -471,13 +457,14 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                   <div
                     key={d.whiskey_day_id}
                     role="listitem"
-                    onClick={isMobile && canViewDetails ? () => navigate(`/whiskey/${currentYear}/${d.day_number}`) : undefined}
+                    className={canViewDetails ? "stats-row" : undefined}
+                    onClick={canViewDetails ? () => navigate(`/whiskey/${currentYear}/${d.day_number}`) : undefined}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       padding: "10px 12px 10px 8px",
                       borderTop: `1px solid ${theme.palette.divider}`,
-                      cursor: isMobile && canViewDetails ? "pointer" : undefined,
+                      cursor: canViewDetails ? "pointer" : undefined,
                     }}
                   >
                     {/* Day number */}
@@ -558,19 +545,6 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                       </div>
                     )}
 
-                    {/* Divider — desktop only */}
-                    {!isMobile && (
-                      <div
-                        style={{
-                          width: 1,
-                          alignSelf: "stretch",
-                          backgroundColor: theme.palette.divider,
-                          marginLeft: 4,
-                          marginRight: 4,
-                        }}
-                      />
-                    )}
-
                     {/* Chevron */}
                     <div
                       style={{
@@ -581,32 +555,10 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                         justifyContent: "center",
                       }}
                     >
-                      {isMobile ? (
-                        <KeyboardArrowRightIcon
-                          fontSize="small"
-                          style={{ opacity: canViewDetails ? 0.4 : 0.15 }}
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/whiskey/${currentYear}/${d.day_number}`)}
-                          disabled={!canViewDetails}
-                          style={{
-                            border: "none",
-                            background: "none",
-                            padding: 0,
-                            margin: 0,
-                            cursor: canViewDetails ? "pointer" : "default",
-                            opacity: canViewDetails ? 1 : 0.4,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                          aria-label="View whiskey details"
-                        >
-                          <KeyboardArrowRightIcon fontSize="small" />
-                        </button>
-                      )}
+                      <KeyboardArrowRightIcon
+                        fontSize="small"
+                        style={{ opacity: canViewDetails ? 0.4 : 0.15 }}
+                      />
                     </div>
                   </div>
                 );

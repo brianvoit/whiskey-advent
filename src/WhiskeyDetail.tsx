@@ -608,7 +608,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
             style={{
               margin: 0,
               marginBottom: 4,
-              fontSize: "0.75rem",
+              fontSize: isMobile ? "0.75rem" : "0.94rem",
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.12em",
@@ -624,7 +624,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
             style={{
               margin: 0,
               marginBottom: 4,
-              fontSize: "1.85rem",
+              fontSize: isMobile ? "1.85rem" : "2.2rem",
               fontWeight: 600,
               fontFamily: '"Lora", "Georgia", serif',
               lineHeight: isMobile ? 1.4 : undefined,
@@ -773,7 +773,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
               fontWeight: 600,
             }}
           >
-            Rating distribution
+            Rating Distribution
           </h3>
           {!hasTastings ? (
             <p style={{ fontSize: "0.9rem", color: "#666" }}>
@@ -804,7 +804,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
               fontWeight: 600,
             }}
           >
-            Flavor profile
+            Flavor Profile
           </h3>
           {!hasTastings ? (
             <p style={{ fontSize: "0.9rem", color: "#666" }}>
@@ -862,7 +862,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
             fontWeight: 600,
           }}
         >
-          Individual ratings
+          Individual Ratings
         </h3>
 
         {!hasTastings ? (
@@ -1133,6 +1133,9 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
             userId={userId}
             isAdmin={isAdmin}
             currentUser={currentUserProfile ?? undefined}
+            whiskeyName={whiskey.name ?? undefined}
+            dayNumber={whiskey.day_number}
+            seasonYear={yearParam ? parseInt(yearParam, 10) : undefined}
           />
         </div>
       )}

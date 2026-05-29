@@ -49,12 +49,14 @@ function NavItem({ label, active, onClick, avatarFirstName, avatarLastName, avat
     <button
       onClick={onClick}
       style={{
+        flex: 1,
         border: "none",
         background: "transparent",
         padding: 4,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        justifyContent: "center",
         fontSize: "0.8rem",
         color: active ? activeColor : inactiveColor,
         cursor: "pointer",
@@ -122,7 +124,7 @@ function BottomNav({ currentPath, onNavigate, avatarFirstName, avatarLastName, a
         paddingRight: 16,
         paddingBottom: "max(8px, env(safe-area-inset-bottom, 8px))",
         display: "flex",
-        justifyContent: "space-around",
+        justifyContent: "space-evenly",
         alignItems: "center",
       }}
     >

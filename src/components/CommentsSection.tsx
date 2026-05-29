@@ -20,6 +20,7 @@ import {
   type CommentWithMeta,
   type ReactionType,
 } from "../api/comments";
+import { trackPostComment, trackReaction } from "../gtag";
 
 type CommentsSectionProps = {
   seasonId: number;
@@ -31,6 +32,10 @@ type CommentsSectionProps = {
     last_name: string | null;
     avatar_url: string | null;
   };
+  /** GA4 context — passed from the parent (WhiskeyDetail). */
+  whiskeyName?: string;
+  dayNumber?: number;
+  seasonYear?: number;
 };
 
 function formatDisplayName(
@@ -112,6 +117,7 @@ function CommentComposer({
             variant="text"
             onClick={() => onChange("")}
             disabled={posting}
+            sx={{ textTransform: "uppercase" }}
           >
             Cancel
           </Button>
@@ -120,6 +126,7 @@ function CommentComposer({
             variant="contained"
             onClick={onSend}
             disabled={posting}
+            sx={{ textTransform: "uppercase" }}
           >
             {posting ? "Posting…" : "Comment"}
           </Button>
@@ -178,7 +185,7 @@ function InlineReplyComposer({
           gap: 8,
         }}
       >
-        <Button size="small" variant="text" onClick={onCancel}>
+        <Button size="small" variant="text" onClick={onCancel} sx={{ textTransform: "uppercase" }}>
           Cancel
         </Button>
         <Button
@@ -186,6 +193,7 @@ function InlineReplyComposer({
           variant="contained"
           onClick={onSend}
           disabled={posting || value.trim().length === 0}
+          sx={{ textTransform: "uppercase" }}
         >
           {posting ? "Sending…" : "Send"}
         </Button>
@@ -529,6 +537,9 @@ export default function CommentsSection({
   userId,
   isAdmin,
   currentUser,
+  whiskeyName,
+  dayNumber,
+  seasonYear,
 }: CommentsSectionProps) {
   const [comments, setComments] = useState<CommentWithMeta[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -593,6 +604,10 @@ export default function CommentsSection({
         parentCommentId: null,
       });
 
+      if (whiskeyName && dayNumber != null && seasonYear != null) {
+        trackPostComment({ whiskey_name: whiskeyName, day_number: dayNumber, season_year: seasonYear, is_reply: false, comment_length: trimmed.length });
+      }
+
       setNewBody("");
       await refreshComments();
     } catch (err: any) {
@@ -618,6 +633,10 @@ export default function CommentsSection({
         parentCommentId: parentId,
       });
 
+      if (whiskeyName && dayNumber != null && seasonYear != null) {
+        trackPostComment({ whiskey_name: whiskeyName, day_number: dayNumber, season_year: seasonYear, is_reply: true, comment_length: trimmed.length });
+      }
+
       setReplyBody("");
       setReplyForId(null);
       await refreshComments();
@@ -635,6 +654,9 @@ export default function CommentsSection({
   ) => {
     try {
       await toggleReaction({ commentId, userId, reactionType });
+      if (whiskeyName && dayNumber != null && seasonYear != null) {
+        trackReaction({ reaction_type: reactionType, whiskey_name: whiskeyName, day_number: dayNumber, season_year: seasonYear });
+      }
       await refreshComments();
     } catch (err: any) {
       console.error("Error toggling reaction", err);

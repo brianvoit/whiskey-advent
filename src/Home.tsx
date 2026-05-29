@@ -9,6 +9,7 @@ import { getSeasonStats } from "./api/stats";
 import AdventCard from "./components/AdventCard";
 import { calculateStreak } from "./utils/streak";
 import FireplaceRoundedIcon from "@mui/icons-material/FireplaceRounded";
+import { trackViewCalendar } from "./gtag";
 
 type WhiskeyDay = {
   id: number;
@@ -61,6 +62,11 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
 
   const mode = revealPreferences?.mode ?? "purist";
   const isPurist = mode === "purist";
+
+  // GA4: funnel step 1 — user viewed the advent calendar
+  useEffect(() => {
+    trackViewCalendar({ season_year: currentYear });
+  }, [currentYear]);
 
   // Load season (current year or latest) + days
   useEffect(() => {

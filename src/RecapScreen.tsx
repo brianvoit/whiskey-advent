@@ -6,15 +6,15 @@ import { alpha } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { supabase } from "./supabaseClient";
 import { getSeasonByYear, getWhiskeysForSeason } from "./api/whiskeys";
+import { toSlug } from "./utils/slug";
 import { usePageMeta } from "./hooks/usePageMeta";
 import { getSeasonStats, type DayStats } from "./api/stats";
 import { getWouldBuyList, type WouldBuyEntry } from "./api/tastings";
 import { FLAVOR_GROUPS } from "./components/FlavorTagPicker";
 import StatsChart from "./components/StatsChart";
-import EmojiEventsRoundedIcon from "@mui/icons-material/EmojiEventsRounded";
+import UserAvatar from "./components/UserAvatar";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
-import LocalFireDepartmentRoundedIcon from "@mui/icons-material/LocalFireDepartmentRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -276,6 +276,15 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
     });
   }, [ratedTastings, statsByDayId]);
 
+  // Notes lookup: whiskey_day_id → trimmed note text
+  const notesMap = useMemo(() => {
+    const m = new Map<number, string>();
+    myTastings.forEach((t) => {
+      if (t.notes?.trim()) m.set(t.whiskey_day_id, t.notes.trim());
+    });
+    return m;
+  }, [myTastings]);
+
   // Flavor profile: count tag occurrences across all my tastings
   const topTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -505,21 +514,38 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
 
   // ── Shared style helpers ────────────────────────────────────────────────────
 
+  const paperShadow = "0 2px 8px rgba(0,0,0,0.10)";
+  const paperBorder = `1px solid ${divider}`;
+
   const cardStyle: React.CSSProperties = {
     background: paperBg,
-    border: `1px solid ${divider}`,
+    border: paperBorder,
     borderRadius: 16,
     padding: "20px 20px",
+    boxShadow: paperShadow,
   };
 
   const sectionLabelStyle: React.CSSProperties = {
     margin: 0,
     marginBottom: 14,
-    fontSize: "0.72rem",
+    fontSize: isDesktop ? "1rem" : "0.9rem",
     fontWeight: 700,
-    textTransform: "uppercase" as const,
-    letterSpacing: "0.1em",
     color: textSecondary,
+  };
+
+  const dayCircleStyle: React.CSSProperties = {
+    width: 28,
+    height: 28,
+    borderRadius: "50%",
+    background: alpha(primary, 0.12),
+    border: `1px solid ${alpha(primary, 0.25)}`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 700,
+    fontSize: "0.78rem",
+    color: primary,
+    flexShrink: 0,
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -555,24 +581,41 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
 
   return (
     <div style={{ paddingTop: 8, paddingBottom: 16 }}>
+      <style>{`
+        .recap-link-btn {
+          transition: background 0.15s ease;
+        }
+        .recap-link-btn:hover {
+          background: rgba(184,115,51,0.07) !important;
+        }
+        .recap-row-btn {
+          transition: background 0.15s ease;
+        }
+        .recap-row-btn:hover {
+          background: rgba(184,115,51,0.07) !important;
+        }
+      `}</style>
 
       {/* ── Back button ──────────────────────────────────────────────────────── */}
       <button
-        onClick={() => navigate("/stats")}
+        type="button"
+        onClick={() => navigate(-1)}
         style={{
           display: "inline-flex",
           alignItems: "center",
-          gap: 4,
-          background: "none",
+          gap: 6,
+          marginBottom: 12,
           border: "none",
-          padding: "4px 0 16px",
+          background: "none",
+          padding: 0,
           cursor: "pointer",
-          color: textSecondary,
-          fontSize: "0.85rem",
+          color: primary,
+          font: "inherit",
+          fontWeight: 500,
         }}
       >
         <ArrowBackRoundedIcon fontSize="small" />
-        Back to stats
+        <span>Back</span>
       </button>
 
       {/* ── Hero header ──────────────────────────────────────────────────────── */}
@@ -582,7 +625,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
           border: `1px solid ${alpha(primary, 0.25)}`,
           borderRadius: 20,
           padding: isDesktop ? "32px 36px" : "24px 20px",
-          marginBottom: 20,
+          marginBottom: 36,
           position: "relative",
           overflow: "hidden",
         }}
@@ -590,19 +633,28 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
         {/* Layout: text on left, avatar on right */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: isDesktop ? "2.4rem" : "2rem", marginBottom: 8, lineHeight: 1 }}>
-              🥃
+            <div
+              style={{
+                fontSize: isDesktop ? "0.94rem" : "0.78rem",
+                fontWeight: 600,
+                color: primary,
+                marginBottom: 6,
+                letterSpacing: "0.02em",
+              }}
+            >
+              Season Recap
             </div>
             <h1
               style={{
                 margin: 0,
-                fontSize: isDesktop ? "2rem" : "1.6rem",
+                fontSize: isDesktop ? "2.5rem" : "2rem",
                 fontWeight: 800,
+                fontFamily: '"Lora", "Georgia", serif',
                 color: textPrimary,
                 lineHeight: 1.15,
               }}
             >
-              {year} Season Recap
+              {year}
             </h1>
             <p
               style={{
@@ -652,7 +704,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
           display: "grid",
           gridTemplateColumns: isDesktop ? "repeat(4, 1fr)" : "repeat(2, 1fr)",
           gap: 10,
-          marginBottom: 20,
+          marginBottom: 36,
         }}
       >
         {[
@@ -694,19 +746,16 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
 
       {/* ── Awards ──────────────────────────────────────────────────────────── */}
       {awards.length > 0 && (
-        <div style={{ ...cardStyle, marginBottom: 20 }}>
-          <p style={sectionLabelStyle}>
-            <EmojiEventsRoundedIcon
-              fontSize="inherit"
-              style={{ verticalAlign: "middle", marginRight: 5, fontSize: "0.9rem" }}
-            />
+        <>
+          <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>
             Awards
-          </p>
+          </h2>
           <div
             style={{
               display: "flex",
               flexWrap: "wrap",
               gap: 10,
+              marginBottom: 36,
             }}
           >
             {awards.map((award) => (
@@ -718,8 +767,9 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                   gap: 10,
                   padding: "10px 14px",
                   borderRadius: 12,
-                  background: alpha(primary, 0.08),
-                  border: `1px solid ${alpha(primary, 0.2)}`,
+                  background: paperBg,
+                  border: paperBorder,
+                  boxShadow: paperShadow,
                   flex: isDesktop ? "0 0 auto" : "1 1 calc(50% - 5px)",
                   minWidth: 0,
                 }}
@@ -738,16 +788,16 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
               </div>
             ))}
           </div>
-        </div>
+        </>
       )}
 
       {/* ── Competitive awards ───────────────────────────────────────────────── */}
       {(firstTasterCount > 0 || slowPokeCount > 0) && (
-        <div style={{ ...cardStyle, marginBottom: 20 }}>
-          <p style={sectionLabelStyle}>
-            🏅 Competitive Awards
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        <>
+          <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>
+            Competitive Awards
+          </h2>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 36 }}>
             {firstTasterCount > 0 && (
               <div
                 style={{
@@ -756,8 +806,9 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                   gap: 10,
                   padding: "10px 14px",
                   borderRadius: 12,
-                  background: alpha(primary, 0.08),
-                  border: `1px solid ${alpha(primary, 0.2)}`,
+                  background: paperBg,
+                  border: paperBorder,
+                  boxShadow: paperShadow,
                 }}
               >
                 <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>🥇</span>
@@ -779,8 +830,9 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                   gap: 10,
                   padding: "10px 14px",
                   borderRadius: 12,
-                  background: alpha(primary, 0.08),
-                  border: `1px solid ${alpha(primary, 0.2)}`,
+                  background: paperBg,
+                  border: paperBorder,
+                  boxShadow: paperShadow,
                 }}
               >
                 <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>🐌</span>
@@ -795,44 +847,46 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
               </div>
             )}
           </div>
-        </div>
+        </>
       )}
 
-      {/* ── Personal bests (2-col on desktop) ────────────────────────────────── */}
+      {/* ── Personal bests (3-col on desktop) ────────────────────────────────── */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isDesktop ? "1fr 1fr" : "1fr",
+          gridTemplateColumns: isDesktop ? "repeat(3, 1fr)" : "1fr",
           gap: 10,
-          marginBottom: 20,
+          marginBottom: 36,
         }}
       >
         {/* Top-rated */}
         {topRatedDay && (
-          <div style={cardStyle}>
-            <p style={sectionLabelStyle}>
-              ⭐ Your Top Pick
-            </p>
+          <div>
+            <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>Your Top Pick</h2>
             <button
+              className="recap-link-btn"
               onClick={() => navigate(`/whiskey/${year}/${dayIdToNumber.get(topRatedDay.whiskey_day_id)}`)}
               style={{
+                ...cardStyle,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 width: "100%",
-                background: "none",
-                border: "none",
-                padding: 0,
                 cursor: "pointer",
                 textAlign: "left",
                 gap: 8,
+                font: "inherit",
               }}
             >
-              <div style={{ minWidth: 0 }}>
+              <div style={dayCircleStyle}>
+                {dayIdToNumber.get(topRatedDay.whiskey_day_id)}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div
                   style={{
                     fontSize: "1.1rem",
                     fontWeight: 700,
+                    fontFamily: '"Lora", "Georgia", serif',
                     color: textPrimary,
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -842,7 +896,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                   {dayIdToName.get(topRatedDay.whiskey_day_id) ?? `Day ${dayIdToNumber.get(topRatedDay.whiskey_day_id)}`}
                 </div>
                 <div style={{ fontSize: "0.85rem", color: textSecondary, marginTop: 2 }}>
-                  Day {dayIdToNumber.get(topRatedDay.whiskey_day_id)} · You rated it{" "}
+                  You rated it{" "}
                   <span style={{ color: primary, fontWeight: 700 }}>
                     {topRatedDay.rating!.toFixed(1)}
                   </span>
@@ -855,30 +909,32 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
 
         {/* Most contrarian */}
         {contraryDiff && mostContrarian && (
-          <div style={cardStyle}>
-            <p style={sectionLabelStyle}>
-              🦄 Most Contrarian Pick
-            </p>
+          <div>
+            <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>Hottest Take</h2>
             <button
+              className="recap-link-btn"
               onClick={() => navigate(`/whiskey/${year}/${dayIdToNumber.get(mostContrarian.whiskey_day_id)}`)}
               style={{
+                ...cardStyle,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 width: "100%",
-                background: "none",
-                border: "none",
-                padding: 0,
                 cursor: "pointer",
                 textAlign: "left",
                 gap: 8,
+                font: "inherit",
               }}
             >
-              <div style={{ minWidth: 0 }}>
+              <div style={dayCircleStyle}>
+                {dayIdToNumber.get(mostContrarian.whiskey_day_id)}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
                 <div
                   style={{
                     fontSize: "1.1rem",
                     fontWeight: 700,
+                    fontFamily: '"Lora", "Georgia", serif',
                     color: textPrimary,
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -903,17 +959,67 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
             </button>
           </div>
         )}
+
+        {/* Most In Sync */}
+        {mostAgreed && (
+          <div>
+            <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>Most In Sync</h2>
+            <button
+              className={mostAgreed.profile ? "recap-link-btn" : undefined}
+              onClick={() => mostAgreed.profile && navigate(`/tasters/${toSlug(mostAgreed.profile.first_name, mostAgreed.profile.last_name)}`)}
+              style={{
+                ...cardStyle,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                width: "100%",
+                cursor: mostAgreed.profile ? "pointer" : "default",
+                textAlign: "left",
+                font: "inherit",
+              }}
+            >
+              <UserAvatar
+                size="md"
+                firstName={mostAgreed.profile?.first_name}
+                lastName={mostAgreed.profile?.last_name}
+                avatarUrl={mostAgreed.profile?.avatar_url}
+                ariaLabel={mostAgreed.profile ? displayName(mostAgreed.profile) : "Fellow taster"}
+              />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 700,
+                    color: textPrimary,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {mostAgreed.profile ? displayName(mostAgreed.profile) : "a fellow taster"}
+                </div>
+                <div style={{ fontSize: "0.85rem", color: textSecondary, marginTop: 2 }}>
+                  Avg diff{" "}
+                  <span style={{ color: primary, fontWeight: 700 }}>
+                    {mostAgreed.avgDiff.toFixed(2)}
+                  </span>
+                  {" · "}{mostAgreed.sharedDays} shared days
+                </div>
+              </div>
+              {mostAgreed.profile && (
+                <KeyboardArrowRightIcon style={{ color: textSecondary, flexShrink: 0, opacity: 0.5 }} />
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* ── Flavor profile ────────────────────────────────────────────────────── */}
+      {/* ── Flavor profile ───────────────────────────────────────────────────── */}
       {topTags.length > 0 && (
-        <div style={{ ...cardStyle, marginBottom: 20 }}>
-          <p style={sectionLabelStyle}>
-            🍋 Your Flavor Profile
-          </p>
+        <div style={{ marginBottom: 36 }}>
+          <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>Your Flavor Profile</h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {topTags.map(({ tag, count }, i) => {
-              // Size scales with ranking: first tag is largest
               const scale = 1 - (i / topTags.length) * 0.35;
               const opacity = 0.35 + (1 - i / topTags.length) * 0.65;
               return (
@@ -933,13 +1039,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                   }}
                 >
                   {tag}
-                  <span
-                    style={{
-                      fontSize: "0.72rem",
-                      color: textSecondary,
-                      fontWeight: 400,
-                    }}
-                  >
+                  <span style={{ fontSize: "0.72rem", color: textSecondary, fontWeight: 400 }}>
                     ×{count}
                   </span>
                 </div>
@@ -951,162 +1051,128 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
 
       {/* ── Would Buy list ────────────────────────────────────────────────────── */}
       {wouldBuyList.length > 0 && (
-        <div style={{ ...cardStyle, marginBottom: 20 }}>
-          <p style={sectionLabelStyle}>
+        <>
+          <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>
             <BookmarkRoundedIcon
               fontSize="inherit"
               style={{ verticalAlign: "middle", marginRight: 5, fontSize: "0.9rem" }}
             />
             Would Buy Again
-          </p>
+          </h2>
           <div
             style={{
               borderRadius: 10,
-              border: `1px solid ${divider}`,
+              border: paperBorder,
               overflow: "hidden",
+              marginBottom: 36,
+              background: paperBg,
+              boxShadow: paperShadow,
             }}
           >
-            {wouldBuyList.map((entry, idx) => (
-              <button
-                key={entry.whiskey_day_id}
-                onClick={() => navigate(`/whiskey/${year}/${entry.day_number}`)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  width: "100%",
-                  padding: "12px 14px",
-                  background: "none",
-                  border: "none",
-                  borderTop: idx > 0 ? `1px solid ${divider}` : "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  gap: 10,
-                }}
-              >
-                <div
+              {wouldBuyList.map((entry, idx) => {
+                const note = notesMap.get(entry.whiskey_day_id);
+                return (
+                <button
+                  key={entry.whiskey_day_id}
+                  className="recap-row-btn"
+                  onClick={() => navigate(`/whiskey/${year}/${entry.day_number}`)}
                   style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: alpha(primary, 0.12),
-                    border: `1px solid ${alpha(primary, 0.25)}`,
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 700,
-                    fontSize: "0.78rem",
-                    color: primary,
-                    flexShrink: 0,
+                    width: "100%",
+                    padding: "12px 14px",
+                    background: "none",
+                    border: "none",
+                    borderTop: idx > 0 ? `1px solid ${divider}` : "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    gap: 10,
                   }}
                 >
-                  {entry.day_number}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      fontWeight: 600,
-                      fontSize: "0.95rem",
-                      color: textPrimary,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {entry.name ?? `Day ${entry.day_number}`}
-                  </div>
-                  {entry.distillery && (
-                    <div style={{ fontSize: "0.8rem", color: textSecondary }}>
-                      {entry.distillery}
-                      {entry.type && ` · ${entry.type}`}
-                    </div>
-                  )}
-                </div>
-                {entry.rating != null && (
-                  <div
-                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      background: alpha(primary, 0.12),
+                      border: `1px solid ${alpha(primary, 0.25)}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
                       fontWeight: 700,
-                      fontSize: "0.95rem",
+                      fontSize: "0.78rem",
                       color: primary,
                       flexShrink: 0,
-                      fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {entry.rating.toFixed(1)}
+                    {entry.day_number}
                   </div>
-                )}
-                <KeyboardArrowRightIcon
-                  fontSize="small"
-                  style={{ color: textSecondary, opacity: 0.4, flexShrink: 0 }}
-                />
-              </button>
-            ))}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: "0.95rem",
+                        fontFamily: '"Lora", "Georgia", serif',
+                        color: textPrimary,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {entry.name ?? `Day ${entry.day_number}`}
+                    </div>
+                    {entry.distillery && (
+                      <div style={{ fontSize: "0.8rem", color: textSecondary }}>
+                        {entry.distillery}
+                        {entry.type && ` · ${entry.type}`}
+                      </div>
+                    )}
+                    {note && (
+                      <div
+                        style={{
+                          fontSize: "0.78rem",
+                          color: textSecondary,
+                          opacity: 0.75,
+                          fontStyle: "italic",
+                          marginTop: 3,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        "{note}"
+                      </div>
+                    )}
+                  </div>
+                  {entry.rating != null && (
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.95rem",
+                        color: primary,
+                        flexShrink: 0,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {entry.rating.toFixed(1)}
+                    </div>
+                  )}
+                  <KeyboardArrowRightIcon
+                    fontSize="small"
+                    style={{ color: textSecondary, opacity: 0.4, flexShrink: 0 }}
+                  />
+                </button>
+              ); })}
           </div>
-        </div>
-      )}
-
-      {/* ── Who agreed with you most ──────────────────────────────────────────── */}
-      {mostAgreed && (
-        <div style={{ ...cardStyle, marginBottom: 20 }}>
-          <p style={sectionLabelStyle}>
-            🤝 Most in Sync With
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            {/* Avatar placeholder / initial */}
-            <div
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: "50%",
-                background: mostAgreed.profile?.avatar_url
-                  ? "none"
-                  : alpha(primary, 0.15),
-                border: `2px solid ${alpha(primary, 0.3)}`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                overflow: "hidden",
-                fontSize: "1.2rem",
-                fontWeight: 700,
-                color: primary,
-              }}
-            >
-              {mostAgreed.profile?.avatar_url ? (
-                <img
-                  src={mostAgreed.profile.avatar_url}
-                  alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-              ) : (
-                (mostAgreed.profile?.first_name?.[0] ?? "?").toUpperCase()
-              )}
-            </div>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: "1rem", color: textPrimary }}>
-                {mostAgreed.profile ? displayName(mostAgreed.profile) : "a fellow taster"}
-              </div>
-              <div style={{ fontSize: "0.85rem", color: textSecondary, marginTop: 2 }}>
-                Average difference of{" "}
-                <span style={{ color: primary, fontWeight: 700 }}>
-                  {mostAgreed.avgDiff.toFixed(2)}
-                </span>{" "}
-                across {mostAgreed.sharedDays} shared days
-              </div>
-            </div>
-          </div>
-        </div>
+        </>
       )}
 
       {/* ── Group season highlights ───────────────────────────────────────────── */}
       {groupStats.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <p style={{ ...sectionLabelStyle, marginBottom: 12 }}>
-            <LocalFireDepartmentRoundedIcon
-              fontSize="inherit"
-              style={{ verticalAlign: "middle", marginRight: 5, fontSize: "0.9rem" }}
-            />
+        <div style={{ marginBottom: 36 }}>
+          <h2 style={{ ...sectionLabelStyle, marginBottom: 12 }}>
             Group Season Highlights
-          </p>
+          </h2>
 
           {/* Three recap bubbles */}
           {(mostPolarizing || mostConsensus || topRatedGroup) && (() => {
@@ -1117,18 +1183,22 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
               gap: 8,
               padding: "10px 14px",
               borderRadius: 12,
-              border: `1px solid ${divider}`,
+              border: paperBorder,
               background: paperBg,
+              boxShadow: paperShadow,
               minWidth: 0,
+              cursor: "pointer",
+              font: "inherit",
+              textAlign: "left",
             };
             const labelStyle: React.CSSProperties = {
               margin: 0,
-              fontSize: "0.72rem",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
+              fontSize: "0.65rem",
+              fontWeight: 700,
               color: textSecondary,
-              marginBottom: 2,
+              textTransform: "uppercase",
+              letterSpacing: "0.07em",
+              marginBottom: 1,
             };
             const valueStyle: React.CSSProperties = {
               margin: 0,
@@ -1141,6 +1211,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
               margin: 0,
               fontSize: "0.9rem",
               fontWeight: 600,
+              fontFamily: '"Lora", "Georgia", serif',
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -1154,7 +1225,8 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                 marginBottom: 12,
               }}>
                 {topRatedGroup && (
-                  <div style={bubbleStyle}>
+                  <button className="recap-link-btn" style={bubbleStyle} onClick={() => navigate(`/whiskey/${year}/${topRatedGroup.day_number}`)}>
+                    <div style={dayCircleStyle}>{topRatedGroup.day_number}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={labelStyle}>Top Rated</p>
                       <p style={nameStyle}>{topRatedGroup.name ?? `Day ${topRatedGroup.day_number}`}</p>
@@ -1163,10 +1235,12 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                       <p style={labelStyle}>Avg</p>
                       <p style={valueStyle}>{(topRatedGroup.avg_rating ?? 0).toFixed(2)}</p>
                     </div>
-                  </div>
+                    <KeyboardArrowRightIcon style={{ color: textSecondary, flexShrink: 0, opacity: 0.5 }} />
+                  </button>
                 )}
                 {mostPolarizing && (
-                  <div style={bubbleStyle}>
+                  <button className="recap-link-btn" style={bubbleStyle} onClick={() => navigate(`/whiskey/${year}/${mostPolarizing.day_number}`)}>
+                    <div style={dayCircleStyle}>{mostPolarizing.day_number}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={labelStyle}>Most Polarizing</p>
                       <p style={nameStyle}>{mostPolarizing.name ?? `Day ${mostPolarizing.day_number}`}</p>
@@ -1175,10 +1249,12 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                       <p style={labelStyle}>Spread</p>
                       <p style={valueStyle}>{((mostPolarizing.max_rating ?? 0) - (mostPolarizing.min_rating ?? 0)).toFixed(1)}</p>
                     </div>
-                  </div>
+                    <KeyboardArrowRightIcon style={{ color: textSecondary, flexShrink: 0, opacity: 0.5 }} />
+                  </button>
                 )}
                 {mostConsensus && (
-                  <div style={bubbleStyle}>
+                  <button className="recap-link-btn" style={bubbleStyle} onClick={() => navigate(`/whiskey/${year}/${mostConsensus.day_number}`)}>
+                    <div style={dayCircleStyle}>{mostConsensus.day_number}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={labelStyle}>Greatest Consensus</p>
                       <p style={nameStyle}>{mostConsensus.name ?? `Day ${mostConsensus.day_number}`}</p>
@@ -1187,7 +1263,8 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                       <p style={labelStyle}>Spread</p>
                       <p style={valueStyle}>{((mostConsensus.max_rating ?? 0) - (mostConsensus.min_rating ?? 0)).toFixed(1)}</p>
                     </div>
-                  </div>
+                    <KeyboardArrowRightIcon style={{ color: textSecondary, flexShrink: 0, opacity: 0.5 }} />
+                  </button>
                 )}
               </div>
             );

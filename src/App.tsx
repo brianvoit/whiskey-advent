@@ -27,7 +27,7 @@ import BottomNav from "./components/BottomNav";
 import NotificationsDrawer from "./components/NotificationsDrawer";
 import SearchDrawer from "./components/SearchDrawer";
 import { useStreak } from "./hooks/useStreak";
-import { trackPageView } from "./gtag";
+import { trackPageView, setUserProperties } from "./gtag";
 import { resolveSlugToUserId } from "./utils/slug";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import InstallBanner from "./components/InstallBanner";
@@ -187,6 +187,8 @@ function App() {
     }
 
     setProfile(profile);
+    // Set persistent GA4 user dimension so every subsequent event carries tasting_mode.
+    setUserProperties({ tasting_mode: profile.tasting_mode ?? "purist" });
   };
 
   // ---------------------------------------------------------
@@ -679,6 +681,12 @@ function AppShell({
         unreadNotifications={unreadNotifications}
         onNotificationsClick={() => setNotificationsOpen(true)}
         onSearchClick={() => setSearchOpen(true)}
+        recapYear={
+          (location.pathname === "/" || location.pathname === "/stats") &&
+          currentYear < new Date().getFullYear()
+            ? currentYear
+            : undefined
+        }
       />
 
       <Menu
