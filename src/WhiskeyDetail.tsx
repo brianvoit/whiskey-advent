@@ -550,8 +550,8 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
           <span>Back</span>
         </button>
 
-        {/* Would Buy — desktop: full button; mobile: bare icon */}
-        {isMobile ? (
+        {/* Would Buy — mobile only: bare icon in top-right */}
+        {isMobile && (
           <button
             type="button"
             onClick={handleToggleWouldBuy}
@@ -569,33 +569,6 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
             {wouldBuy
               ? <BookmarkRoundedIcon style={{ fontSize: "1.6rem" }} />
               : <BookmarkBorderRoundedIcon style={{ fontSize: "1.6rem" }} />}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={handleToggleWouldBuy}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "8px 16px",
-              borderRadius: theme.shape.borderRadius,
-              border: `1.5px solid ${wouldBuy ? theme.palette.primary.main : theme.palette.divider}`,
-              background: wouldBuy
-                ? `color-mix(in srgb, ${theme.palette.primary.main} 12%, transparent)`
-                : theme.palette.background.paper,
-              color: wouldBuy ? theme.palette.primary.main : theme.palette.text.secondary,
-              cursor: "pointer",
-              font: "inherit",
-              fontSize: "0.9rem",
-              fontWeight: 500,
-              transition: "border-color 0.15s, background 0.15s, color 0.15s",
-            }}
-          >
-            {wouldBuy
-              ? <BookmarkRoundedIcon style={{ fontSize: "1.1rem" }} />
-              : <BookmarkBorderRoundedIcon style={{ fontSize: "1.1rem" }} />}
-            Would Buy
           </button>
         )}
       </div>
@@ -680,53 +653,98 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
           </div>
 
           {whiskey.blurb && (
-            <p style={{ margin: 0, marginBottom: whiskey.info_url ? 8 : 0, fontSize: "0.95rem" }}>
+            <p style={{ margin: 0, marginBottom: (!isMobile && whiskey.info_url) ? 0 : 0, fontSize: "0.95rem" }}>
               {whiskey.blurb}
             </p>
           )}
 
-          {whiskey.info_url && (
-            <p style={{ margin: 0, fontSize: "0.9rem" }}>
+          {/* Learn more — mobile only (desktop moves to image column) */}
+          {isMobile && whiskey.info_url && (
+            <p style={{ margin: 0, marginTop: whiskey.blurb ? 8 : 0, fontSize: "0.9rem" }}>
               <a
                 href={whiskey.info_url}
                 target="_blank"
                 rel="noreferrer"
                 style={{ color: theme.palette.primary.main, fontWeight: 500 }}
               >
-                Learn more →
+                Learn More →
               </a>
             </p>
           )}
         </div>
 
-        {/* Square image — desktop only */}
+        {/* Square image — desktop only, with Learn More above-right and Would Buy below-left */}
         {!isMobile && (
-          <div
-            style={{
-              width: 240,
-              aspectRatio: "1",
-              borderRadius: theme.shape.borderRadius,
-              overflow: "hidden",
-              boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
-              background: theme.palette.mode === "dark"
-                ? "linear-gradient(145deg, #2a1c0c 0%, #3d2510 55%, #2e1a09 100%)"
-                : "linear-gradient(145deg, #eedcbf 0%, #c8945a 55%, #9e6535 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            {whiskey.image_url && !imgFailed ? (
-              <img
-                src={whiskey.image_url}
-                alt={titleName}
-                onError={() => setImgFailed(true)}
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-              />
-            ) : (
-              <span style={{ fontSize: "3rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
-            )}
+          <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", width: 240 }}>
+            {/* Would Buy (left) + Learn More (right) — above image */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6, minHeight: 24 }}>
+              <button
+                type="button"
+                onClick={handleToggleWouldBuy}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: 0,
+                  border: "none",
+                  background: "none",
+                  color: theme.palette.primary.main,
+                  cursor: "pointer",
+                  font: "inherit",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {wouldBuy
+                  ? <BookmarkRoundedIcon style={{ fontSize: "1rem" }} />
+                  : <BookmarkBorderRoundedIcon style={{ fontSize: "1rem" }} />}
+                Would Buy
+              </button>
+              {whiskey.info_url && (
+                <a
+                  href={whiskey.info_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    color: theme.palette.primary.main,
+                    fontWeight: 600,
+                    fontSize: "0.85rem",
+                    textDecoration: "none",
+                  }}
+                >
+                  Learn More →
+                </a>
+              )}
+            </div>
+
+            {/* Image box */}
+            <div
+              style={{
+                width: "100%",
+                aspectRatio: "1",
+                borderRadius: theme.shape.borderRadius,
+                overflow: "hidden",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.10)",
+                background: theme.palette.mode === "dark"
+                  ? "linear-gradient(145deg, #2a1c0c 0%, #3d2510 55%, #2e1a09 100%)"
+                  : "linear-gradient(145deg, #eedcbf 0%, #c8945a 55%, #9e6535 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {whiskey.image_url && !imgFailed ? (
+                <img
+                  src={whiskey.image_url}
+                  alt={titleName}
+                  onError={() => setImgFailed(true)}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              ) : (
+                <span style={{ fontSize: "3rem", opacity: 0.45, lineHeight: 1 }}>🥃</span>
+              )}
+            </div>
           </div>
         )}
       </div>

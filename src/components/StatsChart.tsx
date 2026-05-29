@@ -274,6 +274,7 @@ const StatsChart: FC<StatsChartProps> = ({
         backgroundColor: surfaceColor,
         display: "flex",
         flexDirection: "column",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
       }}
     >
       <ResponsiveContainer width="100%" style={{ flex: 1 }}>

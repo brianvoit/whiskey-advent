@@ -83,8 +83,6 @@ const AdventCard: React.FC<AdventCardProps> = ({
       ? averageRating.toFixed(1)
       : "—";
 
-  const actionLabel = hasUserRating ? "View" : "Rate";
-
   const displayHeadline = headline && headline.trim().length > 0 ? headline : "";
   const displaySubhead = subhead && subhead.trim().length > 0 ? subhead : "";
 
@@ -154,25 +152,51 @@ const AdventCard: React.FC<AdventCardProps> = ({
               <span style={{ fontSize: "1.2rem", opacity: 0.5, lineHeight: 1 }}>🥃</span>
             </div>
           )}
-          {/* Day chip on thumbnail */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 3,
-              right: 3,
-              padding: "1px 5px",
-              borderRadius: 999,
-              background: chipBg,
-              backdropFilter: "blur(4px)",
-              WebkitBackdropFilter: "blur(4px)",
-              fontSize: "0.65rem",
-              fontWeight: 700,
-              color: chipColor,
-              lineHeight: 1.6,
-            }}
-          >
-            {dayNumber}
-          </div>
+          {/* Day chip on thumbnail — small corner on rated, large centered on unrated/future */}
+          {!isFutureDay && hasUserRating ? (
+            <div
+              style={{
+                position: "absolute",
+                top: 3,
+                right: 3,
+                padding: "1px 5px",
+                borderRadius: 999,
+                background: chipBg,
+                backdropFilter: "blur(4px)",
+                WebkitBackdropFilter: "blur(4px)",
+                fontSize: "0.65rem",
+                fontWeight: 700,
+                color: chipColor,
+                lineHeight: 1.6,
+              }}
+            >
+              {dayNumber}
+            </div>
+          ) : (
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                fontSize: "1.1rem",
+                fontWeight: 700,
+                color: chipColor,
+                background: chipBg,
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+              }}
+            >
+              {dayNumber}
+            </div>
+          )}
         </div>
 
         {/* Name + distillery */}
@@ -258,10 +282,16 @@ const AdventCard: React.FC<AdventCardProps> = ({
   }
 
   return (
+    <>
+    <style>{`
+      .advent-card-desktop { transition: background 0.15s ease; }
+      .advent-card-desktop:hover, .advent-card-desktop:active { background: rgba(184,115,51,0.07) !important; }
+    `}</style>
     <button
       type="button"
       disabled={isDisabled}
       onClick={handleClick}
+      className={!isDisabled && !isFutureDay ? "advent-card-desktop" : undefined}
       style={{
         position: "relative",
         borderRadius: cardRadius,
@@ -313,25 +343,27 @@ const AdventCard: React.FC<AdventCardProps> = ({
           </div>
         )}
 
-        {/* Day number — frosted chip overlaid on the image */}
-        <div
-          style={{
-            position: "absolute",
-            top: 8,
-            right: 8,
-            padding: "2px 8px",
-            borderRadius: 999,
-            background: chipBg,
-            backdropFilter: "blur(6px)",
-            WebkitBackdropFilter: "blur(6px)",
-            fontSize: "0.7rem",
-            fontWeight: 700,
-            color: chipColor,
-            lineHeight: 1.6,
-          }}
-        >
-          {dayNumber}
-        </div>
+        {/* Day number — small corner chip only on rated past/today cards */}
+        {!isFutureDay && hasUserRating && (
+          <div
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              padding: "2px 8px",
+              borderRadius: 999,
+              background: chipBg,
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              fontSize: "0.7rem",
+              fontWeight: 700,
+              color: chipColor,
+              lineHeight: 1.6,
+            }}
+          >
+            {dayNumber}
+          </div>
+        )}
       </div>
 
       {/* Text + bottom row */}
@@ -412,6 +444,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
                 gap: 6,
                 fontSize: "0.75rem",
                 color: theme.palette.text.secondary,
+                flex: 1,
               }}
             >
               <div
@@ -443,30 +476,25 @@ const AdventCard: React.FC<AdventCardProps> = ({
               </div>
             </div>
 
-            {/* Action "button" (bottom-right) */}
-            <div
-              style={{
-                marginLeft: "auto",
-                padding: "4px 10px",
-                borderRadius: 999,
-                border: `1px solid ${theme.palette.divider}`,
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                background: isDisabled
-                  ? theme.palette.action.disabledBackground
-                  : theme.palette.background.paper,
-                color: isDisabled
-                  ? theme.palette.text.disabled
-                  : theme.palette.text.primary,
-              }}
-            >
-              {actionLabel}
-            </div>
+            {!hasUserRating && (
+              <span
+                style={{
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  color: theme.palette.primary.main,
+                  flexShrink: 0,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Rate ›
+              </span>
+            )}
           </div>
           </div>
         </div>
 
-      {/* Future-day overlay */}
+      {/* Future-day overlay (non-admin only) */}
       {showOverlay && (
         <div
           style={{
@@ -474,14 +502,39 @@ const AdventCard: React.FC<AdventCardProps> = ({
             inset: 0,
             borderRadius: theme.shape.borderRadius,
             background: overlayBg,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
             pointerEvents: "none",
           }}
         />
       )}
+
+      {/* Large centered day number for future or unrated days */}
+      {(isFutureDay || !hasUserRating) && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 64,
+            height: 64,
+            borderRadius: "50%",
+            background: chipBg,
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "1.8rem",
+            fontWeight: 800,
+            color: chipColor,
+            pointerEvents: "none",
+          }}
+        >
+          {dayNumber}
+        </div>
+      )}
     </button>
+    </>
   );
 };
 

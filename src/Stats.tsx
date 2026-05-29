@@ -212,7 +212,8 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
         .stats-row, .stats-bubble {
           transition: background 0.15s ease;
         }
-        .stats-row:hover, .stats-bubble:hover {
+        .stats-row:hover, .stats-bubble:hover,
+        .stats-row:active, .stats-bubble:active {
           background: rgba(184,115,51,0.07) !important;
         }
       `}</style>
@@ -239,6 +240,32 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
             marginTop: 8,
           }}
         >
+          {/* Mobile recap button — above chart on past seasons */}
+          {isMobile && currentYear < todayYear && (
+            <button
+              type="button"
+              onClick={() => navigate(`/recap/${currentYear}`)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                marginBottom: 12,
+                padding: "10px 16px",
+                borderRadius: 20,
+                border: `1px solid ${theme.palette.primary.main}`,
+                background: "none",
+                color: theme.palette.primary.main,
+                fontWeight: 700,
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                font: "inherit",
+              }}
+            >
+              View {currentYear} Recap
+            </button>
+          )}
+
           {/* Group average line chart */}
           <div
             style={{

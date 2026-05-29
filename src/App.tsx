@@ -759,6 +759,7 @@ function AppShell({
                   avatarUrl={avatarUrl}
                   firstName={firstName}
                   lastName={lastName}
+                  tastingMode={tastingMode}
                 />
               }
             />

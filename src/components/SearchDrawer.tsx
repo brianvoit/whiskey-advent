@@ -744,7 +744,7 @@ function SearchContent({
           )}
 
           {/* Results */}
-          <style>{`.search-result-btn:hover { background-color: var(--mui-palette-action-hover) !important; }`}</style>
+          <style>{`.search-result-btn:hover, .search-result-btn:active { background-color: var(--mui-palette-action-hover) !important; }`}</style>
           <div style={{ padding: "8px 0" }}>
             {indexLoading ? (
               <Typography variant="body2" color="text.secondary" style={{ padding: "16px 16px" }}>

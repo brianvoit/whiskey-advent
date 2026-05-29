@@ -8,8 +8,10 @@ import { supabase } from "./supabaseClient";
 import { getSeasonByYear, getWhiskeysForSeason } from "./api/whiskeys";
 import { toSlug } from "./utils/slug";
 import { usePageMeta } from "./hooks/usePageMeta";
+import type { TastingMode } from "./api/profiles";
 import { getSeasonStats, type DayStats } from "./api/stats";
 import { getWouldBuyList, type WouldBuyEntry } from "./api/tastings";
+import { modeCopy } from "./modes";
 import { FLAVOR_GROUPS } from "./components/FlavorTagPicker";
 import StatsChart from "./components/StatsChart";
 import UserAvatar from "./components/UserAvatar";
@@ -25,6 +27,7 @@ type RecapScreenProps = {
   avatarUrl?: string;
   firstName?: string;
   lastName?: string;
+  tastingMode?: TastingMode | null;
 };
 
 type MyTasting = {
@@ -78,7 +81,7 @@ function displayName(p: ShortProfile): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapScreenProps) {
+function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingMode }: RecapScreenProps) {
   const theme = useTheme();
   const navigate = useNavigate();
   const { year: yearParam } = useParams<{ year: string }>();
@@ -523,6 +526,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
     borderRadius: 16,
     padding: "20px 20px",
     boxShadow: paperShadow,
+    boxSizing: "border-box",
   };
 
   const sectionLabelStyle: React.CSSProperties = {
@@ -585,13 +589,13 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
         .recap-link-btn {
           transition: background 0.15s ease;
         }
-        .recap-link-btn:hover {
+        .recap-link-btn:hover, .recap-link-btn:active {
           background: rgba(184,115,51,0.07) !important;
         }
         .recap-row-btn {
           transition: background 0.15s ease;
         }
-        .recap-row-btn:hover {
+        .recap-row-btn:hover, .recap-row-btn:active {
           background: rgba(184,115,51,0.07) !important;
         }
       `}</style>
@@ -642,7 +646,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
                 letterSpacing: "0.02em",
               }}
             >
-              Season Recap
+              Season Recap{tastingMode ? <span style={{ color: textSecondary }}>{` · ${modeCopy[tastingMode].title.toUpperCase()}`}</span> : ""}
             </div>
             <h1
               style={{
@@ -861,7 +865,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
       >
         {/* Top-rated */}
         {topRatedDay && (
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>Your Top Pick</h2>
             <button
               className="recap-link-btn"
@@ -909,7 +913,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
 
         {/* Most contrarian */}
         {contraryDiff && mostContrarian && (
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>Hottest Take</h2>
             <button
               className="recap-link-btn"
@@ -962,7 +966,7 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
 
         {/* Most In Sync */}
         {mostAgreed && (
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>Most In Sync</h2>
             <button
               className={mostAgreed.profile ? "recap-link-btn" : undefined}
@@ -1286,6 +1290,87 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName }: RecapS
           />
         </div>
       )}
+
+      {/* ── Missed / unrated whiskies ─────────────────────────────────────────── */}
+      {(() => {
+        const ratedIds = new Set(
+          myTastings.filter((t) => t.rating !== null).map((t) => t.whiskey_day_id)
+        );
+        const missedDays = whiskeyDays
+          .filter((d) => !ratedIds.has(d.id))
+          .sort((a, b) => a.day_number - b.day_number);
+        if (missedDays.length === 0) return null;
+        return (
+          <>
+            <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>
+              Not Rated
+            </h2>
+            <div
+              style={{
+                borderRadius: 10,
+                border: paperBorder,
+                overflow: "hidden",
+                marginBottom: 36,
+                background: paperBg,
+                boxShadow: paperShadow,
+              }}
+            >
+              {missedDays.map((day, idx) => (
+                <button
+                  key={day.id}
+                  className="recap-row-btn"
+                  onClick={() => navigate(`/whiskey/${year}/${day.day_number}`)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                    padding: "12px 14px",
+                    background: "none",
+                    border: "none",
+                    borderTop: idx > 0 ? `1px solid ${divider}` : "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    gap: 10,
+                    font: "inherit",
+                  }}
+                >
+                  <div style={dayCircleStyle}>{day.day_number}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: "0.95rem",
+                        fontFamily: '"Lora", "Georgia", serif',
+                        color: textPrimary,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {day.name ?? `Day ${day.day_number}`}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: textSecondary,
+                      opacity: 0.6,
+                      flexShrink: 0,
+                      fontStyle: "italic",
+                    }}
+                  >
+                    not rated
+                  </div>
+                  <KeyboardArrowRightIcon
+                    fontSize="small"
+                    style={{ color: textSecondary, opacity: 0.4, flexShrink: 0 }}
+                  />
+                </button>
+              ))}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

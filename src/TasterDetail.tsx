@@ -208,9 +208,11 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
                     cursor: "pointer",
                   }}
                 >
-                  {/* Top row: day bubble + name + rating */}
+                  {/* Top row: day number + name + rating */}
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: sliders ? 8 : 0 }}>
-                    <DayBubble day={entry.day_number} />
+                    <span style={{ flexShrink: 0, width: 24, textAlign: "center", fontVariantNumeric: "tabular-nums", fontSize: "0.9rem", fontWeight: 500, color: theme.palette.text.secondary }}>
+                      {entry.day_number}
+                    </span>
                     <div style={{ flex: 1, minWidth: 0, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", fontSize: "0.9rem", fontWeight: 600 }}>
                       {entry.name}
                     </div>
@@ -326,17 +328,21 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
                     (e.currentTarget as HTMLDivElement).style.backgroundColor = "";
                   }}
                 >
-                  {/* Day bubble spanning all rows */}
+                  {/* Day number */}
                   <div
                     style={{
-                      gridRow: "1 / span 3",
+                      gridRow: hasExtra ? "1 / span 3" : "1 / 2",
                       gridColumn: "1 / 2",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      fontVariantNumeric: "tabular-nums",
+                      fontSize: "0.9rem",
+                      fontWeight: 500,
+                      color: theme.palette.text.secondary,
                     }}
                   >
-                    <DayBubble day={entry.day_number} />
+                    {entry.day_number}
                   </div>
 
                   {/* Whiskey name */}
@@ -446,6 +452,7 @@ function StatChip({ label, value, sub }: { label: string; value: string; sub?: s
         justifyContent: "center",
         height: "100%",
         boxSizing: "border-box",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.10)",
       }}
     >
       <Typography variant="caption" color="text.secondary" style={{ display: "block", marginBottom: 2 }}>
@@ -463,25 +470,3 @@ function StatChip({ label, value, sub }: { label: string; value: string; sub?: s
   );
 }
 
-function DayBubble({ day }: { day: number }) {
-  const theme = useTheme();
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: 28,
-        height: 28,
-        borderRadius: 999,
-        background: theme.palette.primary.main,
-        color: theme.palette.primary.contrastText,
-        fontWeight: 700,
-        fontSize: "0.75rem",
-        flexShrink: 0,
-      }}
-    >
-      {day}
-    </span>
-  );
-}

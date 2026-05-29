@@ -54,8 +54,8 @@ function AppHeader({ currentYear, streak = 0, onYearClick, unreadNotifications =
         Whiskey Advent
       </h1>
 
-      {/* Center: recap button (past years) OR streak (current year, desktop only) */}
-      {recapYear ? (
+      {/* Center: recap button (past years, desktop only) OR streak (current year, desktop only) */}
+      {recapYear && isDesktop ? (
         <button
           type="button"
           onClick={() => navigate(`/recap/${recapYear}`)}
