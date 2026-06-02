@@ -167,6 +167,8 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
   }, [whiskeyDays, userId]);
 
   const isCurrentYear = seasonYear === todayYear;
+  // Only enable reveal animation in December of the current year, after data has loaded
+  const canAnimate = isCurrentYear && currentMonth === 11 && !loading;
   const streak = isCurrentYear && currentMonth === 11
     ? calculateStreak(ratingsMap, whiskeyDays, currentDayOfMonth)
     : 0;
@@ -270,6 +272,7 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
               hideDetails={hideDetails}
               isFutureDay={isFutureDay}
               compact={isMobile}
+              canAnimate={canAnimate}
               onClick={
                 isDisabled
                   ? undefined

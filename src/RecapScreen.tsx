@@ -890,7 +890,6 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
                   style={{
                     fontSize: "1.1rem",
                     fontWeight: 700,
-                    fontFamily: '"Lora", "Georgia", serif',
                     color: textPrimary,
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -938,7 +937,6 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
                   style={{
                     fontSize: "1.1rem",
                     fontWeight: 700,
-                    fontFamily: '"Lora", "Georgia", serif',
                     color: textPrimary,
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -1116,7 +1114,6 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
                       style={{
                         fontWeight: 600,
                         fontSize: "0.95rem",
-                        fontFamily: '"Lora", "Georgia", serif',
                         color: textPrimary,
                         whiteSpace: "nowrap",
                         overflow: "hidden",
@@ -1215,7 +1212,6 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
               margin: 0,
               fontSize: "0.9rem",
               fontWeight: 600,
-              fontFamily: '"Lora", "Georgia", serif',
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
@@ -1340,7 +1336,6 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
                       style={{
                         fontWeight: 600,
                         fontSize: "0.95rem",
-                        fontFamily: '"Lora", "Georgia", serif',
                         color: textPrimary,
                         whiteSpace: "nowrap",
                         overflow: "hidden",

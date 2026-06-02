@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { usePageMeta } from "./hooks/usePageMeta";
 import { useTheme } from "@mui/material/styles";
+import { alpha } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import { supabase } from "./supabaseClient";
-import UserAvatar from "./components/UserAvatar";
 import { getTasterHistory, type TasterHistoryEntry } from "./api/tasters";
-import { resolveSlugToUserId } from "./utils/slug";
+import { resolveSlugToUserId, toSlug } from "./utils/slug";
 import { FLAVOR_TAGS } from "./components/FlavorTagPicker";
 
 const VALID_TAGS = new Set<string>(FLAVOR_TAGS);
@@ -18,6 +18,8 @@ const VALID_TAGS = new Set<string>(FLAVOR_TAGS);
 type TasterDetailProps = {
   currentUserId: string;
   currentYear: number;
+  currentFirstName?: string | null;
+  currentLastName?: string | null;
 };
 
 type TasterProfile = {
@@ -38,49 +40,73 @@ function getDisplayName(p: TasterProfile | null): string {
 const fmt = (val: number | null | undefined) =>
   val == null ? "—" : Number(val).toFixed(1);
 
-export default function TasterDetail({ currentUserId, currentYear }: TasterDetailProps) {
+export default function TasterDetail({ currentUserId, currentYear, currentFirstName, currentLastName }: TasterDetailProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const navigate = useNavigate();
   const { tasterId: tasterSlug } = useParams<{ tasterId: string }>();
 
   const [profile, setProfile] = useState<TasterProfile | null>(null);
   const [history, setHistory] = useState<TasterHistoryEntry[]>([]);
+  const [participatedYears, setParticipatedYears] = useState<number[]>([]);
+  const [viewYear, setViewYear] = useState<number>(currentYear);
   const [loading, setLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [resolvedId, setResolvedId] = useState<string | null>(null);
 
   const isMe = resolvedId === currentUserId;
 
+  // Initial load: resolve slug, fetch profile + years + history
   useEffect(() => {
     const load = async () => {
       setLoading(true);
 
-      // Resolve slug → UUID (handles legacy UUID params too)
       const targetId = tasterSlug
         ? await resolveSlugToUserId(tasterSlug)
         : currentUserId;
 
-      if (!targetId) {
-        setLoading(false);
-        return;
-      }
+      if (!targetId) { setLoading(false); return; }
 
       setResolvedId(targetId);
 
-      const [{ data: profileData }, historyData] = await Promise.all([
+      const [{ data: profileData }, yearsRes, historyData] = await Promise.all([
         supabase
           .from("profiles")
           .select("id, first_name, last_name, avatar_url, tasting_mode")
           .eq("id", targetId)
           .maybeSingle(),
+        supabase
+          .from("user_season_access")
+          .select("seasons(year)")
+          .eq("user_id", targetId),
         getTasterHistory(targetId, currentYear),
       ]);
+
       setProfile(profileData as TasterProfile | null);
+
+      const years = (yearsRes.data ?? [])
+        .map((r: any) => r.seasons?.year as number | undefined)
+        .filter((y): y is number => y != null)
+        .sort((a, b) => b - a);
+      setParticipatedYears(years);
+
       setHistory(historyData);
       setLoading(false);
     };
     void load();
   }, [tasterSlug, currentUserId, currentYear]);
+
+  // Reload history when the viewed year changes (after initial load)
+  useEffect(() => {
+    if (!resolvedId || loading) return;
+    if (viewYear === currentYear) return; // already loaded above
+    setHistoryLoading(true);
+    getTasterHistory(resolvedId, viewYear).then((data) => {
+      setHistory(data);
+      setHistoryLoading(false);
+    });
+  }, [viewYear, resolvedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const displayName = getDisplayName(profile);
   usePageMeta({ title: profile ? `${displayName}'s Tastings` : "Taster" });
@@ -98,49 +124,134 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
     return <div style={{ paddingTop: 8 }}>Loading…</div>;
   }
 
+  const primary = theme.palette.primary.main;
+  const textPrimary = theme.palette.text.primary;
+  const textSecondary = theme.palette.text.secondary;
+
   return (
     <div style={{ paddingTop: isMobile ? 8 : 16 }}>
-      {/* Back + header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+
+      {/* ── Top row: Back (left) + Compare (right) ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <button
           type="button"
-          onClick={() => navigate("/tasters")}
+          onClick={() => navigate(-1)}
           style={{
-            border: "none",
-            background: "none",
-            cursor: "pointer",
-            padding: 4,
-            display: "flex",
-            alignItems: "center",
-            color: theme.palette.text.secondary,
+            display: "inline-flex", alignItems: "center", gap: 6,
+            border: "none", background: "none", padding: 0,
+            cursor: "pointer", color: primary,
+            font: "inherit", fontWeight: 500,
           }}
-          aria-label="Back to tasters"
         >
-          <ArrowBackIcon fontSize="small" />
+          <ArrowBackRoundedIcon fontSize="small" />
+          <span>Back</span>
         </button>
-        <UserAvatar
-          firstName={profile?.first_name}
-          lastName={profile?.last_name}
-          avatarUrl={profile?.avatar_url}
-          size="md"
-        />
-        <div>
-          <Typography variant="subtitle1" style={{ fontWeight: 600, lineHeight: 1.2 }}>
-            {isMe ? "You" : displayName}
-          </Typography>
-          {profile?.tasting_mode && (
-            <span
+
+        {/* Compare button */}
+        {!isMe && resolvedId && (
+          <button
+            type="button"
+            onClick={() => {
+              const mySlug = toSlug(currentFirstName ?? null, currentLastName ?? null);
+              const theirSlug = tasterSlug ?? resolvedId;
+              navigate(`/tasters/${mySlug}/vs/${theirSlug}`);
+            }}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              border: "none", background: "none", padding: 0,
+              cursor: "pointer", color: primary,
+              font: "inherit", fontWeight: 500,
+            }}
+          >
+            <span>Compare</span>
+          </button>
+        )}
+      </div>
+
+      {/* ── Masthead ── */}
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${alpha(primary, 0.18)} 0%, ${alpha(primary, 0.06)} 100%)`,
+          border: `1px solid ${alpha(primary, 0.25)}`,
+          borderRadius: 20,
+          padding: isDesktop ? "32px 36px" : "24px 20px",
+          marginBottom: 24,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1
               style={{
-                fontSize: "0.65rem",
-                fontWeight: 600,
-                letterSpacing: "0.06em",
-                color: theme.palette.text.disabled,
-                textTransform: "uppercase",
+                margin: 0,
+                fontSize: isDesktop ? "2.5rem" : "2rem",
+                fontWeight: 800,
+                fontFamily: '"Lora", "Georgia", serif',
+                color: textPrimary,
+                lineHeight: 1.15,
               }}
             >
-              {profile.tasting_mode}
-            </span>
-          )}
+              {isMe ? "You" : displayName}
+            </h1>
+
+            {/* Year chips */}
+            {participatedYears.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 }}>
+                {participatedYears.map((yr) => {
+                  const active = yr === viewYear;
+                  return (
+                    <button
+                      key={yr}
+                      type="button"
+                      onClick={() => { setViewYear(yr); }}
+                      style={{
+                        padding: "4px 12px",
+                        borderRadius: 999,
+                        border: `1.5px solid ${active ? primary : alpha(primary, 0.3)}`,
+                        background: active ? alpha(primary, 0.12) : "transparent",
+                        color: active ? primary : textSecondary,
+                        fontSize: "0.8rem",
+                        fontWeight: active ? 700 : 500,
+                        cursor: "pointer",
+                        font: "inherit",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {yr}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Avatar */}
+          <div
+            style={{
+              width: isDesktop ? 80 : 64,
+              height: isDesktop ? 80 : 64,
+              borderRadius: "50%",
+              flexShrink: 0,
+              overflow: "hidden",
+              border: `3px solid ${alpha(primary, 0.35)}`,
+              background: alpha(primary, 0.12),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: isDesktop ? "1.8rem" : "1.4rem",
+              fontWeight: 800,
+              color: primary,
+            }}
+          >
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              (profile?.first_name?.[0] ?? profile?.last_name?.[0] ?? "?").toUpperCase()
+            )}
+          </div>
         </div>
       </div>
 
@@ -167,11 +278,16 @@ export default function TasterDetail({ currentUserId, currentYear }: TasterDetai
       )}
 
       {/* Empty state */}
-      {totalRated === 0 && (
+      {!historyLoading && totalRated === 0 && (
         <Typography variant="body1" color="text.secondary" style={{ padding: "16px 0" }}>
           {isMe
-            ? "You haven't rated any whiskies this season yet."
-            : `${displayName} hasn't rated any whiskies this season yet.`}
+            ? `You haven't rated any whiskies in ${viewYear} yet.`
+            : `${displayName} hasn't rated any whiskies in ${viewYear} yet.`}
+        </Typography>
+      )}
+      {historyLoading && (
+        <Typography variant="body1" color="text.secondary" style={{ padding: "16px 0" }}>
+          Loading {viewYear} tastings…
         </Typography>
       )}
 

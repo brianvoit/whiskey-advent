@@ -53,6 +53,7 @@ import {
   type Season,
 } from "../api/admin";
 import type { TastingMode } from "../api/profiles";
+import { supabase } from "../supabaseClient";
 
 type AdminUserDetailProps = {
   currentUserId: string;
@@ -113,6 +114,8 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
   const [nameFirst,       setNameFirst]       = useState("");
   const [nameLast,        setNameLast]        = useState("");
   const [savingName,      setSavingName]      = useState(false);
+  const [resettingOnboarding, setResettingOnboarding] = useState(false);
+  const [forcingLogout,       setForcingLogout]       = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -353,7 +356,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
       {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
       {/* ── Identity ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
+      <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
         <Stack direction="row" spacing={2.5} alignItems="flex-start">
           <UserAvatar
             firstName={profile.first_name}
@@ -393,6 +396,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
                     startIcon={savingName ? <CircularProgress size={12} color="inherit" /> : <CheckRoundedIcon />}
                     onClick={() => void handleSaveName()}
                     disabled={savingName}
+                    sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }}
                   >
                     Save
                   </Button>
@@ -400,6 +404,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
                     size="small"
                     onClick={() => setEditingName(false)}
                     disabled={savingName}
+                    sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }}
                   >
                     Cancel
                   </Button>
@@ -411,7 +416,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
                   {displayName(profile)}
                 </Typography>
                 {isSelf && (
-                  <Typography variant="caption" color="text.secondary">(you)</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>(you)</Typography>
                 )}
                 <IconButton size="small" onClick={startEditName} sx={{ color: "text.disabled" }}>
                   <EditRoundedIcon sx={{ fontSize: 15 }} />
@@ -439,7 +444,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
 
       {/* ── Theme (read-only, only if set) ── */}
       {themeMode && (
-        <Paper variant="outlined" sx={{ p: 3 }}>
+        <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
           <SectionHeader>Theme</SectionHeader>
           <Stack sx={{ mt: 1 }} spacing={0.5}>
             {THEME_OPTIONS.map(({ value, label, icon }) => (
@@ -456,16 +461,13 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
       )}
 
       {/* ── Tasting mode (always shown, editable by admin) ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
-          <SectionHeader>Tasting mode</SectionHeader>
+      <div>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
+          <SectionHeader>Tasting Mode</SectionHeader>
           {savingMode && <CircularProgress size={14} />}
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          How much information they see before revealing each day.
-        </Typography>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
-          {(Object.keys(modeCopy) as TastingMode[]).map((key) => {
+        <Stack direction="column" spacing={1.5}>
+          {(["relaxed", "explorer", "purist"] as TastingMode[]).map((key) => {
             const { title, bullets } = modeCopy[key];
             return (
               <ModeCard
@@ -478,11 +480,11 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
             );
           })}
         </Stack>
-      </Paper>
+      </div>
 
       {/* ── Spoiler preferences (editable by admin, only if user has set it) ── */}
       {seeGroupAverages !== null && (
-        <Paper variant="outlined" sx={{ p: 3 }}>
+        <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
             <SectionHeader>Spoiler preferences</SectionHeader>
             {savingSpoiler && <CircularProgress size={14} />}
@@ -502,7 +504,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
 
       {/* ── Notifications (editable by admin, only if user has set preferences) ── */}
       {(notificationsOn !== null || commentNotificationsOn !== null) && (
-        <Paper variant="outlined" sx={{ p: 3 }}>
+        <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <NotificationsRoundedIcon fontSize="small" color="action" />
@@ -540,7 +542,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
       <Divider />
 
       {/* ── Season Access (admin, inline) ── */}
-      <Paper variant="outlined" sx={{ overflow: "hidden" }}>
+      <Paper variant="outlined" sx={{ overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
         {/* Header */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider", bgcolor: "action.hover" }}>
           <CalendarMonthRoundedIcon fontSize="small" sx={{ color: "text.secondary" }} />
@@ -567,21 +569,21 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
               >
                 <Box sx={{ flex: 1 }}>
                   <Typography variant="body2" fontWeight={600}>{season.year}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>
                     {count} {count === 1 ? "whiskey" : "whiskeys"}
                   </Typography>
                 </Box>
                 <Button
                   size="small"
-                  variant={hasAccess ? "contained" : "outlined"}
-                  color={hasAccess ? "success" : "inherit"}
+                  variant={hasAccess ? "outlined" : "contained"}
+                  color={hasAccess ? "error" : "success"}
                   disabled={isToggling}
                   onClick={() => void handleToggleSeason(season.id, profile.season_ids)}
-                  sx={{ minWidth: 90 }}
+                  sx={{ minWidth: 110, textTransform: "uppercase", letterSpacing: "0.06em" }}
                 >
                   {isToggling
                     ? <CircularProgress size={14} color="inherit" />
-                    : hasAccess ? "Has access" : "No access"
+                    : hasAccess ? "Revoke Access" : "Grant Access"
                   }
                 </Button>
               </Box>
@@ -591,7 +593,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
       </Paper>
 
       {/* ── Account Actions (admin) ── */}
-      <Paper variant="outlined" sx={{ p: 3 }}>
+      <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
         <SectionHeader>Account Actions</SectionHeader>
         <Stack spacing={2} sx={{ mt: 1.5 }}>
 
@@ -599,7 +601,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Box>
                 <Typography variant="body2" fontWeight={500}>Admin role</Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>
                   {isAdmin ? "Can manage seasons, whiskeys, and users." : "Standard user access."}
                 </Typography>
               </Box>
@@ -609,6 +611,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
                 color={isAdmin ? "error" : "primary"}
                 disabled={isSelf}
                 onClick={() => setConfirm({ kind: "role", newRole: isAdmin ? "user" : "admin" })}
+                sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }}
               >
                 {isAdmin ? "Remove admin" : "Make admin"}
               </Button>
@@ -620,18 +623,18 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
                   <Typography variant="body2" fontWeight={500}>Approve request</Typography>
-                  <Typography variant="caption" color="text.secondary">Grant full access to the app.</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>Grant full access to the app.</Typography>
                 </Box>
-                <Button size="small" variant="contained" color="success" onClick={() => setConfirm({ kind: "approve" })}>
+                <Button size="small" variant="contained" color="success" sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }} onClick={() => setConfirm({ kind: "approve" })}>
                   Approve
                 </Button>
               </Box>
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
                   <Typography variant="body2" fontWeight={500}>Deny request</Typography>
-                  <Typography variant="caption" color="text.secondary">Reject without blocking. They can re-apply.</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>Reject without blocking. They can re-apply.</Typography>
                 </Box>
-                <Button size="small" variant="outlined" color="warning" onClick={() => setConfirm({ kind: "deny" })}>
+                <Button size="small" variant="outlined" color="warning" sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }} onClick={() => setConfirm({ kind: "deny" })}>
                   Deny
                 </Button>
               </Box>
@@ -642,9 +645,9 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Box>
                 <Typography variant="body2" fontWeight={500}>Deactivate</Typography>
-                <Typography variant="caption" color="text.secondary">Remove access. Moves to Previous Users.</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>Remove access. Moves to Previous Users.</Typography>
               </Box>
-              <Button size="small" variant="outlined" color="warning" disabled={isSelf} onClick={() => setConfirm({ kind: "revoke" })}>
+              <Button size="small" variant="outlined" color="warning" disabled={isSelf} sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }} onClick={() => setConfirm({ kind: "revoke" })}>
                 Deactivate
               </Button>
             </Box>
@@ -654,9 +657,9 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Box>
                 <Typography variant="body2" fontWeight={500}>Reactivate</Typography>
-                <Typography variant="caption" color="text.secondary">Restore full access.</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>Restore full access.</Typography>
               </Box>
-              <Button size="small" variant="contained" color="success" onClick={() => setConfirm({ kind: "reactivate" })}>
+              <Button size="small" variant="contained" color="success" sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }} onClick={() => setConfirm({ kind: "reactivate" })}>
                 Reactivate
               </Button>
             </Box>
@@ -666,7 +669,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Box>
                 <Typography variant="body2" fontWeight={500}>Approve anyway</Typography>
-                <Typography variant="caption" color="text.secondary">Override the denial and grant access.</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>Override the denial and grant access.</Typography>
               </Box>
               <Button size="small" variant="contained" color="success" onClick={() => setConfirm({ kind: "approve" })}>
                 Approve
@@ -678,9 +681,9 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Box>
                 <Typography variant="body2" fontWeight={500}>Unblock</Typography>
-                <Typography variant="caption" color="text.secondary">Move back to Pending for review.</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>Move back to Pending for review.</Typography>
               </Box>
-              <Button size="small" variant="outlined" onClick={() => setConfirm({ kind: "unblock" })}>
+              <Button size="small" variant="outlined" sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }} onClick={() => setConfirm({ kind: "unblock" })}>
                 Unblock
               </Button>
             </Box>
@@ -690,10 +693,97 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
             <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <Box>
                 <Typography variant="body2" fontWeight={500} color="error.main">Block</Typography>
-                <Typography variant="caption" color="text.secondary">Permanently ban from the app.</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>Permanently ban from the app.</Typography>
               </Box>
-              <Button size="small" variant="outlined" color="error" startIcon={<BlockRoundedIcon />} onClick={() => setConfirm({ kind: "block" })}>
+              <Button size="small" variant="outlined" color="error" startIcon={<BlockRoundedIcon />} sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }} onClick={() => setConfirm({ kind: "block" })}>
                 Block
+              </Button>
+            </Box>
+          )}
+
+          {status === "active" && !isSelf && (() => {
+            const isPending = profile.force_logout === true;
+            return (
+              <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 2 }}>
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="body2" fontWeight={500}>Force logout</Typography>
+                    {isPending && (
+                      <Box sx={{
+                        px: 1, py: 0.25, borderRadius: 999,
+                        bgcolor: "warning.main", color: "warning.contrastText",
+                        fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em",
+                        textTransform: "uppercase", lineHeight: 1.6,
+                      }}>
+                        Pending
+                      </Box>
+                    )}
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>
+                    {isPending
+                      ? "Flag is set — they'll be signed out on next app load."
+                      : "Signs them out on their next app load. Useful if a device is lost."}
+                  </Typography>
+                </Box>
+                {isPending ? (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={forcingLogout}
+                    onClick={async () => {
+                      setForcingLogout(true);
+                      await supabase.from("profiles").update({ force_logout: false }).eq("id", userId);
+                      setProfile((prev) => prev ? { ...prev, force_logout: false } : prev);
+                      setForcingLogout(false);
+                    }}
+                    sx={{ textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}
+                  >
+                    {forcingLogout ? "Cancelling…" : "Cancel"}
+                  </Button>
+                ) : (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="warning"
+                    disabled={forcingLogout}
+                    onClick={async () => {
+                      setForcingLogout(true);
+                      await supabase.from("profiles").update({ force_logout: true }).eq("id", userId);
+                      setProfile((prev) => prev ? { ...prev, force_logout: true } : prev);
+                      setForcingLogout(false);
+                    }}
+                    sx={{ textTransform: "uppercase", letterSpacing: "0.06em", flexShrink: 0 }}
+                  >
+                    {forcingLogout ? "Flagging…" : "Force Logout"}
+                  </Button>
+                )}
+              </Box>
+            );
+          })()}
+
+          {status === "active" && (
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Box>
+                <Typography variant="body2" fontWeight={500}>Reset onboarding</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem" }}>
+                  Next time they open the app they'll see the onboarding flow again.
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={resettingOnboarding}
+                onClick={async () => {
+                  setResettingOnboarding(true);
+                  await supabase
+                    .from("profiles")
+                    .update({ onboarding_complete: false })
+                    .eq("id", userId);
+                  setResettingOnboarding(false);
+                }}
+                sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }}
+              >
+                {resettingOnboarding ? "Resetting…" : "Reset onboarding"}
               </Button>
             </Box>
           )}
@@ -708,8 +798,8 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
           <Typography variant="body2">{confirmBody()}</Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirm(null)}>Cancel</Button>
-          <Button variant="contained" color={confirmColor()} onClick={handleConfirm} disabled={acting}>
+          <Button sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }} onClick={() => setConfirm(null)}>Cancel</Button>
+          <Button variant="contained" color={confirmColor()} onClick={handleConfirm} disabled={acting} sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>
             {acting ? "Saving…" : "Confirm"}
           </Button>
         </DialogActions>

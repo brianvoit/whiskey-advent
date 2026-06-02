@@ -23,6 +23,7 @@ type AdventCardProps = {
   hideDetails: boolean; // whether name / distiller / rating should be hidden based on mode
   isFutureDay?: boolean; // true when the day hasn't arrived yet — blurs the action button too
   compact?: boolean;    // compact row layout for mobile
+  canAnimate?: boolean; // true only in December of the current year, after data has loaded
   onClick?: () => void;
 };
 
@@ -41,6 +42,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
   hideDetails,
   isFutureDay = false,
   compact = false,
+  canAnimate = false,
   onClick,
 }) => {
   const theme = useTheme();
@@ -84,10 +86,17 @@ const AdventCard: React.FC<AdventCardProps> = ({
       ? averageRating.toFixed(1)
       : "—";
 
-  // Detect the moment a day transitions from unrated → rated and play reveal animation
+  // Detect the moment a day transitions from unrated → rated and play reveal animation.
+  // canAnimate is false during initial data loads and year switches, so those never
+  // trigger the animation — only genuine user-action transitions do.
   const prevHasUserRating = useRef(hasUserRating);
   const [justRevealed, setJustRevealed] = useState(false);
   useEffect(() => {
+    if (!canAnimate) {
+      // Sync ref silently — no animation, just keep state current
+      prevHasUserRating.current = hasUserRating;
+      return;
+    }
     if (!prevHasUserRating.current && hasUserRating && !isFutureDay) {
       setJustRevealed(true);
       const t = setTimeout(() => setJustRevealed(false), 700);
@@ -95,7 +104,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
       return () => clearTimeout(t);
     }
     prevHasUserRating.current = hasUserRating;
-  }, [hasUserRating, isFutureDay]);
+  }, [hasUserRating, isFutureDay, canAnimate]);
 
   const displayHeadline = headline && headline.trim().length > 0 ? headline : "";
   const displaySubhead = subhead && subhead.trim().length > 0 ? subhead : "";
@@ -166,7 +175,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
               <span style={{ fontSize: "1.2rem", opacity: 0.5, lineHeight: 1 }}>🥃</span>
             </div>
           )}
-          {/* Day chip on thumbnail — small corner on rated, large centered on unrated/future */}
+          {/* Day chip on thumbnail — small corner on rated, large centered on future/unrated-in-December */}
           {!isFutureDay && hasUserRating ? (
             <div
               className={justRevealed ? "chip-pop" : undefined}
@@ -187,7 +196,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
             >
               {dayNumber}
             </div>
-          ) : (
+          ) : (isFutureDay || (canAnimate && !hasUserRating) || justRevealed) ? (
             <div
               className={justRevealed ? "reveal-shrink" : undefined}
               style={{
@@ -212,7 +221,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
             >
               {dayNumber}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Name + distillery */}
@@ -303,16 +312,16 @@ const AdventCard: React.FC<AdventCardProps> = ({
       .advent-card-desktop { transition: background 0.15s ease; }
       .advent-card-desktop:hover, .advent-card-desktop:active { background: rgba(184,115,51,0.07) !important; }
       @keyframes revealShrink {
-        0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        100% { transform: translate(-50%, -50%) scale(0); opacity: 0; transform-origin: top right; }
+        0%   { transform: translate(-50%, -50%) scale(1);    opacity: 1; }
+        100% { transform: translate(-35%, -80%) scale(0.05); opacity: 0; }
       }
       @keyframes chipPop {
-        0%   { transform: scale(0); opacity: 0; }
-        60%  { transform: scale(1.3); opacity: 1; }
-        100% { transform: scale(1); opacity: 1; }
+        0%   { transform: scale(0);    opacity: 0; }
+        65%  { transform: scale(1.15); opacity: 1; }
+        100% { transform: scale(1);    opacity: 1; }
       }
-      .reveal-shrink { animation: revealShrink 0.45s cubic-bezier(0.4,0,1,1) forwards; transform-origin: top right; }
-      .chip-pop      { animation: chipPop 0.35s cubic-bezier(0.34,1.56,0.64,1) 0.2s both; }
+      .reveal-shrink { animation: revealShrink 0.38s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
+      .chip-pop      { animation: chipPop 0.28s cubic-bezier(0.34, 1.4, 0.64, 1) 0.18s both; }
     `}</style>
     <button
       type="button"
@@ -535,8 +544,8 @@ const AdventCard: React.FC<AdventCardProps> = ({
         />
       )}
 
-      {/* Large centered day number for future or unrated days (+ lingers during reveal animation) */}
-      {(isFutureDay || !hasUserRating || justRevealed) && (
+      {/* Large centered day number: future days always, unrated only in current December, + lingers during reveal animation */}
+      {(isFutureDay || (canAnimate && !hasUserRating) || justRevealed) && (
         <div
           className={justRevealed ? "reveal-shrink" : undefined}
           style={{

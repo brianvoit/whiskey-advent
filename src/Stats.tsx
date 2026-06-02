@@ -5,7 +5,6 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { supabase } from "./supabaseClient";
 import { getSeasonStats, type DayStats } from "./api/stats";
-import LockIcon from "@mui/icons-material/Lock";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import PersonIcon from "@mui/icons-material/Person";
 import GroupIcon from "@mui/icons-material/Group";
@@ -139,7 +138,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
       return false;
     }
 
-    if (isAdmin || currentYear < todayYear) {
+    if (currentYear < todayYear) {
       return true;
     }
 
@@ -407,33 +406,36 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
             }}
           >
             {/* List header row */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                padding: "8px 12px 8px 8px",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                opacity: 0.7,
-              }}
-            >
-              <div style={{ width: isMobile ? 36 : 56, flexShrink: 0, textAlign: "center" }}>
-                Day
+            {(() => {
+              const col = isMobile ? 44 : 60; // uniform right-column width
+              return (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "8px 12px 8px 8px",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  opacity: 0.7,
+                }}
+              >
+                <div style={{ width: isMobile ? 36 : 56, flexShrink: 0, textAlign: "center" }}>Day</div>
+                <div style={{ flex: 1, minWidth: 0 }}>Whiskey</div>
+                <div style={{ width: col, flexShrink: 0, textAlign: "center" }}>
+                  <PersonIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
+                </div>
+                <div style={{ width: col, flexShrink: 0, textAlign: "center" }}>
+                  <GroupIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
+                </div>
+                {!isMobile && (
+                  <div style={{ width: col, flexShrink: 0, textAlign: "center" }}>#</div>
+                )}
+                <div style={{ width: isMobile ? col : 40, flexShrink: 0 }} />
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>Whiskey</div>
-              <div style={{ width: isMobile ? 40 : 50, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <PersonIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
-              </div>
-              <div style={{ width: isMobile ? 40 : 70, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <GroupIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
-              </div>
-              {!isMobile && (
-                <div style={{ width: 90, textAlign: "center", flexShrink: 0 }}>Count</div>
-              )}
-              <div style={{ width: isMobile ? 28 : 40, flexShrink: 0 }} />
-            </div>
+              );
+            })()}
 
             {/* List items */}
             <div>
@@ -441,17 +443,13 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                 let displayName: string | null = null;
                 let locked = false;
 
-                if (isAdmin) {
-                  // Admins always see names, any year
-                  displayName = d.name ?? "";
-                } else if (currentYear < todayYear) {
-                  // Past seasons are always fully visible for everyone
+                if (currentYear < todayYear) {
+                  // Past seasons: always fully visible for everyone
                   displayName = d.name ?? "";
                 } else {
-                  // Current or future seasons: use per-user reveal rules
-                  const hasRevealed =
-                    revealedMap.get(d.whiskey_day_id) ?? false;
-                  if (hasRevealed) {
+                  // Current / future seasons: respect tasting mode (admins included)
+                  const hasRevealed = revealedMap.get(d.whiskey_day_id) ?? false;
+                  if (hasRevealed || tastingMode === "relaxed") {
                     displayName = d.name ?? "";
                   } else {
                     locked = true;
@@ -467,15 +465,15 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                     : canSeeGroupAverage(d)
                     ? d.avg_rating!.toFixed(1)
                     : (
-                        <LockIcon
-                          style={{ fontSize: "1rem", opacity: 0.7 }}
-                        />
+                        <span style={{ filter: "blur(5px)", userSelect: "none", pointerEvents: "none" }}>
+                          {d.avg_rating!.toFixed(1)}
+                        </span>
                       );
 
-                // Admins and past seasons can always view details.
-                // For the current season, non-admins need the day revealed.
+                // Past seasons always viewable. Current season: must be revealed
+                // or in relaxed mode (which shows everything). Tasting mode applies to admins too.
                 const canViewDetails =
-                  isAdmin || currentYear < todayYear || hasRevealed;
+                  currentYear < todayYear || hasRevealed || tastingMode === "relaxed";
 
                 const userRating =
                   userRatings.get(d.whiskey_day_id) ?? null;
@@ -507,86 +505,63 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
                       {d.day_number}
                     </div>
 
-                    {/* Whiskey name */}
+                    {/* Whiskey name — overflow visible when blurred so gaussian doesn't clip */}
                     <div
                       style={{
                         flex: 1,
                         minWidth: 0,
                         fontSize: "0.95rem",
                         whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        overflow: locked ? "visible" : "hidden",
+                        textOverflow: locked ? "clip" : "ellipsis",
                         display: "flex",
                         alignItems: "center",
                         gap: 4,
                       }}
                     >
                       {locked ? (
-                        <LockIcon style={{ fontSize: "1rem", opacity: 0.7 }} />
+                        <span style={{ filter: "blur(5px)", userSelect: "none", pointerEvents: "none" }}>
+                          {d.name || `Day ${d.day_number}`}
+                        </span>
                       ) : (
                         displayName
                       )}
                     </div>
 
-                    {/* User rating */}
-                    <div
-                      style={{
-                        width: isMobile ? 40 : 50,
-                        textAlign: "center",
-                        flexShrink: 0,
-                        fontVariantNumeric: "tabular-nums",
-                        fontSize: "0.9rem",
-                      }}
-                    >
-                      {userRating !== null ? userRating.toFixed(1) : "—"}
-                    </div>
+                    {(() => {
+                      const col = isMobile ? 44 : 60;
+                      const numStyle: React.CSSProperties = {
+                        width: col, textAlign: "center", flexShrink: 0,
+                        fontVariantNumeric: "tabular-nums", fontSize: "0.9rem",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      };
+                      return (
+                        <>
+                          {/* User rating */}
+                          <div style={numStyle}>
+                            {userRating !== null ? userRating.toFixed(1) : "—"}
+                          </div>
 
-                    {/* Group average */}
-                    <div
-                      style={{
-                        width: isMobile ? 40 : 70,
-                        textAlign: "center",
-                        flexShrink: 0,
-                        fontVariantNumeric: "tabular-nums",
-                        fontSize: "0.9rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {groupAvgContent}
-                    </div>
+                          {/* Group average */}
+                          <div style={numStyle}>
+                            {groupAvgContent}
+                          </div>
 
-                    {/* Count — desktop only */}
-                    {!isMobile && (
-                      <div
-                        style={{
-                          width: 90,
-                          textAlign: "center",
-                          flexShrink: 0,
-                          fontVariantNumeric: "tabular-nums",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        {d.rating_count}
-                      </div>
-                    )}
+                          {/* Count — desktop only */}
+                          {!isMobile && (
+                            <div style={numStyle}>{d.rating_count}</div>
+                          )}
 
-                    {/* Chevron */}
-                    <div
-                      style={{
-                        width: isMobile ? 28 : 40,
-                        flexShrink: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <KeyboardArrowRightIcon
-                        fontSize="small"
-                        style={{ opacity: canViewDetails ? 0.4 : 0.15 }}
-                      />
-                    </div>
+                          {/* Chevron */}
+                          <div style={{ width: isMobile ? col : 40, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <KeyboardArrowRightIcon
+                              fontSize="small"
+                              style={{ opacity: canViewDetails ? 0.4 : 0.15 }}
+                            />
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 );
               })}

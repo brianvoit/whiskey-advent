@@ -188,7 +188,7 @@ const StatsChart: FC<StatsChartProps> = ({
       const isRevealed  = revealedMap.get(entry.whiskey_day_id) ?? false;
       const mode        = (tastingMode || "relaxed").toLowerCase();
       const isStrictMode = mode === "purist" || mode === "explorer";
-      const gated       = !isAdmin && isCurrentSeason && !isRevealed &&
+      const gated       = isCurrentSeason && !isRevealed &&
                           (isStrictMode || !seeGroupAveragesPreReveal);
 
       const myRating = userRatings.get(entry.whiskey_day_id) ?? null;

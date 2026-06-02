@@ -26,6 +26,7 @@ export type Profile = {
   tasting_mode: TastingMode | null;
   notifications_opt_in: boolean | null;
   comment_notifications_opt_in: boolean | null;
+  force_logout: boolean | null;
 };
 
 export async function getProfile(userId: string) {

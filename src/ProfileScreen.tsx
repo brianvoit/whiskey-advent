@@ -627,12 +627,10 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
             days. Anything you've already seen can't be undone.
           </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setModeDialogOpen(false); setModeDialogTarget(null); }}>
-            Keep current mode
-          </Button>
-          <Button
-            variant="contained"
+        <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2.5 }}>
+          {/* Left: destructive action — text only, low emphasis */}
+          <button
+            type="button"
             onClick={() => {
               if (modeDialogTarget) {
                 setPendingMode(modeDialogTarget);
@@ -641,9 +639,42 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
               setModeDialogOpen(false);
               setModeDialogTarget(null);
             }}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: theme.palette.text.secondary,
+              fontFamily: "inherit",
+              padding: "8px 4px",
+            }}
           >
-            Switch mode
-          </Button>
+            Switch
+          </button>
+
+          {/* Right: primary action — pill button, high emphasis */}
+          <button
+            type="button"
+            onClick={() => { setModeDialogOpen(false); setModeDialogTarget(null); }}
+            style={{
+              border: "none",
+              borderRadius: 999,
+              background: theme.palette.primary.main,
+              color: theme.palette.primary.contrastText,
+              cursor: "pointer",
+              fontSize: "0.8rem",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              fontFamily: "inherit",
+              padding: "10px 22px",
+            }}
+          >
+            Discard Change
+          </button>
         </DialogActions>
       </Dialog>
     </Stack>

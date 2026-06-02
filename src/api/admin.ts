@@ -45,6 +45,7 @@ export type FullAdminProfile = AdminProfile & {
   reveal_preferences?: { see_group_averages_pre_reveal: boolean } | null;
   notifications_opt_in?: boolean | null;
   comment_notifications_opt_in?: boolean | null;
+  force_logout?: boolean | null;
 };
 
 // ─── Seasons ──────────────────────────────────────────────────────────────────
@@ -187,7 +188,7 @@ export async function getFullProfileById(userId: string): Promise<FullAdminProfi
   // Attempt to load preference columns separately — ignore if columns don't exist
   const prefRes = await supabase
     .from("profiles")
-    .select("theme_mode, tasting_mode, reveal_preferences, notifications_opt_in")
+    .select("theme_mode, tasting_mode, reveal_preferences, notifications_opt_in, force_logout")
     .eq("id", userId)
     .single();
 

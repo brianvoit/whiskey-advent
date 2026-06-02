@@ -34,6 +34,7 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
   const [tastingMode, setTastingMode] = useState<TastingMode>("purist");
   const [seeGroupAverages, setSeeGroupAverages] = useState(true);
   const [notificationsOptIn, setNotificationsOptIn] = useState(false);
+  const [commentNotificationsOptIn, setCommentNotificationsOptIn] = useState(true);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
@@ -73,6 +74,7 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
         tasting_mode: tastingMode,
         reveal_preferences: prefs,
         notifications_opt_in: notificationsOptIn,
+        comment_notifications_opt_in: commentNotificationsOptIn,
         onboarding_complete: true,
       })
       .eq("id", profile.id);
@@ -95,7 +97,7 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
 
     if (fetchError || !data) {
       // Update succeeded but fetch failed — close with patched local profile
-      onComplete({ ...profile, onboarding_complete: true, tasting_mode: tastingMode, notifications_opt_in: notificationsOptIn });
+      onComplete({ ...profile, onboarding_complete: true, tasting_mode: tastingMode, notifications_opt_in: notificationsOptIn, comment_notifications_opt_in: commentNotificationsOptIn });
       return;
     }
 
@@ -143,7 +145,7 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
     : step === 2
     ? { showBack: true,  nextLabel: "Next",                       onNext: handleNext,   nextDisabled: false }
     : step === 3
-    ? { showBack: true,  nextLabel: notificationsOptIn ? "Next" : "Skip", onNext: handleNext, nextDisabled: false }
+    ? { showBack: true,  nextLabel: (notificationsOptIn || commentNotificationsOptIn) ? "Next" : "Skip", onNext: handleNext, nextDisabled: false }
     : { showBack: true,  nextLabel: saving ? "Saving…" : "Save", onNext: handleFinish, nextDisabled: saving };
 
   // ── Progress dots (rendered in footer) ───────────────────────────────────────
@@ -253,28 +255,27 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
         {/* Step 3: Notifications — vertically centered */}
         {step === 3 && (
           <Box sx={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <Stack spacing={2}>
+            <Stack spacing={3}>
               <Typography variant="h4" component="h1" sx={{ fontSize: "2.25rem" }}>
-                Daily Reminders
+                Notifications
               </Typography>
-              <Typography color="text.secondary">
-                Get a push notification each day in December when the next pour is
-                ready — delivered at 5 pm in your local time.
-              </Typography>
-              {notifPermission === "unsupported" && (
-                <Alert severity="info">
-                  Push notifications aren't supported in this browser. You can
-                  enable them later via your profile settings.
-                </Alert>
-              )}
-              {notifPermission === "denied" && (
-                <Alert severity="warning">
-                  Notifications are blocked in your browser settings. You can
-                  unblock them and turn on reminders later from your profile.
-                </Alert>
-              )}
-              {!notifBlocked && (
-                <Box sx={{ px: 1, pt: 0.5 }}>
+
+              {/* Daily Reminders */}
+              <Box>
+                <Typography variant="body2" fontWeight={700} sx={{ mb: 0.5 }}>
+                  Daily Reminders
+                </Typography>
+                {notifPermission === "unsupported" && (
+                  <Alert severity="info" sx={{ mb: 1 }}>
+                    Push notifications aren't supported in this browser. You can enable them later via your profile settings.
+                  </Alert>
+                )}
+                {notifPermission === "denied" && (
+                  <Alert severity="warning" sx={{ mb: 1 }}>
+                    Notifications are blocked in your browser settings. You can unblock them later from your profile.
+                  </Alert>
+                )}
+                {!notifBlocked && (
                   <FormControlLabel
                     control={
                       <Switch
@@ -284,20 +285,36 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
                       />
                     }
                     label={
-                      <Box>
-                        <Typography variant="body2" fontWeight={600}>
-                          Enable Daily Reminders
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {notificationsOptIn
-                            ? "You're all set — daily reminders are on."
-                            : "We'll remind you each day at 5 pm local time."}
-                        </Typography>
-                      </Box>
+                      <Typography variant="body2" color="text.secondary">
+                        {notificationsOptIn
+                          ? "You're all set — daily reminders are on."
+                          : "Get a nudge each day in December at 5 pm local time."}
+                      </Typography>
                     }
                   />
-                </Box>
-              )}
+                )}
+              </Box>
+
+              {/* Comment Notifications */}
+              <Box>
+                <Typography variant="body2" fontWeight={700} sx={{ mb: 0.5 }}>
+                  Comments
+                </Typography>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={commentNotificationsOptIn}
+                      onChange={(e) => setCommentNotificationsOptIn(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" color="text.secondary">
+                      Notify me when someone comments on a whiskey I've rated.
+                    </Typography>
+                  }
+                />
+              </Box>
             </Stack>
           </Box>
         )}
@@ -334,6 +351,12 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
                     Daily reminders:{" "}
                     <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
                       {notificationsOptIn ? "On" : "Off"}
+                    </Box>
+                  </Typography>
+                  <Typography component="li" variant="body2" color="text.secondary">
+                    Comment notifications:{" "}
+                    <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
+                      {commentNotificationsOptIn ? "On" : "Off"}
                     </Box>
                   </Typography>
                 </Box>

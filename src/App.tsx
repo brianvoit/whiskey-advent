@@ -22,6 +22,7 @@ import AdminScreen from "./AdminScreen";
 import AdminUserDetail from "./admin/AdminUserDetail";
 import Tasters from "./Tasters";
 import TasterDetail from "./TasterDetail";
+import CompareScreen from "./CompareScreen";
 import AppHeader from "./components/AppHeader";
 import BottomNav from "./components/BottomNav";
 import NotificationsDrawer from "./components/NotificationsDrawer";
@@ -184,6 +185,13 @@ function App() {
     if (detectedTz && (profile as any).timezone !== detectedTz) {
       void supabase.from("profiles").update({ timezone: detectedTz }).eq("id", userId);
       (profile as any).timezone = detectedTz;
+    }
+
+    // Force logout: admin has flagged this account. Clear the flag then sign out.
+    if (profile.force_logout) {
+      await supabase.from("profiles").update({ force_logout: false }).eq("id", userId);
+      await supabase.auth.signOut();
+      return;
     }
 
     setProfile(profile);
@@ -814,6 +822,16 @@ function AppShell({
               element={
                 <TasterDetail
                   currentUserId={userId}
+                  currentYear={currentYear}
+                  currentFirstName={firstName}
+                  currentLastName={lastName}
+                />
+              }
+            />
+            <Route
+              path="/tasters/:tasterId/vs/:otherId"
+              element={
+                <CompareScreen
                   currentYear={currentYear}
                 />
               }
