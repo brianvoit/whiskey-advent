@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import PersonIcon from "@mui/icons-material/Person";
@@ -47,6 +47,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
   const [imgError, setImgError] = useState(false);
   const isDark = theme.palette.mode === "dark";
 
+
   const background = isToday
     ? theme.palette.background.paper
     : theme.palette.background.default;
@@ -82,6 +83,19 @@ const AdventCard: React.FC<AdventCardProps> = ({
     hasAverageRating && averageRating !== null
       ? averageRating.toFixed(1)
       : "—";
+
+  // Detect the moment a day transitions from unrated → rated and play reveal animation
+  const prevHasUserRating = useRef(hasUserRating);
+  const [justRevealed, setJustRevealed] = useState(false);
+  useEffect(() => {
+    if (!prevHasUserRating.current && hasUserRating && !isFutureDay) {
+      setJustRevealed(true);
+      const t = setTimeout(() => setJustRevealed(false), 700);
+      prevHasUserRating.current = hasUserRating;
+      return () => clearTimeout(t);
+    }
+    prevHasUserRating.current = hasUserRating;
+  }, [hasUserRating, isFutureDay]);
 
   const displayHeadline = headline && headline.trim().length > 0 ? headline : "";
   const displaySubhead = subhead && subhead.trim().length > 0 ? subhead : "";
@@ -155,6 +169,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
           {/* Day chip on thumbnail — small corner on rated, large centered on unrated/future */}
           {!isFutureDay && hasUserRating ? (
             <div
+              className={justRevealed ? "chip-pop" : undefined}
               style={{
                 position: "absolute",
                 top: 3,
@@ -174,6 +189,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
             </div>
           ) : (
             <div
+              className={justRevealed ? "reveal-shrink" : undefined}
               style={{
                 position: "absolute",
                 top: "50%",
@@ -286,6 +302,17 @@ const AdventCard: React.FC<AdventCardProps> = ({
     <style>{`
       .advent-card-desktop { transition: background 0.15s ease; }
       .advent-card-desktop:hover, .advent-card-desktop:active { background: rgba(184,115,51,0.07) !important; }
+      @keyframes revealShrink {
+        0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(0); opacity: 0; transform-origin: top right; }
+      }
+      @keyframes chipPop {
+        0%   { transform: scale(0); opacity: 0; }
+        60%  { transform: scale(1.3); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      .reveal-shrink { animation: revealShrink 0.45s cubic-bezier(0.4,0,1,1) forwards; transform-origin: top right; }
+      .chip-pop      { animation: chipPop 0.35s cubic-bezier(0.34,1.56,0.64,1) 0.2s both; }
     `}</style>
     <button
       type="button"
@@ -346,6 +373,7 @@ const AdventCard: React.FC<AdventCardProps> = ({
         {/* Day number — small corner chip only on rated past/today cards */}
         {!isFutureDay && hasUserRating && (
           <div
+            className={justRevealed ? "chip-pop" : undefined}
             style={{
               position: "absolute",
               top: 8,
@@ -507,9 +535,10 @@ const AdventCard: React.FC<AdventCardProps> = ({
         />
       )}
 
-      {/* Large centered day number for future or unrated days */}
-      {(isFutureDay || !hasUserRating) && (
+      {/* Large centered day number for future or unrated days (+ lingers during reveal animation) */}
+      {(isFutureDay || !hasUserRating || justRevealed) && (
         <div
+          className={justRevealed ? "reveal-shrink" : undefined}
           style={{
             position: "absolute",
             top: "50%",

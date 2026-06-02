@@ -167,7 +167,7 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
   }, [whiskeyDays, userId]);
 
   const isCurrentYear = seasonYear === todayYear;
-  const streak = isCurrentYear
+  const streak = isCurrentYear && currentMonth === 11
     ? calculateStreak(ratingsMap, whiskeyDays, currentDayOfMonth)
     : 0;
 

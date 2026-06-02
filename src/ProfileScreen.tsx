@@ -452,13 +452,10 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
       </div>
 
       {/* ── Tasting mode ── */}
-      <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 6px rgba(0,0,0,0.10)" }}>
-        <SectionHeader>Tasting mode</SectionHeader>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Choose how much information you see before revealing each day.
-        </Typography>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
-          {(Object.keys(modeCopy) as TastingMode[]).map((key) => {
+      <div>
+        <SectionHeader>Tasting Mode</SectionHeader>
+        <Stack direction="column" spacing={1.5} sx={{ mb: 2 }}>
+          {(["relaxed", "explorer", "purist"] as TastingMode[]).map((key) => {
             const { title, bullets } = modeCopy[key];
             return (
               <ModeCard
@@ -471,7 +468,6 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
             );
           })}
         </Stack>
-        <Divider sx={{ my: 2 }} />
         <FormControlLabel
           control={
             <Switch
@@ -489,7 +485,7 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
             </Typography>
           }
         />
-      </Paper>
+      </div>
 
       {/* ── Theme + Notifications — side by side on desktop ── */}
       <Stack direction={{ xs: "column", sm: "row" }} spacing={3} alignItems="stretch">

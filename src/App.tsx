@@ -441,22 +441,10 @@ function App() {
   }
 
   // ---------------------------------------------------------
-  // Logged-in but onboarding not complete
+  // Authenticated + onboarding (modal overlay on top of app)
   // ---------------------------------------------------------
   const needsOnboarding = !profile.onboarding_complete;
 
-  if (needsOnboarding) {
-    return (
-      <Onboarding
-        profile={profile as any}
-        onComplete={(updated) => setProfile(updated as Profile)}
-      />
-    );
-  }
-
-  // ---------------------------------------------------------
-  // Authenticated + onboarding complete (router shell)
-  // ---------------------------------------------------------
   const hasEmailAuth =
     session.user.identities?.some((i) => i.provider === "email") ?? false;
 
@@ -476,6 +464,11 @@ function App() {
         onYearChange={(year) => setSelectedYear(year)}
         firstName={firstName}
         lastName={lastName}
+      />
+      <Onboarding
+        open={needsOnboarding}
+        profile={profile as any}
+        onComplete={(updated) => setProfile(updated as Profile)}
       />
     </BrowserRouter>
   );

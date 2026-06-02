@@ -35,7 +35,8 @@ export function useStreak(userId: string) {
       if (t.rating !== null) ratingsMap.set(t.whiskey_day_id, t.rating as number);
     }
 
-    setStreak(calculateStreak(ratingsMap, days, now.getDate()));
+    const isDecember = now.getMonth() === 11;
+    setStreak(isDecember ? calculateStreak(ratingsMap, days, now.getDate()) : 0);
     setLoading(false);
   }, [userId]);
 
