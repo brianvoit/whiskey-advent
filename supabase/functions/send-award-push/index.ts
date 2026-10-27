@@ -31,15 +31,33 @@ const adminSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // Without a TTL, web-push defaults to 4 weeks. An award is stale after a day.
 const PUSH_OPTIONS = { TTL: 24 * 60 * 60, urgency: "normal" as const };
 
+// Called from the browser via supabase.functions.invoke, so it must answer the
+// CORS preflight and tag every response. Without this the browser blocked
+// every call and award pushes never went out.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-region",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const respond = (body: string, status = 200, contentType = "text/plain") =>
+  new Response(body, { status, headers: { ...CORS_HEADERS, "Content-Type": contentType } });
+
+const json = (body: unknown, status = 200) =>
+  respond(JSON.stringify(body), status, "application/json");
+
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return respond("ok");
+  }
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return respond("Method not allowed", 405);
   }
 
   // ── Auth: verify caller identity via their JWT ─────────────────────────────
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
-    return new Response("Unauthorized", { status: 401 });
+    return respond("Unauthorized", 401);
   }
 
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -47,7 +65,7 @@ Deno.serve(async (req) => {
   });
   const { data: { user }, error: authError } = await userClient.auth.getUser();
   if (authError || !user) {
-    return new Response("Unauthorized", { status: 401 });
+    return respond("Unauthorized", 401);
   }
 
   // ── Parse body ─────────────────────────────────────────────────────────────
@@ -63,14 +81,14 @@ Deno.serve(async (req) => {
   try {
     body = await req.json();
   } catch {
-    return new Response("Bad request", { status: 400 });
+    return respond("Bad request", 400);
   }
 
   const { user_id, type, title, body: notifBody, whiskey_day_id, whiskey_name } = body;
 
   // Caller must match the target user (prevent spoofing)
   if (user.id !== user_id) {
-    return new Response("Forbidden", { status: 403 });
+    return respond("Forbidden", 403);
   }
 
   // ── Dedup: skip if this award was already given for this day ───────────────
@@ -86,9 +104,7 @@ Deno.serve(async (req) => {
 
   const { count: existing } = await dupQuery;
   if ((existing ?? 0) > 0) {
-    return new Response(JSON.stringify({ skipped: true, reason: "duplicate" }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return json({ skipped: true, reason: "duplicate" });
   }
 
   // ── Insert in-app notification ─────────────────────────────────────────────
@@ -103,10 +119,7 @@ Deno.serve(async (req) => {
 
   if (notifError) {
     console.error("Failed to insert notification:", notifError);
-    return new Response(JSON.stringify({ error: notifError.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return json({ error: notifError.message }, 500);
   }
 
   // ── Push notification (only if opted in and subscribed) ───────────────────
@@ -137,7 +150,5 @@ Deno.serve(async (req) => {
     pushed = results.filter((r) => r.status === "fulfilled").length;
   }
 
-  return new Response(JSON.stringify({ ok: true, pushed }), {
-    headers: { "Content-Type": "application/json" },
-  });
+  return json({ ok: true, pushed });
 });

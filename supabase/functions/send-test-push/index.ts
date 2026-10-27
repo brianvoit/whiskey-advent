@@ -45,10 +45,19 @@ const adminSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // few minutes.
 const PUSH_OPTIONS = { TTL: 5 * 60, urgency: "high" as const };
 
+// Called from the browser via supabase.functions.invoke, so it must answer the
+// CORS preflight and tag every response — errors included, or the browser
+// hides the body and the client only sees "Failed to send a request".
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-region",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
   });
 
 /** Which push service an endpoint belongs to — tells you the device family. */
@@ -62,8 +71,11 @@ function pushService(endpoint: string): string {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: CORS_HEADERS });
+  }
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+    return json({ error: "Method not allowed" }, 405);
   }
 
   // ── Auth: verify caller identity via their JWT ─────────────────────────────
