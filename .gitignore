@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .claude/
 supabase/.temp/
+
+# MCP config — contains access token
+.mcp.json

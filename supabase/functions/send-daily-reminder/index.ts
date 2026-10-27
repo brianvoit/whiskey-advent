@@ -4,8 +4,10 @@
  * Sends a push notification to every opted-in user for whom it is currently
  * 5:00 pm in their local timezone.
  *
- * Triggered by pg_cron every hour on days 1–24 of December:
- *   0 * 1-24 12 *
+ * Triggered by pg_cron every hour on days 1–25 of December (UTC):
+ *   0 * 1-25 12 *
+ * Day 25 is needed because 5 pm on Dec 24 in the Americas is already Dec 25
+ * in UTC. The advent day is always computed in each user's own timezone.
  *
  * Required secrets (set via `supabase secrets set`):
  *   VAPID_SUBJECT     – e.g. "mailto:admin@whiskey-advent.com"
@@ -28,17 +30,29 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const TARGET_HOUR = 17; // 5:00 pm
 
+/** Month, day and hour of `instant` as seen in `timeZone`. */
+function localParts(instant: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(instant);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return { month: get("month"), day: get("day"), hour: get("hour") };
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "GET" && req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  // Figure out today's day number (1-based) in December
-  const now   = new Date();
-  const month = now.getUTCMonth() + 1; // 1-based
-  const day   = now.getUTCDate();
-
-  if (month !== 12 || day < 1 || day > 24) {
+  // Coarse UTC guard only. Real offsets run UTC−12…UTC+14, so 5 pm on any
+  // local Dec 1–24 falls between Dec 1 and Dec 25 in UTC. The actual advent
+  // day is decided per user, in their own timezone, below.
+  const now = new Date();
+  if (now.getUTCMonth() + 1 !== 12 || now.getUTCDate() > 25) {
     return new Response(
       JSON.stringify({ skipped: true, reason: "Outside advent window" }),
       { headers: { "Content-Type": "application/json" } }
@@ -59,43 +73,40 @@ Deno.serve(async (req) => {
     });
   }
 
-  // Filter to users for whom it is currently 5pm in their local timezone
-  const targetSubs = (subs ?? []).filter((sub) => {
-    const tz = (sub.profiles as any)?.timezone;
-    if (!tz) return false; // skip users who haven't logged in since the migration
+  // Keep users for whom it is 5 pm right now on a local Dec 1–24, tagging
+  // each with their own local advent day.
+  const targets = (subs ?? []).flatMap((sub) => {
+    const tz = (sub.profiles as { timezone?: string | null } | null)?.timezone;
+    if (!tz) return []; // timezone is recorded on the user's next app load
 
     try {
-      const localHour = new Date(
-        now.toLocaleString("en-US", { timeZone: tz })
-      ).getHours();
-      return localHour === TARGET_HOUR;
+      const local = localParts(now, tz);
+      const inAdvent = local.month === 12 && local.day >= 1 && local.day <= 24;
+      return inAdvent && local.hour === TARGET_HOUR ? [{ sub, day: local.day }] : [];
     } catch {
-      // Invalid timezone string — skip rather than crash
-      return false;
+      return []; // invalid timezone string — skip rather than crash
     }
   });
 
-  if (targetSubs.length === 0) {
+  if (targets.length === 0) {
     return new Response(
       JSON.stringify({ skipped: true, reason: "No users at 5pm right now", checked: (subs ?? []).length }),
       { headers: { "Content-Type": "application/json" } }
     );
   }
 
-  const payload = JSON.stringify({
-    title: `Day ${day} 🥃`,
-    body:  "Your advent whiskey is waiting — open the door!",
-    url:   "/",
-  });
-
   const results = await Promise.allSettled(
-    targetSubs.map((sub) =>
+    targets.map(({ sub, day }) =>
       webpush.sendNotification(
         {
           endpoint: sub.endpoint,
           keys:     sub.keys as { p256dh: string; auth: string },
         },
-        payload
+        JSON.stringify({
+          title: `Day ${day} 🥃`,
+          body:  "Your advent whiskey is waiting — open the door!",
+          url:   "/",
+        })
       )
     )
   );
@@ -103,8 +114,8 @@ Deno.serve(async (req) => {
   const sent   = results.filter((r) => r.status === "fulfilled").length;
   const failed = results.filter((r) => r.status === "rejected").length;
 
-  console.log(`Day ${day}: sent=${sent}, failed=${failed}, total_checked=${(subs ?? []).length}`);
-  return new Response(JSON.stringify({ sent, failed, day }), {
+  console.log(`sent=${sent}, failed=${failed}, total_checked=${(subs ?? []).length}`);
+  return new Response(JSON.stringify({ sent, failed }), {
     headers: { "Content-Type": "application/json" },
   });
 });
