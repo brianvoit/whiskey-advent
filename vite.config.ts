@@ -7,7 +7,7 @@ export default defineConfig({
   define: {
     // VAPID public key — safe to expose in client code
     __VAPID_PUBLIC_KEY__: JSON.stringify(
-      'BC-9Fij5dYlcVrafoT2eAEOn2Ur_8-TspvDVs1i6-XMxB4MasK_G9pzLlipt0_aXNF1_2NWuTAEGT1e-y2difDE'
+      'BHEwrIWikoX-aSKcZ5H0md0QcJUauIgJ_gu0kCQ36sY-QKLDViAcqsp4KpJrMWz5oj6_lRM6U0UHdwq01BjKWos'
     ),
   },
   plugins: [
