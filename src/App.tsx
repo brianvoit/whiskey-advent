@@ -181,9 +181,17 @@ function App() {
 
     // Silently sync the browser's IANA timezone to the profile.
     // Runs on every load but only writes when the value has changed.
+    // Query builders are lazy — `.then()` is what actually sends the request,
+    // so don't replace it with `void`.
     const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (detectedTz && (profile as any).timezone !== detectedTz) {
-      void supabase.from("profiles").update({ timezone: detectedTz }).eq("id", userId);
+      supabase
+        .from("profiles")
+        .update({ timezone: detectedTz })
+        .eq("id", userId)
+        .then(({ error }) => {
+          if (error) console.error("Timezone sync failed", error);
+        });
       (profile as any).timezone = detectedTz;
     }
 
