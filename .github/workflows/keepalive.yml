@@ -1,0 +1,50 @@
+# Keeps the Supabase project from pausing.
+#
+# Free-plan Supabase projects pause after 7 days of low database activity, and
+# a paused project takes the whole app down. This calls public.keepalive() — a
+# function that returns the current time and reads no tables — once a day.
+#
+# A failed run means the project is unreachable (possibly already paused).
+# GitHub emails a failure notice for scheduled runs; if you get one, resume the
+# project at https://supabase.com/dashboard/project/feulpszzaegvhzcgvhno
+#
+# Needs two repository secrets: SUPABASE_URL and SUPABASE_ANON_KEY.
+# Note: GitHub disables schedules in public repos after 60 days without a
+# commit, so this stops on its own some time after the season ends.
+
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: "17 14 * * *" # daily at 14:17 UTC; off the hour, when GitHub's queue is busiest
+  workflow_dispatch: # allows a manual run from the Actions tab
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query the database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL and SUPABASE_ANON_KEY repository secrets must be set"
+            exit 1
+          fi
+          code=$(curl -sS --retry 3 --retry-delay 15 --retry-all-errors \
+            -o response.txt -w '%{http_code}' \
+            -X POST "$SUPABASE_URL/rest/v1/rpc/keepalive" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "HTTP $code: $(cat response.txt)"
+          if [ "$code" != "200" ]; then
+            echo "::error::Supabase keepalive failed (HTTP $code). The project may be paused."
+            exit 1
+          fi
