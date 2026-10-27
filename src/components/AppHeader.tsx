@@ -38,7 +38,9 @@ function AppHeader({ currentYear, streak = 0, onYearClick, unreadNotifications =
         justifyContent: "space-between",
         alignItems: "center",
         padding: "12px 16px",
-        paddingTop: "max(12px, calc(env(safe-area-inset-top) * 0.75 + 8px))",
+        // Clear the full status-bar area. Content placed partly inside it (the
+        // old 0.75× inset) gets blurred by iOS's status-bar treatment.
+        paddingTop: "calc(env(safe-area-inset-top) + 12px)",
         background: "var(--mui-palette-background-paper)",
         borderBottom: "1px solid var(--mui-palette-divider)",
       }}

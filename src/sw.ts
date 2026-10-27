@@ -7,6 +7,13 @@ declare const self: ServiceWorkerGlobalScope;
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
+// The "Update" button (PWAUpdatePrompt → updateServiceWorker) posts
+// SKIP_WAITING to the waiting worker. With injectManifest the worker must
+// handle it itself; without this, updates waited until every window closed.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") void self.skipWaiting();
+});
+
 // ── Push notifications ────────────────────────────────────────────────────────
 
 self.addEventListener("push", (event) => {
