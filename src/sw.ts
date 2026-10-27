@@ -10,7 +10,7 @@ precacheAndRoute(self.__WB_MANIFEST);
 // ── Push notifications ────────────────────────────────────────────────────────
 
 self.addEventListener("push", (event) => {
-  let payload: { title?: string; body?: string; url?: string } = {};
+  let payload: { title?: string; body?: string; url?: string; tag?: string } = {};
   try {
     payload = event.data?.json() ?? {};
   } catch {
@@ -18,11 +18,18 @@ self.addEventListener("push", (event) => {
   }
 
   const title = payload.title ?? "Whiskey Advent";
-  const options: NotificationOptions = {
+  // `renotify` isn't in TypeScript's lib types yet, but Chrome supports it.
+  const options: NotificationOptions & { renotify?: boolean } = {
     body: payload.body ?? "Time to taste today's whiskey! 🥃",
     icon: "/pwa-192x192.png",
-    badge: "/pwa-64x64.png",
-    tag: "daily-reminder",       // replaces any existing notification with same tag
+    // Android draws the status-bar badge from the alpha channel only, so this
+    // must be a white silhouette on transparency, not the full-colour icon.
+    badge: "/badge-96x96.png",
+    // Each sender supplies its own tag (e.g. one per advent day) so pushes no
+    // longer overwrite each other. Replacing a notification with the same tag
+    // is silent unless renotify is set, so set it.
+    tag: payload.tag ?? "whiskey-advent",
+    renotify: true,
     data: { url: payload.url ?? "/" },
   };
 
@@ -31,21 +38,18 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url: string = event.notification.data?.url ?? "/";
+  const url = new URL(event.notification.data?.url ?? "/", self.location.origin).href;
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then((clientList) => {
-        // Focus an existing tab if one is open
-        for (const client of clientList) {
-          if (client.url === url && "focus" in client) {
-            return client.focus();
-          }
-        }
-        // Otherwise open a new tab
-        if (self.clients.openWindow) {
-          return self.clients.openWindow(url);
-        }
+        // Focus the app if it's already open. Not navigating it, so an
+        // in-progress rating isn't thrown away.
+        const existing = clientList.find(
+          (client) => new URL(client.url).origin === self.location.origin
+        );
+        if (existing) return existing.focus();
+        return self.clients.openWindow(url);
       })
   );
 });

@@ -28,6 +28,9 @@ webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 // Service-role client for writes/reads that bypass RLS
 const adminSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Without a TTL, web-push defaults to 4 weeks. An award is stale after a day.
+const PUSH_OPTIONS = { TTL: 24 * 60 * 60, urgency: "normal" as const };
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -115,12 +118,19 @@ Deno.serve(async (req) => {
 
   let pushed = 0;
   if (subs && subs.length > 0) {
-    const payload = JSON.stringify({ title, body: notifBody, url: "/" });
+    // Own tag per award and day, so it doesn't replace a daily reminder.
+    const payload = JSON.stringify({
+      title,
+      body: notifBody,
+      url: "/",
+      tag: `award-${type}-${whiskey_day_id ?? "season"}`,
+    });
     const results = await Promise.allSettled(
       subs.map((sub: any) =>
         webpush.sendNotification(
           { endpoint: sub.endpoint, keys: sub.keys as { p256dh: string; auth: string } },
-          payload
+          payload,
+          PUSH_OPTIONS
         )
       )
     );

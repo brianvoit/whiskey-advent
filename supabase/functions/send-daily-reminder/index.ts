@@ -30,6 +30,12 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const TARGET_HOUR = 17; // 5:00 pm
 
+// Push delivery options. Without a TTL, web-push defaults to 4 weeks, so a
+// phone that was offline could receive "Day 3" days later. A reminder sent at
+// 5 pm is only useful that evening. High urgency stops Android's battery
+// saving (Doze) from holding it until its next maintenance window.
+const PUSH_OPTIONS = { TTL: 6 * 60 * 60, urgency: "high" as const };
+
 /** Month, day and hour of `instant` as seen in `timeZone`. */
 function localParts(instant: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -106,7 +112,9 @@ Deno.serve(async (req) => {
           title: `Day ${day} 🥃`,
           body:  "Your advent whiskey is waiting — open the door!",
           url:   "/",
-        })
+          tag:   `daily-reminder-${day}`,
+        }),
+        PUSH_OPTIONS
       )
     )
   );

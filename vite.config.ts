@@ -23,7 +23,9 @@ export default defineConfig({
         short_name: 'Whiskey Advent',
         description: 'Track your whiskey advent calendar tastings',
         theme_color: '#7c2d12',
-        background_color: '#0f172a',
+        // Android builds its launch splash from this. Match the light theme's
+        // background (theme.tsx) so it doesn't flash navy before the app paints.
+        background_color: '#F9F5EF',
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
