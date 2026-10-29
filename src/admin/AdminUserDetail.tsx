@@ -13,6 +13,7 @@ import {
   Divider,
   FormControlLabel,
   IconButton,
+  MenuItem,
   Paper,
   Stack,
   Switch,
@@ -35,6 +36,7 @@ import { ModeCard } from "../components/ModeCard";
 import UserAvatar from "../components/UserAvatar";
 import {
   getFullProfileById,
+  getAllProfiles,
   getAllSeasons,
   getWhiskeyDaysForSeason,
   approveUser,
@@ -49,6 +51,8 @@ import {
   updateUserRevealPreferences,
   updateUserNotifications,
   updateUserCommentNotifications,
+  mergeLegacyProfile,
+  type AdminProfile,
   type FullAdminProfile,
   type Season,
 } from "../api/admin";
@@ -67,7 +71,8 @@ type ConfirmAction =
   | { kind: "unblock" }
   | { kind: "revoke" }
   | { kind: "reactivate" }
-  | { kind: "role"; newRole: "user" | "admin" };
+  | { kind: "role"; newRole: "user" | "admin" }
+  | { kind: "link"; legacyId: string; legacyName: string };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending", active: "Active", previous: "Previous",
@@ -116,14 +121,18 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
   const [savingName,      setSavingName]      = useState(false);
   const [resettingOnboarding, setResettingOnboarding] = useState(false);
   const [forcingLogout,       setForcingLogout]       = useState(false);
+  // Imported profiles from past seasons, for linking a returning taster.
+  const [legacyProfiles,      setLegacyProfiles]      = useState<AdminProfile[]>([]);
+  const [linkLegacyId,        setLinkLegacyId]        = useState("");
 
   useEffect(() => {
     if (!userId) return;
     setLoading(true);
-    Promise.all([getFullProfileById(userId), getAllSeasons()])
-      .then(async ([p, s]) => {
+    Promise.all([getFullProfileById(userId), getAllSeasons(), getAllProfiles()])
+      .then(async ([p, s, all]) => {
         setProfile(p);
         setSeasons(s);
+        setLegacyProfiles(all.filter((x) => x.is_legacy));
         // Load whiskey day counts per season
         const counts = await Promise.all(
           s.map(async (season) => ({
@@ -139,7 +148,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
       .finally(() => setLoading(false));
   }, [userId]);
 
-  const displayName = (p: FullAdminProfile) =>
+  const displayName = (p: Pick<AdminProfile, "first_name" | "last_name">) =>
     p.first_name || p.last_name
       ? `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()
       : "Unnamed user";
@@ -150,6 +159,16 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
     setError(null);
     let newSeasonIds: number[] | null = null;
     try {
+      if (confirm.kind === "link") {
+        // The server approves the account, moves the history and grants the
+        // seasons, so reload rather than patching local state.
+        await mergeLegacyProfile(confirm.legacyId, userId);
+        setProfile(await getFullProfileById(userId));
+        setLegacyProfiles((prev) => prev.filter((p) => p.id !== confirm.legacyId));
+        setLinkLegacyId("");
+        setConfirm(null);
+        return;
+      }
       if (confirm.kind === "approve" || confirm.kind === "reactivate") {
         await approveUser(userId);
         // Auto-grant access to the current (most recent) season if not already present.
@@ -299,6 +318,7 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
     if (confirm?.kind === "reactivate") return `${name} will regain full access${currentSeasonYear ? ` and be added to the ${currentSeasonYear} season if not already` : ""}.`;
     if (confirm?.kind === "role" && confirm.newRole === "admin") return `${name} will gain full admin access.`;
     if (confirm?.kind === "role" && confirm.newRole === "user")  return `${name} will lose admin access.`;
+    if (confirm?.kind === "link") return `${confirm.legacyName}'s past ratings, comments and reactions will move to this account, and the old profile will be deleted. ${name} will be approved and given the seasons ${confirm.legacyName} took part in${currentSeasonYear ? `, plus ${currentSeasonYear}` : ""}. This can't be undone.`;
     return "";
   };
 
@@ -639,6 +659,41 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
                 </Button>
               </Box>
             </>
+          )}
+
+          {(status === "pending" || status === "active") && !profile.is_legacy && !isSelf && legacyProfiles.length > 0 && (
+            <Box>
+              <Typography variant="body2" fontWeight={500}>Link a past profile</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.78rem", mb: 1.5 }}>
+                Returning taster? Move their ratings and comments from past seasons onto this account. Also approves them.
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  select
+                  size="small"
+                  label="Past profile"
+                  value={linkLegacyId}
+                  onChange={(e) => setLinkLegacyId(e.target.value)}
+                  sx={{ flex: 1 }}
+                >
+                  {legacyProfiles.map((p) => (
+                    <MenuItem key={p.id} value={p.id}>{displayName(p)}</MenuItem>
+                  ))}
+                </TextField>
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={!linkLegacyId}
+                  onClick={() => {
+                    const legacy = legacyProfiles.find((p) => p.id === linkLegacyId);
+                    if (legacy) setConfirm({ kind: "link", legacyId: legacy.id, legacyName: displayName(legacy) });
+                  }}
+                  sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }}
+                >
+                  Link
+                </Button>
+              </Stack>
+            </Box>
           )}
 
           {status === "active" && (

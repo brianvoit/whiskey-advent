@@ -14,6 +14,7 @@ import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import StarBorderRoundedIcon from "@mui/icons-material/StarBorderRounded";
 import { loadSearchIndex, type SearchEntry } from "../api/search";
 import { FLAVOR_GROUPS, FLAVOR_TAGS } from "./FlavorTagPicker";
+import { useBackToClose } from "../hooks/useBackToClose";
 
 const VALID_TAGS = new Set<string>(FLAVOR_TAGS);
 
@@ -245,6 +246,9 @@ export default function SearchDrawer({
       setFlavorOpen(false);
     }, 300);
   };
+
+  // Android back gesture closes search instead of leaving the page.
+  useBackToClose(open, handleClose);
 
   const content = (
     <SearchContent
@@ -769,7 +773,8 @@ function SearchContent({
                     type="button"
                     className="search-result-btn"
                     onClick={() => {
-                      navigate(`/whiskey/${entry.season_year}/${entry.day_number}`);
+                      // replace: take over the drawer's Back entry (see useBackToClose)
+                      navigate(`/whiskey/${entry.season_year}/${entry.day_number}`, { replace: true });
                       onClose();
                     }}
                     style={{

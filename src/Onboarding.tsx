@@ -38,6 +38,8 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [notifError, setNotifError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,17 +51,28 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
   const handleToggleNotifications = async (checked: boolean) => {
     if (!checked) { setNotificationsOptIn(false); return; }
     if (notifPermission === "unsupported" || notifPermission === "denied") return;
-    if (notifPermission === "default") {
-      const result = await Notification.requestPermission();
-      setNotifPermission(result);
-      if (result !== "granted") return;
-    }
+    setNotifError(null);
+    setNotifBusy(true);
     try {
-      await subscribeToPush(profile.id);
-    } catch (e) {
-      console.warn("Push subscription failed, opting in anyway:", e);
+      if (notifPermission === "default") {
+        const result = await Notification.requestPermission();
+        setNotifPermission(result);
+        if (result !== "granted") return;
+      }
+      // Only opt in once this device is actually registered, or the user is
+      // told reminders are on when none will ever arrive.
+      const subscription = await subscribeToPush(profile.id).catch((e: unknown) => {
+        console.error("Push subscription failed", e);
+        return null;
+      });
+      if (!subscription) {
+        setNotifError("Couldn't turn on reminders on this device. Try again, or turn them on later from your profile.");
+        return;
+      }
+      setNotificationsOptIn(true);
+    } finally {
+      setNotifBusy(false);
     }
-    setNotificationsOptIn(true);
   };
 
   const handleFinish = async () => {
@@ -280,6 +293,7 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
                     control={
                       <Switch
                         checked={notificationsOptIn}
+                        disabled={notifBusy}
                         onChange={(e) => handleToggleNotifications(e.target.checked)}
                         color="primary"
                       />
@@ -292,6 +306,11 @@ function Onboarding({ open, profile, onComplete }: OnboardingProps) {
                       </Typography>
                     }
                   />
+                )}
+                {notifError && (
+                  <Alert severity="error" sx={{ mt: 1 }}>
+                    {notifError}
+                  </Alert>
                 )}
               </Box>
 

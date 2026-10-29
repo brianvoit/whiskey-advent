@@ -183,6 +183,8 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification !== "undefined" ? Notification.permission : "unsupported"
   );
+  const [notifBusy, setNotifBusy] = useState(false);
+  const [notifError, setNotifError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [passwordResetSent, setPasswordResetSent] = useState(false);
@@ -247,30 +249,44 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
   };
 
   const handleNotificationToggle = async (enabled: boolean) => {
+    setNotifError(null);
     if (!enabled) {
       setNotificationsEnabled(false);
       void saveProfile({ notifications_opt_in: false });
-      await unsubscribeFromPush(userId);
+      try {
+        await unsubscribeFromPush(userId);
+      } catch (e) {
+        // Opt-out is already saved; the reminder skips opted-out users.
+        console.warn("Push unsubscribe failed", e);
+      }
       return;
     }
     if (notifPermission === "unsupported") return;
     if (notifPermission === "denied") {
-      setError("Notifications are blocked in your browser. Enable them in your browser settings and try again.");
+      setNotifError("Notifications are blocked in your browser. Enable them in your browser settings and try again.");
       return;
     }
-    if (notifPermission === "default") {
-      const result = await Notification.requestPermission();
-      setNotifPermission(result);
-      if (result !== "granted") return;
-    }
-    // Optimistically enable and persist immediately
-    setNotificationsEnabled(true);
-    void saveProfile({ notifications_opt_in: true });
+    setNotifBusy(true);
     try {
-      await subscribeToPush(userId);
-    } catch {
-      // Push subscription failed (e.g. dev environment, unsupported browser).
-      // Preference is already saved above.
+      if (notifPermission === "default") {
+        const result = await Notification.requestPermission();
+        setNotifPermission(result);
+        if (result !== "granted") return;
+      }
+      // Only turn reminders on once this device is actually registered, or
+      // the switch can say "on" while no reminder will ever arrive.
+      const subscription = await subscribeToPush(userId).catch((e: unknown) => {
+        console.error("Push subscription failed", e);
+        return null;
+      });
+      if (!subscription) {
+        setNotifError("Couldn't turn on reminders on this device. Please try again.");
+        return;
+      }
+      setNotificationsEnabled(true);
+      void saveProfile({ notifications_opt_in: true });
+    } finally {
+      setNotifBusy(false);
     }
   };
 
@@ -534,6 +550,7 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
               <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Switch
                   checked={notificationsEnabled}
+                  disabled={notifBusy}
                   onChange={(e) => handleNotificationToggle(e.target.checked)}
                   size="small"
                 />
@@ -541,6 +558,11 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
                   Daily Tasting Reminder in December
                 </Typography>
               </Stack>
+              {notifError && (
+                <Typography variant="body2" color="error.main">
+                  {notifError}
+                </Typography>
+              )}
               <Stack direction="row" alignItems="center" spacing={1.5}>
                 <Switch
                   checked={commentNotificationsEnabled}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useBackToClose } from "../hooks/useBackToClose";
 import {
   Box,
   Drawer,
@@ -96,6 +97,9 @@ export default function NotificationsDrawer({ open, onClose, onAllRead, userId }
   const [loading,       setLoading]        = useState(false);
   const [markingAll,    setMarkingAll]     = useState(false);
 
+  // Android back gesture closes the panel instead of leaving the page.
+  useBackToClose(open, onClose);
+
   useEffect(() => {
     if (!open) return;
     setLoading(true);
@@ -114,12 +118,14 @@ export default function NotificationsDrawer({ open, onClose, onAllRead, userId }
       );
     }
 
+    // Resolve before closing so the new page can replace the panel's Back
+    // entry (see useBackToClose). Closing first would step back in history
+    // while the lookup is still running.
+    const target = n.whiskey_day_id
+      ? await resolveNotificationTarget(n.whiskey_day_id, userId)
+      : null;
+    if (target) navigate(target, { replace: true });
     onClose();
-
-    if (n.whiskey_day_id) {
-      const target = await resolveNotificationTarget(n.whiskey_day_id, userId);
-      if (target) navigate(target);
-    }
   };
 
   const handleMarkAllRead = async () => {

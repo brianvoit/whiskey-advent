@@ -10,6 +10,7 @@ import {
 } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabaseClient";
+import { subscribeToPush } from "./api/pushSubscriptions";
 import Home from "./Home";
 import DayDetail from "./DayDetail";
 import WhiskeyDetail from "./WhiskeyDetail";
@@ -193,6 +194,20 @@ function App() {
           if (error) console.error("Timezone sync failed", error);
         });
       (profile as any).timezone = detectedTz;
+    }
+
+    // Keep this device registered for reminders. Covers turning them on from
+    // another phone, and subscriptions the browser has since rotated.
+    // subscribeToPush returns the existing subscription and upserts it, so
+    // this is a single small write when nothing has changed.
+    if (
+      profile.notifications_opt_in &&
+      typeof Notification !== "undefined" &&
+      Notification.permission === "granted"
+    ) {
+      subscribeToPush(userId).catch((e: unknown) =>
+        console.error("Push re-register failed", e)
+      );
     }
 
     // Force logout: admin has flagged this account. Clear the flag then sign out.
