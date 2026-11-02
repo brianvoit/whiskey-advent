@@ -20,6 +20,7 @@ import ProfileScreen from "./ProfileScreen";
 import Onboarding from "./Onboarding";
 import AwaitingApproval from "./AwaitingApproval";
 import HomePage from "./HomePage";
+import LoginPage from "./LoginPage";
 import AdminScreen from "./AdminScreen";
 import AdminUserDetail from "./admin/AdminUserDetail";
 import Tasters from "./Tasters";
@@ -307,140 +308,16 @@ function App() {
 
   if (!session) {
     return (
-      <div
-        style={{
-          maxWidth: 420,
-          margin: "0 auto",
-          padding: "40px 16px",
-          textAlign: "center",
-          minHeight: "100vh",
-          boxSizing: "border-box",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          backgroundColor: theme.palette.background.default,
-          color: theme.palette.text.primary,
-        }}
-      >
-        <div style={{ fontSize: "2.8rem", marginBottom: 12, lineHeight: 1 }}>🥃</div>
-        <h1 style={{ marginBottom: 8, fontSize: "1.8rem" }}>Whiskey Advent</h1>
-        <p style={{ marginBottom: 8, lineHeight: 1.6, color: theme.palette.text.primary }}>
-          A private advent calendar for serious (and not-so-serious) whiskey tasters.
-          Rate each day&apos;s pour, track your flavor notes, and compare with the group.
-        </p>
-        <p style={{
-          marginBottom: 28,
-          fontSize: "0.82rem",
-          color: theme.palette.text.secondary,
-          fontStyle: "italic",
-        }}>
-          Access is by invitation — sign in below or ask an admin to add you.
-        </p>
-
-        <button
-          onClick={handleGoogleSignIn}
-          style={{
-            display: "block",
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: `1px solid ${theme.palette.divider}`,
-            marginBottom: 16,
-            cursor: "pointer",
-            backgroundColor: theme.palette.background.paper,
-            color: theme.palette.text.primary,
-          }}
-        >
-          Continue with Google
-        </button>
-
-        <div
-          style={{
-            margin: "16px 0",
-            fontSize: "0.8rem",
-            color: theme.palette.text.secondary,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-          }}
-        >
-          or sign in with email address
-        </div>
-
-        <form onSubmit={handleEmailPasswordSignIn}>
-          <input
-            type="email"
-            placeholder="email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              marginBottom: 8,
-              borderRadius: 6,
-              border: `1px solid ${theme.palette.divider}`,
-              backgroundColor: theme.palette.background.paper,
-              color: theme.palette.text.primary,
-            }}
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              marginBottom: 12,
-              borderRadius: 6,
-              border: `1px solid ${theme.palette.divider}`,
-              backgroundColor: theme.palette.background.paper,
-              color: theme.palette.text.primary,
-            }}
-          />
-          <button
-            type="submit"
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "none",
-              cursor: "pointer",
-              backgroundColor: theme.palette.primary.main,
-              color: theme.palette.primary.contrastText,
-            }}
-          >
-            Continue with Email
-          </button>
-        </form>
-
-        {authError && (
-          <div
-            style={{
-              marginTop: 12,
-              color: theme.palette.error.main,
-              fontSize: "0.85rem",
-            }}
-          >
-            {authError}
-          </div>
-        )}
-
-        {/* Static pages in public/. Google's OAuth verification requires the
-            privacy policy to be reachable from the sign-in screen. */}
-        <div style={{ marginTop: 32, fontSize: "0.8rem", color: theme.palette.text.secondary }}>
-          <a
-            href="/"
-            onClick={(e) => { e.preventDefault(); goToSignedOutPath("/"); }}
-            style={{ color: "inherit" }}
-          >
-            Home
-          </a>
-          {" · "}
-          <a href="/privacy" style={{ color: "inherit" }}>Privacy</a>
-          {" · "}
-          <a href="/terms" style={{ color: "inherit" }}>Terms</a>
-        </div>
-      </div>
+      <LoginPage
+        email={email}
+        password={password}
+        error={authError}
+        onEmailChange={setEmail}
+        onPasswordChange={setPassword}
+        onGoogleSignIn={handleGoogleSignIn}
+        onEmailSignIn={handleEmailPasswordSignIn}
+        onHome={() => goToSignedOutPath("/")}
+      />
     );
   }
 

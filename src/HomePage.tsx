@@ -1,4 +1,5 @@
-import { useEffect, type MouseEvent } from "react";
+import { useState, type MouseEvent } from "react";
+import { useBodyBackground } from "./hooks/useBodyBackground";
 import "./HomePage.css";
 
 type HomePageProps = {
@@ -12,17 +13,16 @@ const STREAK_MILESTONES = [3, 5, 10, 15, 20, 24];
 const DAYS = Array.from({ length: 24 }, (_, i) => i + 1);
 
 /**
- * Which hero-calendar door is today's, from the visitor's local date in the
- * current year: 0 outside December (all doors closed, door 1 is next), 1–24
- * during the season, 25 from Christmas Day on (every door open).
+ * Which hero-calendar door is today's. Outside December it's an example day
+ * (random per visit); in December it's the visitor's real day of the month,
+ * and 25 from Christmas Day on (every door open, none lit).
  */
-function getTodayDoor(now: Date): number {
-  if (now.getMonth() !== 11) return 0;
+function getTodayDoor(now: Date, exampleDay: number): number {
+  if (now.getMonth() !== 11) return exampleDay;
   return Math.min(now.getDate(), 25);
 }
 
 function doorClass(n: number, todayDoor: number): string {
-  if (todayDoor === 0) return n === 1 ? "hp-door hp-door-next" : "hp-door";
   if (n === todayDoor) return "hp-door hp-door-today";
   if (n < todayDoor) return "hp-door hp-door-past";
   return "hp-door";
@@ -43,16 +43,10 @@ function GlassIcon({ size = 28, color = "currentColor", strokeWidth = 1.6 }: { s
  * reachable without signing in and keep its Privacy Policy link.
  */
 export default function HomePage({ onLogin }: HomePageProps) {
-  // Match the page behind iOS overscroll and the notch to the homepage.
-  useEffect(() => {
-    const previous = document.body.style.backgroundColor;
-    document.body.style.backgroundColor = "#120C08";
-    return () => {
-      document.body.style.backgroundColor = previous;
-    };
-  }, []);
+  useBodyBackground("#120C08");
 
-  const todayDoor = getTodayDoor(new Date());
+  const [exampleDay] = useState(() => 1 + Math.floor(Math.random() * 24));
+  const todayDoor = getTodayDoor(new Date(), exampleDay);
 
   const handleLogin = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
