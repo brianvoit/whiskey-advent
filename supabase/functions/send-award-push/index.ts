@@ -1,12 +1,22 @@
 /**
  * send-award-push
  *
- * Called from the client after saving a tasting when a competitive award
- * (First Taster, Slow Poke) has been earned.
+ * Called from the client after a user's first rating of a day, to claim
+ * First Taster for that day.
+ *
+ * The client only says which day. This function decides whether the caller
+ * actually has the earliest rating, from tastings.rated_at (set by a database
+ * trigger), so two saves landing at the same moment can't both win or both
+ * miss.
+ *
+ * Late Sipper isn't claimed here: award-late-sipper decides it each morning,
+ * once the day's door has closed. Claims for it (or the old Slow Poke, from
+ * phones still on the previous app version) are skipped.
  *
  * 1. Validates the caller's JWT.
- * 2. Deduplicates: skips if a notification with the same (user_id, type, whiskey_day_id) exists.
- * 3. Inserts an in-app notification row.
+ * 2. Checks the caller earned the award.
+ * 3. Inserts the in-app notification. A unique index allows one of each award
+ *    per day, so a duplicate claim fails there and is reported as skipped.
  * 4. Fires a push notification if the user is opted in.
  *
  * Required secrets (shared with send-daily-reminder):
@@ -46,6 +56,14 @@ const respond = (body: string, status = 200, contentType = "text/plain") =>
 const json = (body: unknown, status = 200) =>
   respond(JSON.stringify(body), status, "application/json");
 
+const TYPE = "award_first_taster";
+const TITLE = "🥇 First Taster!";
+
+// Decided by the morning award-late-sipper job instead.
+const NIGHTLY_TYPES = new Set(["award_late_sipper", "award_slow_poke"]);
+
+const skipped = (reason: string) => json({ skipped: true, reason });
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return respond("ok");
@@ -69,55 +87,69 @@ Deno.serve(async (req) => {
   }
 
   // ── Parse body ─────────────────────────────────────────────────────────────
-  let body: {
-    user_id: string;
-    type: string;
-    title: string;
-    body: string;
-    whiskey_day_id?: number | null;
-    whiskey_name?: string | null;
-  };
-
+  // Only `type` and `whiskey_day_id` are used; the text is built here, not
+  // taken from the client.
+  let body: { type?: string; whiskey_day_id?: number | null };
   try {
     body = await req.json();
   } catch {
     return respond("Bad request", 400);
   }
 
-  const { user_id, type, title, body: notifBody, whiskey_day_id, whiskey_name } = body;
-
-  // Caller must match the target user (prevent spoofing)
-  if (user.id !== user_id) {
-    return respond("Forbidden", 403);
+  if (NIGHTLY_TYPES.has(body.type ?? "")) return skipped("decided each morning");
+  const whiskeyDayId = body.whiskey_day_id;
+  if (body.type !== TYPE || whiskeyDayId == null) {
+    return respond("Bad request", 400);
   }
 
-  // ── Dedup: skip if this award was already given for this day ───────────────
-  const dupQuery = adminSupabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user_id)
-    .eq("type", type);
-
-  if (whiskey_day_id != null) {
-    dupQuery.eq("whiskey_day_id", whiskey_day_id);
+  // ── Did the caller earn it? ────────────────────────────────────────────────
+  const { data: day, error: dayError } = await adminSupabase
+    .from("whiskey_days")
+    .select("id, season_id, day_number, name")
+    .eq("id", whiskeyDayId)
+    .single();
+  if (dayError || !day) {
+    return respond("Unknown day", 400);
   }
 
-  const { count: existing } = await dupQuery;
-  if ((existing ?? 0) > 0) {
-    return json({ skipped: true, reason: "duplicate" });
+  const [firstRes, membersRes] = await Promise.all([
+    adminSupabase
+      .from("tastings")
+      .select("user_id")
+      .eq("whiskey_day_id", whiskeyDayId)
+      .not("rating", "is", null)
+      .order("rated_at", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(1),
+    adminSupabase
+      .from("user_season_access")
+      .select("user_id", { count: "exact", head: true })
+      .eq("season_id", day.season_id),
+  ]);
+  if (firstRes.error) {
+    return json({ error: firstRes.error.message }, 500);
   }
 
-  // ── Insert in-app notification ─────────────────────────────────────────────
+  // Only meaningful in a group (at least 2 members)
+  if ((membersRes.count ?? 0) < 2) return skipped("not a group");
+  if (firstRes.data?.[0]?.user_id !== user.id) return skipped("not first");
+
+  // ── Insert in-app notification (one First Taster per day) ─────────────────
+  const whiskeyName = day.name ?? `Day ${day.day_number}`;
+  const notifBody = `You were the first to try Day ${day.day_number}: ${whiskeyName}`;
+
   const { error: notifError } = await adminSupabase.from("notifications").insert({
-    user_id,
-    type,
+    user_id: user.id,
+    type: TYPE,
     body: notifBody,
-    whiskey_day_id: whiskey_day_id ?? null,
-    whiskey_name: whiskey_name ?? null,
+    whiskey_day_id: whiskeyDayId,
+    whiskey_name: whiskeyName,
     read: false,
   });
 
   if (notifError) {
+    // 23505: notifications_one_award_per_day — already awarded for this day.
+    if (notifError.code === "23505") return skipped("duplicate");
     console.error("Failed to insert notification:", notifError);
     return json({ error: notifError.message }, 500);
   }
@@ -126,20 +158,20 @@ Deno.serve(async (req) => {
   const { data: subs } = await adminSupabase
     .from("push_subscriptions")
     .select("endpoint, keys, profiles!inner(notifications_opt_in)")
-    .eq("user_id", user_id)
+    .eq("user_id", user.id)
     .eq("profiles.notifications_opt_in", true);
 
   let pushed = 0;
   if (subs && subs.length > 0) {
     // Own tag per award and day, so it doesn't replace a daily reminder.
     const payload = JSON.stringify({
-      title,
+      title: TITLE,
       body: notifBody,
       url: "/",
-      tag: `award-${type}-${whiskey_day_id ?? "season"}`,
+      tag: `${TYPE}-${whiskeyDayId}`,
     });
     const results = await Promise.allSettled(
-      subs.map((sub: any) =>
+      subs.map((sub) =>
         webpush.sendNotification(
           { endpoint: sub.endpoint, keys: sub.keys as { p256dh: string; auth: string } },
           payload,

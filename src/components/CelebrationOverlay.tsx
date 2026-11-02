@@ -6,6 +6,7 @@ import Typography from "@mui/material/Typography";
 export type CelebrationType =
   | "streak_3" | "streak_5" | "streak_10" | "streak_15" | "streak_20" | "streak_24"
   | "perfect_score"
+  | "double_pour"
   | "season_end";
 
 type Config = {
@@ -23,6 +24,7 @@ const CONFIGS: Record<CelebrationType, Config> = {
   streak_20:     { icon: "🔥", title: "20 Day Streak!",   subtitle: "Almost there...",           duration: 4000 },
   streak_24:     { icon: "🥃", title: "All 24 Days!",     subtitle: "You completed the advent!", duration: 4000 },
   perfect_score: { icon: "⭐", title: "Perfect Score!",   subtitle: "5 out of 5",               duration: 3000 },
+  double_pour:   { icon: "🥃", title: "Double Pour!",     subtitle: "Catching up in style",      duration: 3000 },
   season_end:    { icon: "🥃", title: "Season Complete!", subtitle: "Cheers to everyone",        duration: 7000 },
 };
 
@@ -96,6 +98,14 @@ function fireEffect(type: CelebrationType) {
       confetti({ particleCount: 80, shapes: ["star"],
         colors: ["#FFD700", "#FFA500", "#FFB347", "#FFFACD"],
         spread: 70, origin: { x: 0.5, y: 0.65 }, zIndex: Z });
+      break;
+
+    // Two bursts, one from each side: a pour for each day caught up.
+    case "double_pour":
+      confetti({ particleCount: 60, angle: 60,  spread: 55, origin: { x: 0.1, y: 0.7 }, zIndex: Z,
+        colors: ["#B87333", "#E5A76D", "#F2D3A8", "#7C2D12"] });
+      confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 0.9, y: 0.7 }, zIndex: Z,
+        colors: ["#B87333", "#E5A76D", "#F2D3A8", "#7C2D12"] });
       break;
 
     case "season_end": {

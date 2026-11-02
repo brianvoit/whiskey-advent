@@ -41,6 +41,7 @@ import BalanceRoundedIcon from "@mui/icons-material/BalanceRounded";
 import FlavorTagPicker from "./components/FlavorTagPicker";
 import CelebrationOverlay, { type CelebrationType } from "./components/CelebrationOverlay";
 import { calculateStreak, getStreakMilestone } from "./utils/streak";
+import { dayCloseTime, FIRST_SEASON_WITH_RATING_TIMES, groupIntoSittings } from "./utils/tastingWindow";
 
 const TASTING_PLACEHOLDERS = [
   "Tasted like a library that owns horses.",
@@ -366,6 +367,7 @@ function DayDetail({ userId }: DayDetailProps) {
 
     if (result.success) {
       setIsDirty(false);
+      const isFirstRating = !hadSavedRatingRef.current && rating !== null;
 
       // GA4: only fire on the first-ever rating save, not re-saves
       if (!hadSavedRatingRef.current && rating !== null && year) {
@@ -383,17 +385,11 @@ function DayDetail({ userId }: DayDetailProps) {
       // First-ever rating for this day: check for competitive awards (fire & forget)
       if (!hadSavedRatingRef.current && rating !== null && seasonId) {
         hadSavedRatingRef.current = true;
-        void checkCompetitiveAwards({
-          userId,
-          whiskeyDayId: whiskey.id,
-          seasonId,
-          dayNumber: whiskey.day_number,
-          whiskeyName: whiskey.name ?? `Day ${whiskey.day_number}`,
-        });
+        void checkCompetitiveAwards({ whiskeyDayId: whiskey.id });
       }
 
       hasCelebrationRef.current = false;
-      await checkCelebration(rating);
+      await checkCelebration(rating, isFirstRating);
       if (!hasCelebrationRef.current) {
         navigate(`/whiskey/${year}/${whiskey.day_number}`);
       }
@@ -404,13 +400,19 @@ function DayDetail({ userId }: DayDetailProps) {
     }
   };
 
-  const checkCelebration = async (savedRating: number | null) => {
+  const checkCelebration = async (savedRating: number | null, isFirstRating: boolean) => {
     if (!seasonId || !whiskey) return;
 
     // Perfect score can fire any time, regardless of month
     if (savedRating === 5) {
       hasCelebrationRef.current = true;
       setCelebration("perfect_score");
+      return;
+    }
+
+    if (isFirstRating && (await isDoublePour())) {
+      hasCelebrationRef.current = true;
+      setCelebration("double_pour");
       return;
     }
 
@@ -449,6 +451,31 @@ function DayDetail({ userId }: DayDetailProps) {
       setCelebration("season_end");
       trackStreakMilestone({ milestone: allDays.length, milestone_type: "season_end" });
     }
+  };
+
+  // Double Pour: this rating is the second catch-up (a day rated after its
+  // door closed) in one sitting. Fires once per sitting, not on the third.
+  const isDoublePour = async (): Promise<boolean> => {
+    if (!seasonId || !whiskey || !year) return false;
+    const seasonYear = parseInt(year, 10);
+    if (seasonYear < FIRST_SEASON_WITH_RATING_TIMES) return false;
+    if (Date.now() < dayCloseTime(seasonYear, whiskey.day_number).getTime()) return false;
+
+    const allDays = await getWhiskeysForSeason(seasonId) as { id: number; day_number: number }[];
+    const dayNumberById = new Map(allDays.map((d) => [d.id, d.day_number]));
+    const { data: rated } = await supabase
+      .from("tastings")
+      .select("whiskey_day_id, rated_at")
+      .eq("user_id", userId)
+      .in("whiskey_day_id", allDays.map((d) => d.id))
+      .not("rated_at", "is", null);
+
+    const catchUpTimes = (rated ?? [])
+      .map((t) => ({ at: Date.parse(t.rated_at as string), day: dayNumberById.get(t.whiskey_day_id) }))
+      .filter((t) => t.day != null && t.at >= dayCloseTime(seasonYear, t.day).getTime())
+      .map((t) => t.at);
+    const sittings = groupIntoSittings(catchUpTimes);
+    return sittings[sittings.length - 1]?.length === 2;
   };
 
   const handleReveal = async () => {

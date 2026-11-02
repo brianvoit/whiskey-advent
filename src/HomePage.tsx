@@ -244,7 +244,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
               <div className="hp-tile hp-tile-awards">
                 <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E3A06A" strokeWidth="1.5"><path d="M7 4h10v4a5 5 0 0 1-10 0V4z" /><path d="M12 13v4M8 21h8M9 17h6" /></svg>
                 <h3>Awards</h3>
-                <p>Be the First Taster of a day — or try not to be the Slow Poke.</p>
+                <p>Be the First Taster of a day — or the Late Sipper who pours last.</p>
               </div>
 
               <div className="hp-tile hp-tile-stats">

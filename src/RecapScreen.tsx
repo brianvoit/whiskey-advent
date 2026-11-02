@@ -18,6 +18,7 @@ import UserAvatar from "./components/UserAvatar";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import { dayCloseTime, FIRST_SEASON_WITH_RATING_TIMES, groupIntoSittings } from "./utils/tastingWindow";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,10 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
 
   // Competitive awards earned during the season (from notifications table)
   const [firstTasterCount, setFirstTasterCount] = useState(0);
-  const [slowPokeCount,    setSlowPokeCount]    = useState(0);
+  const [lateSipperCount,  setLateSipperCount]  = useState(0);
+  // Personal season badges, from rating times (see utils/tastingWindow)
+  const [angelsShareCount, setAngelsShareCount] = useState(0);
+  const [doublePourCount,  setDoublePourCount]  = useState(0);
 
   // ── Load all data ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -136,11 +140,11 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
           wouldBuyRes,
           statsRes,
           firstTasterRes,
-          slowPokeRes,
+          lateSipperRes,
         ] = await Promise.all([
           supabase
             .from("tastings")
-            .select("whiskey_day_id, rating, notes, tags, would_buy")
+            .select("whiskey_day_id, rating, notes, tags, would_buy, rated_at")
             .eq("user_id", userId)
             .in("whiskey_day_id", dayIds),
           supabase
@@ -158,12 +162,34 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
           supabase
             .from("notifications")
             .select("id", { count: "exact", head: true })
-            .eq("type", "award_slow_poke")
+            .eq("type", "award_late_sipper")
             .in("whiskey_day_id", dayIds),
         ]);
 
         setFirstTasterCount(firstTasterRes.count ?? 0);
-        setSlowPokeCount(slowPokeRes.count ?? 0);
+        setLateSipperCount(lateSipperRes.count ?? 0);
+
+        // Angel's Share: pours not tasted before their door closed (late or
+        // never). Double Pour: sittings with two or more catch-up ratings.
+        // Rating times only exist from FIRST_SEASON_WITH_RATING_TIMES on.
+        const seasonYear = Number(year);
+        if (seasonYear >= FIRST_SEASON_WITH_RATING_TIMES) {
+          const now = Date.now();
+          const dayNumberById = new Map(days.map((d) => [d.id, d.day_number]));
+          const onTime = new Set<number>();
+          const catchUpTimes: number[] = [];
+          for (const t of myTastingsRes.data ?? []) {
+            const dayNumber = dayNumberById.get(t.whiskey_day_id);
+            if (t.rating == null || !t.rated_at || dayNumber == null) continue;
+            const at = Date.parse(t.rated_at);
+            if (at < dayCloseTime(seasonYear, dayNumber).getTime()) onTime.add(t.whiskey_day_id);
+            else catchUpTimes.push(at);
+          }
+          setAngelsShareCount(
+            days.filter((d) => dayCloseTime(seasonYear, d.day_number).getTime() <= now && !onTime.has(d.id)).length
+          );
+          setDoublePourCount(groupIntoSittings(catchUpTimes).filter((s) => s.length >= 2).length);
+        }
 
         const myData: MyTasting[] = (myTastingsRes.data ?? []).map((t: any) => ({
           whiskey_day_id: t.whiskey_day_id as number,
@@ -583,6 +609,22 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
       })()
     : null;
 
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const seasonAwards = [
+    firstTasterCount > 0 && {
+      icon: "🥇", title: "First Taster", detail: `First to rate on ${plural(firstTasterCount, "day")}`,
+    },
+    lateSipperCount > 0 && {
+      icon: "🌙", title: "Late Sipper", detail: `Last in before the door closed on ${plural(lateSipperCount, "day")}`,
+    },
+    doublePourCount > 0 && {
+      icon: "🥃", title: "Double Pour", detail: `Caught up on two or more days ${doublePourCount === 1 ? "once" : `${doublePourCount} times`}`,
+    },
+    angelsShareCount > 0 && {
+      icon: "👼", title: "Angel's Share", detail: `${plural(angelsShareCount, "pour")} not tasted on the day`,
+    },
+  ].filter((a): a is { icon: string; title: string; detail: string } => Boolean(a));
+
   return (
     <div style={{ paddingTop: 8, paddingBottom: 16 }}>
       <style>{`
@@ -795,15 +837,16 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
         </>
       )}
 
-      {/* ── Competitive awards ───────────────────────────────────────────────── */}
-      {(firstTasterCount > 0 || slowPokeCount > 0) && (
+      {/* ── Season awards ────────────────────────────────────────────────────── */}
+      {seasonAwards.length > 0 && (
         <>
           <h2 style={{ ...sectionLabelStyle, marginBottom: 8 }}>
-            Competitive Awards
+            Season Awards
           </h2>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 36 }}>
-            {firstTasterCount > 0 && (
+            {seasonAwards.map((award) => (
               <div
+                key={award.title}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -815,41 +858,17 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
                   boxShadow: paperShadow,
                 }}
               >
-                <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>🥇</span>
+                <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>{award.icon}</span>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: "0.9rem", color: textPrimary }}>
-                    First Taster
+                    {award.title}
                   </div>
                   <div style={{ fontSize: "0.78rem", color: textSecondary }}>
-                    First to rate on {firstTasterCount} {firstTasterCount === 1 ? "day" : "days"}
+                    {award.detail}
                   </div>
                 </div>
               </div>
-            )}
-            {slowPokeCount > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  background: paperBg,
-                  border: paperBorder,
-                  boxShadow: paperShadow,
-                }}
-              >
-                <span style={{ fontSize: "1.4rem", lineHeight: 1, flexShrink: 0 }}>🐌</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: textPrimary }}>
-                    Slow Poke
-                  </div>
-                  <div style={{ fontSize: "0.78rem", color: textSecondary }}>
-                    Last to rate on {slowPokeCount} {slowPokeCount === 1 ? "day" : "days"}
-                  </div>
-                </div>
-              </div>
-            )}
+            ))}
           </div>
         </>
       )}
