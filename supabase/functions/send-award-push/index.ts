@@ -25,6 +25,7 @@
 
 import webpush from "npm:web-push@3";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { firstTaster } from "./first.ts";
 
 const SUPABASE_URL             = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY        = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -112,27 +113,28 @@ Deno.serve(async (req) => {
     return respond("Unknown day", 400);
   }
 
-  const [firstRes, membersRes] = await Promise.all([
+  const [ratedRes, membersRes] = await Promise.all([
     adminSupabase
       .from("tastings")
-      .select("user_id")
+      .select("user_id, rehearsal")
       .eq("whiskey_day_id", whiskeyDayId)
       .not("rating", "is", null)
       .order("rated_at", { ascending: true })
-      .order("id", { ascending: true })
-      .limit(1),
+      .order("id", { ascending: true }),
     adminSupabase
       .from("user_season_access")
       .select("user_id", { count: "exact", head: true })
       .eq("season_id", day.season_id),
   ]);
-  if (firstRes.error) {
-    return json({ error: firstRes.error.message }, 500);
+  if (ratedRes.error) {
+    return json({ error: ratedRes.error.message }, 500);
   }
 
   // Only meaningful in a group (at least 2 members)
   if ((membersRes.count ?? 0) < 2) return skipped("not a group");
-  if (firstRes.data?.[0]?.user_id !== user.id) return skipped("not first");
+  const result = firstTaster(ratedRes.data ?? [], user.id);
+  if (!result) return skipped("not rated");
+  if (!result.won) return skipped("not first");
 
   // ── Insert in-app notification (one First Taster per day) ─────────────────
   const whiskeyName = day.name ?? `Day ${day.day_number}`;
@@ -145,10 +147,12 @@ Deno.serve(async (req) => {
     whiskey_day_id: whiskeyDayId,
     whiskey_name: whiskeyName,
     read: false,
+    // Rehearsal awards are tagged so switching rehearsal off deletes them.
+    rehearsal: result.rehearsal,
   });
 
   if (notifError) {
-    // 23505: notifications_one_award_per_day — already awarded for this day.
+    // 23505: one real (or one rehearsal) award per day — already awarded.
     if (notifError.code === "23505") return skipped("duplicate");
     console.error("Failed to insert notification:", notifError);
     return json({ error: notifError.message }, 500);

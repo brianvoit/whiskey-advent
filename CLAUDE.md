@@ -16,6 +16,8 @@ Tests cover pure logic only: `src/utils/*.test.ts` (streaks, door close times, A
 
 Season code must read "today" from `appNow()` in `src/utils/clock.ts`, not `new Date()`, so Admin → Debug → Rehearsal Mode can pretend it's another date on one device.
 
+Rehearsal data: while rehearsing, `supabaseClient` adds `x-rehearsal: 1` to database requests. The database (migration `rehearsal_mode_tagging`) stamps `rehearsal = true` on new `tastings` / `comments` / `comment_reactions` rows for admins only, hides rehearsal rows from anyone not rehearsing (RLS via `is_rehearsing()`), refuses changes to real rows while rehearsing, and `clear_rehearsal_data()` deletes them when rehearsal is switched off. Edge functions using the service role must filter or tag `rehearsal` themselves (see `send-award-push/first.ts`, `award-late-sipper`).
+
 ## Architecture
 
 **Whiskey Advent** is a private PWA advent calendar for whiskey tasting. Users rate each of 24 December pours, track flavor notes, and compare with the group.

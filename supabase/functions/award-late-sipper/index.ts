@@ -54,6 +54,7 @@ Deno.serve(async () => {
     .from("notifications")
     .select("whiskey_day_id")
     .eq("type", "award_late_sipper")
+    .eq("rehearsal", false)
     .in("whiskey_day_id", closed.map((d) => d.id));
   const done = new Set((existing ?? []).map((n) => n.whiskey_day_id));
   const pending = closed.filter((d) => !done.has(d.id));
@@ -64,7 +65,8 @@ Deno.serve(async () => {
     .select("id, user_id, whiskey_day_id, rated_at")
     .in("whiskey_day_id", pending.map((d) => d.id))
     .not("rating", "is", null)
-    .not("rated_at", "is", null);
+    .not("rated_at", "is", null)
+    .eq("rehearsal", false); // rehearsal ratings never earn a real award
   if (ratingsError) return Response.json({ error: ratingsError.message }, { status: 500 });
 
   // Reports counts only: this endpoint is reachable with the public key, so

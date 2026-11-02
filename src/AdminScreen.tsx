@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { usePageMeta } from "./hooks/usePageMeta";
-import { Box, Tab, Tabs } from "@mui/material";
+import { Box, FormControlLabel, Switch, Tab, Tabs } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import SeasonManager from "./admin/SeasonManager";
 import WhiskeyDayEditor from "./admin/WhiskeyDayEditor";
 import UserManager from "./admin/UserManager";
 import { supabase } from "./supabaseClient";
 import { appNow, getRehearsalDate, setRehearsalDate } from "./utils/clock";
+import { clearEveryonesRehearsalData, describeCleared, endRehearsal } from "./api/rehearsal";
 
 type AdminScreenProps = {
   userId: string;
@@ -31,6 +32,42 @@ export default function AdminScreen({ userId }: AdminScreenProps) {
   const [testPushResult, setTestPushResult] = useState<TestPushResult | null>(null);
   const [testPushError, setTestPushError] = useState<string | null>(null);
   const [rehearsalInput, setRehearsalInput] = useState(getRehearsalDate() ?? `${appNow().getFullYear()}-12-07`);
+  const rehearsing = getRehearsalDate() !== null;
+  const [rehearsalBusy, setRehearsalBusy] = useState(false);
+  const [rehearsalMessage, setRehearsalMessage] = useState<{ text: string; error?: boolean } | null>(null);
+
+  // On: start rehearsing on the chosen date. Off: delete this user's
+  // rehearsal data first; rehearsal stays on if that fails.
+  const handleRehearsalToggle = async (on: boolean) => {
+    setRehearsalMessage(null);
+    if (on) {
+      setRehearsalDate(rehearsalInput);
+      window.location.reload();
+      return;
+    }
+    setRehearsalBusy(true);
+    try {
+      const cleared = await endRehearsal();
+      window.alert(`Rehearsal mode is off. ${describeCleared(cleared)}`);
+      window.location.reload();
+    } catch (e) {
+      setRehearsalMessage({ text: `Couldn't turn rehearsal off: ${(e as Error).message}`, error: true });
+      setRehearsalBusy(false);
+    }
+  };
+
+  const handleClearEveryonesRehearsal = async () => {
+    if (!window.confirm("Delete every user's rehearsal data? Real data isn't touched.")) return;
+    setRehearsalBusy(true);
+    setRehearsalMessage(null);
+    try {
+      setRehearsalMessage({ text: describeCleared(await clearEveryonesRehearsalData()) });
+    } catch (e) {
+      setRehearsalMessage({ text: `Couldn't clear rehearsal data: ${(e as Error).message}`, error: true });
+    } finally {
+      setRehearsalBusy(false);
+    }
+  };
 
   const handleSendTestPush = async () => {
     setTestPushBusy(true);
@@ -105,11 +142,22 @@ export default function AdminScreen({ userId }: AdminScreenProps) {
             <Box sx={{ fontWeight: 700, mb: 0.5 }}>Rehearsal Mode</Box>
             <Box sx={{ fontSize: "0.85rem", color: "text.secondary", mb: 1.5 }}>
               Pretend it's another date on this device to walk through the season early: doors
-              unlock, streaks count, celebrations fire. Ratings you save are real and go into that
-              season — clear them before December 1. The 5 pm reminder and Late Sipper still run
-              on real dates.
+              unlock, streaks count, celebrations fire. Everything you save is tagged as rehearsal
+              data, seen only by admins who are rehearsing, and deleted when you turn this off.
+              Real ratings can't be changed while it's on. The 5 pm reminder and Late Sipper still
+              run on real dates.
             </Box>
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={rehearsing}
+                  disabled={rehearsalBusy || (!rehearsing && !rehearsalInput)}
+                  onChange={(e) => void handleRehearsalToggle(e.target.checked)}
+                />
+              }
+              label={rehearsalBusy ? "Clearing rehearsal data…" : rehearsing ? "On" : "Off"}
+            />
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", mt: 1 }}>
               <label style={{ fontSize: "0.85rem" }}>
                 Pretend date{" "}
                 <input
@@ -126,24 +174,29 @@ export default function AdminScreen({ userId }: AdminScreenProps) {
                   }}
                 />
               </label>
-              <button
-                type="button"
-                disabled={!rehearsalInput}
-                onClick={() => { setRehearsalDate(rehearsalInput); window.location.reload(); }}
-                style={{ ...debugBtnStyle, cursor: rehearsalInput ? "pointer" : "default", opacity: rehearsalInput ? 1 : 0.6 }}
-              >
-                {getRehearsalDate() ? "Change date" : "Start rehearsal"}
-              </button>
-              {getRehearsalDate() && (
+              {rehearsing && rehearsalInput && rehearsalInput !== getRehearsalDate() && (
                 <button
                   type="button"
-                  onClick={() => { setRehearsalDate(null); window.location.reload(); }}
+                  onClick={() => { setRehearsalDate(rehearsalInput); window.location.reload(); }}
                   style={debugBtnStyle}
                 >
-                  Turn off
+                  Change date
                 </button>
               )}
             </Box>
+            {rehearsalMessage && (
+              <Box sx={{ mt: 1.5, fontSize: "0.85rem", color: rehearsalMessage.error ? "error.main" : "text.secondary" }}>
+                {rehearsalMessage.text}
+              </Box>
+            )}
+            <button
+              type="button"
+              disabled={rehearsalBusy}
+              onClick={() => void handleClearEveryonesRehearsal()}
+              style={{ ...debugBtnStyle, marginTop: 12, cursor: rehearsalBusy ? "default" : "pointer", opacity: rehearsalBusy ? 0.6 : 1 }}
+            >
+              Clear everyone's rehearsal data
+            </button>
           </Box>
 
           <Box>

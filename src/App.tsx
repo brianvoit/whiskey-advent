@@ -41,6 +41,7 @@ import { useAppTheme, type ThemeMode } from "./theme";
 import type { Profile, TastingMode } from "./api/profiles";
 import { appNow, getRehearsalDate, setRehearsalDate } from "./utils/clock";
 import RehearsalBanner from "./components/RehearsalBanner";
+import { endRehearsal } from "./api/rehearsal";
 
 // Computed tasting preferences passed to child components
 type TastingPrefs = {
@@ -65,11 +66,13 @@ function App() {
   }, [profile?.theme_mode, setMode]);
 
   // Rehearsal mode is admin-only. If a non-admin signs in on a device where it
-  // was left on, switch it off before they see pretend dates.
+  // was left on, switch it off (deleting any rehearsal data of theirs, e.g. a
+  // tester whose admin access has been removed) before they see pretend dates.
   useEffect(() => {
     if (profile && profile.role !== "admin" && getRehearsalDate()) {
-      setRehearsalDate(null);
-      window.location.reload();
+      endRehearsal()
+        .catch(() => setRehearsalDate(null)) // the database ignores their tag anyway
+        .finally(() => window.location.reload());
     }
   }, [profile]);
 

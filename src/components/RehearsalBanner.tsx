@@ -1,5 +1,6 @@
 import { useTheme } from "@mui/material/styles";
-import { getRehearsalDate, setRehearsalDate, appNow } from "../utils/clock";
+import { getRehearsalDate, appNow } from "../utils/clock";
+import { describeCleared, endRehearsal } from "../api/rehearsal";
 
 /**
  * Shown on every signed-in page while rehearsal mode is on, so a pretend date
@@ -39,7 +40,16 @@ export default function RehearsalBanner() {
       </span>
       <button
         type="button"
-        onClick={() => { setRehearsalDate(null); window.location.reload(); }}
+        onClick={async () => {
+          try {
+            const cleared = await endRehearsal();
+            window.alert(`Rehearsal mode is off. ${describeCleared(cleared)}`);
+            window.location.reload();
+          } catch (e) {
+            // Rehearsal stays on so nothing tagged is left behind.
+            window.alert(`Couldn't turn rehearsal off: ${(e as Error).message}`);
+          }
+        }}
         style={{
           border: "none",
           background: "none",
