@@ -19,6 +19,7 @@ import RecapScreen from "./RecapScreen";
 import ProfileScreen from "./ProfileScreen";
 import Onboarding from "./Onboarding";
 import AwaitingApproval from "./AwaitingApproval";
+import HomePage from "./HomePage";
 import AdminScreen from "./AdminScreen";
 import AdminUserDetail from "./admin/AdminUserDetail";
 import Tasters from "./Tasters";
@@ -63,6 +64,21 @@ function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Signed-out visitors: "/" is the public homepage, every other path (e.g.
+  // /login, or a deep link to a day) is the sign-in screen. There's no router
+  // here until sign-in, so track the path ourselves for Back/Forward.
+  const [signedOutPath, setSignedOutPath] = useState(window.location.pathname);
+  useEffect(() => {
+    const handlePop = () => setSignedOutPath(window.location.pathname);
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
+  const goToSignedOutPath = (path: string) => {
+    window.history.pushState(null, "", path);
+    setSignedOutPath(path);
+    window.scrollTo(0, 0);
+  };
 
   const isAdmin = profile?.role === "admin";
   const actualCurrentYear = new Date().getFullYear();
@@ -113,6 +129,9 @@ function App() {
         loadProfile(newSession.user.id, newSession);
       } else {
         setProfile(null);
+        // The router changed the URL while signed in; pick it up so signing
+        // out on a page shows the sign-in screen, not the homepage.
+        setSignedOutPath(window.location.pathname);
       }
     });
 
@@ -229,6 +248,14 @@ function App() {
     setAuthError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
+      // Come back to the same site and page (whiskey-advent.com or
+      // pages.dev) rather than the Supabase Site URL. /login itself isn't
+      // worth returning to. Must match an allowed Redirect URL in Supabase,
+      // otherwise Supabase falls back to the Site URL.
+      options: {
+        redirectTo:
+          window.location.pathname === "/login" ? window.location.origin : window.location.href,
+      },
     });
     if (error) {
       console.error(error);
@@ -272,8 +299,12 @@ function App() {
   }
 
   // ---------------------------------------------------------
-  // Unauthenticated view (login screen)
+  // Unauthenticated view: public homepage at "/", login screen elsewhere
   // ---------------------------------------------------------
+  if (!session && signedOutPath === "/") {
+    return <HomePage onLogin={() => goToSignedOutPath("/login")} />;
+  }
+
   if (!session) {
     return (
       <div
@@ -393,6 +424,22 @@ function App() {
             {authError}
           </div>
         )}
+
+        {/* Static pages in public/. Google's OAuth verification requires the
+            privacy policy to be reachable from the sign-in screen. */}
+        <div style={{ marginTop: 32, fontSize: "0.8rem", color: theme.palette.text.secondary }}>
+          <a
+            href="/"
+            onClick={(e) => { e.preventDefault(); goToSignedOutPath("/"); }}
+            style={{ color: "inherit" }}
+          >
+            Home
+          </a>
+          {" · "}
+          <a href="/privacy" style={{ color: "inherit" }}>Privacy</a>
+          {" · "}
+          <a href="/terms" style={{ color: "inherit" }}>Terms</a>
+        </div>
       </div>
     );
   }
