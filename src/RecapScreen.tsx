@@ -18,7 +18,8 @@ import UserAvatar from "./components/UserAvatar";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import BookmarkRoundedIcon from "@mui/icons-material/BookmarkRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
-import { dayCloseTime, FIRST_SEASON_WITH_RATING_TIMES, groupIntoSittings } from "./utils/tastingWindow";
+import { countAngelsShare, countDoublePours, FIRST_SEASON_WITH_RATING_TIMES, toRatingTimes } from "./utils/tastingWindow";
+import { appNow } from "./utils/clock";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -174,21 +175,15 @@ function RecapScreen({ userId, isAdmin, avatarUrl, firstName, lastName, tastingM
         // Rating times only exist from FIRST_SEASON_WITH_RATING_TIMES on.
         const seasonYear = Number(year);
         if (seasonYear >= FIRST_SEASON_WITH_RATING_TIMES) {
-          const now = Date.now();
           const dayNumberById = new Map(days.map((d) => [d.id, d.day_number]));
-          const onTime = new Set<number>();
-          const catchUpTimes: number[] = [];
-          for (const t of myTastingsRes.data ?? []) {
-            const dayNumber = dayNumberById.get(t.whiskey_day_id);
-            if (t.rating == null || !t.rated_at || dayNumber == null) continue;
-            const at = Date.parse(t.rated_at);
-            if (at < dayCloseTime(seasonYear, dayNumber).getTime()) onTime.add(t.whiskey_day_id);
-            else catchUpTimes.push(at);
-          }
-          setAngelsShareCount(
-            days.filter((d) => dayCloseTime(seasonYear, d.day_number).getTime() <= now && !onTime.has(d.id)).length
+          const ratings = toRatingTimes(
+            (myTastingsRes.data ?? []).filter((t) => t.rating != null),
+            dayNumberById
           );
-          setDoublePourCount(groupIntoSittings(catchUpTimes).filter((s) => s.length >= 2).length);
+          setAngelsShareCount(
+            countAngelsShare(seasonYear, days.map((d) => d.day_number), ratings, appNow().getTime())
+          );
+          setDoublePourCount(countDoublePours(seasonYear, ratings));
         }
 
         const myData: MyTasting[] = (myTastingsRes.data ?? []).map((t: any) => ({

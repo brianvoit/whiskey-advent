@@ -8,6 +8,8 @@
  * Must match DAY_CLOSE_UTC_HOUR in supabase/functions/award-late-sipper.
  */
 
+import { toAppTime } from "./clock";
+
 const DAY_CLOSE_UTC_HOUR = 6; // 00:00 CST
 
 /** When day `dayNumber` of the `year` season closes. */
@@ -31,4 +33,64 @@ export function groupIntoSittings(times: number[]): number[][] {
     else sittings.push([t]);
   }
   return sittings;
+}
+
+/** One of a user's ratings: the day it's for and when it was first given (ms). */
+export type RatingTime = { dayNumber: number; ratedAt: number };
+
+/**
+ * Database tastings rows to RatingTimes. Rating times are shifted onto the app
+ * clock, so rehearsal mode sees ratings saved "today" on its pretend date.
+ * Rows without a rating time or a known day are dropped.
+ */
+export function toRatingTimes(
+  rows: { whiskey_day_id: number; rated_at: string | null }[],
+  dayNumberById: Map<number, number>
+): RatingTime[] {
+  return rows.flatMap((row) => {
+    const dayNumber = dayNumberById.get(row.whiskey_day_id);
+    if (dayNumber == null || !row.rated_at) return [];
+    return [{ dayNumber, ratedAt: toAppTime(Date.parse(row.rated_at)) }];
+  });
+}
+
+/** Ratings given after their day's door closed (catching up). */
+export function catchUpTimes(year: number, ratings: RatingTime[]): number[] {
+  return ratings
+    .filter((r) => r.ratedAt >= dayCloseTime(year, r.dayNumber).getTime())
+    .map((r) => r.ratedAt);
+}
+
+/**
+ * Angel's Share: days whose door has closed by `nowMs` that the user didn't
+ * rate before the close — tasted late, or never.
+ */
+export function countAngelsShare(
+  year: number,
+  dayNumbers: number[],
+  ratings: RatingTime[],
+  nowMs: number
+): number {
+  const onTime = new Set(
+    ratings
+      .filter((r) => r.ratedAt < dayCloseTime(year, r.dayNumber).getTime())
+      .map((r) => r.dayNumber)
+  );
+  return dayNumbers.filter(
+    (d) => dayCloseTime(year, d).getTime() <= nowMs && !onTime.has(d)
+  ).length;
+}
+
+/** Double Pours: sittings with two or more catch-up ratings. */
+export function countDoublePours(year: number, ratings: RatingTime[]): number {
+  return groupIntoSittings(catchUpTimes(year, ratings)).filter((s) => s.length >= 2).length;
+}
+
+/**
+ * Whether the latest catch-up rating made a Double Pour: it's the second in
+ * its sitting. Fires once per sitting, not again on the third.
+ */
+export function isNewDoublePour(year: number, ratings: RatingTime[]): boolean {
+  const sittings = groupIntoSittings(catchUpTimes(year, ratings));
+  return sittings[sittings.length - 1]?.length === 2;
 }

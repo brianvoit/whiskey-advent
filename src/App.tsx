@@ -39,6 +39,8 @@ import { Menu, MenuItem } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useAppTheme, type ThemeMode } from "./theme";
 import type { Profile, TastingMode } from "./api/profiles";
+import { appNow, getRehearsalDate, setRehearsalDate } from "./utils/clock";
+import RehearsalBanner from "./components/RehearsalBanner";
 
 // Computed tasting preferences passed to child components
 type TastingPrefs = {
@@ -62,6 +64,15 @@ function App() {
     }
   }, [profile?.theme_mode, setMode]);
 
+  // Rehearsal mode is admin-only. If a non-admin signs in on a device where it
+  // was left on, switch it off before they see pretend dates.
+  useEffect(() => {
+    if (profile && profile.role !== "admin" && getRehearsalDate()) {
+      setRehearsalDate(null);
+      window.location.reload();
+    }
+  }, [profile]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
@@ -82,7 +93,7 @@ function App() {
   };
 
   const isAdmin = profile?.role === "admin";
-  const actualCurrentYear = new Date().getFullYear();
+  const actualCurrentYear = appNow().getFullYear();
   const [selectedYear,   setSelectedYear]   = useState(actualCurrentYear);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
 
@@ -631,7 +642,7 @@ function AppShell({
         onSearchClick={() => setSearchOpen(true)}
         recapYear={
           (location.pathname === "/" || location.pathname === "/stats") &&
-          currentYear < new Date().getFullYear()
+          currentYear < appNow().getFullYear()
             ? currentYear
             : undefined
         }
@@ -669,6 +680,7 @@ function AppShell({
       >
         {/* Main content */}
         <main style={{ paddingBottom: 16 }}>
+          <RehearsalBanner />
           <Routes>
             <Route
               path="/"

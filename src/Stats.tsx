@@ -9,6 +9,7 @@ import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
 import PersonIcon from "@mui/icons-material/Person";
 import GroupIcon from "@mui/icons-material/Group";
 import StatsChart from "./components/StatsChart";
+import { appNow } from "./utils/clock";
 
 type StatsProps = {
   isAdmin: boolean;
@@ -74,7 +75,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
         setStats(s);
 
         // 2) Build reveal map and user rating map
-        const today = new Date();
+        const today = appNow();
         const todayYear = today.getFullYear();
 
         if (s.length > 0) {
@@ -129,7 +130,7 @@ function Stats({ isAdmin, userId, currentYear }: StatsProps) {
     void load();
   }, [currentYear, userId, isAdmin]);
 
-  const today = new Date();
+  const today = appNow();
   const todayYear = today.getFullYear();
   const hasStats = stats.length > 0;
 

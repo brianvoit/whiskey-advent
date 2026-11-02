@@ -10,6 +10,7 @@ import AdventCard from "./components/AdventCard";
 import { calculateStreak } from "./utils/streak";
 import FireplaceRoundedIcon from "@mui/icons-material/FireplaceRounded";
 import { trackViewCalendar } from "./gtag";
+import { appNow } from "./utils/clock";
 
 type WhiskeyDay = {
   id: number;
@@ -42,7 +43,7 @@ function Home({ isAdmin, userId, revealPreferences, currentYear }: HomeProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const now = new Date();
+  const now = appNow();
   const todayYear = now.getFullYear();
   const currentMonth = now.getMonth(); // 0-based, December = 11
   const currentDayOfMonth = now.getDate();

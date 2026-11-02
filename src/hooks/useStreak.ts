@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 import { calculateStreak } from "../utils/streak";
+import { appNow } from "../utils/clock";
 
 export function useStreak(userId: string) {
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const refetch = useCallback(async () => {
-    const now = new Date();
+    const now = appNow();
 
     const { data: season } = await supabase
       .from("seasons")

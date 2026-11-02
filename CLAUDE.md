@@ -9,9 +9,12 @@ npm run dev          # Start dev server at localhost:5173
 npm run build        # Type-check + Vite production build (tsc -b && vite build)
 npm run lint         # ESLint
 npx tsc -b --noEmit  # Type-check only (run after edits to catch TS6133 unused-var errors)
+npm test             # Vitest: date/season rules (TZ pinned to America/Chicago)
 ```
 
-No test suite is configured.
+Tests cover pure logic only: `src/utils/*.test.ts` (streaks, door close times, Angel's Share / Double Pour, hero calendar, rehearsal clock) and the edge functions' rule files (`supabase/functions/*/pick.ts`, `schedule.ts`). Keep date and award rules in those pure modules so they stay testable.
+
+Season code must read "today" from `appNow()` in `src/utils/clock.ts`, not `new Date()`, so Admin → Debug → Rehearsal Mode can pretend it's another date on one device.
 
 ## Architecture
 

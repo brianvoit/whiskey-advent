@@ -15,6 +15,7 @@ import type { Profile, RevealPreferences, TastingMode } from "./api/profiles";
 import { modeCopy } from "./modes";
 import { ModeCard } from "./components/ModeCard";
 import { subscribeToPush } from "./api/pushSubscriptions";
+import { appNow } from "./utils/clock";
 
 type OnboardingProps = {
   open: boolean;
@@ -28,7 +29,7 @@ const TOTAL_STEPS = 4;
 function Onboarding({ open, profile, onComplete }: OnboardingProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const currentYear = new Date().getFullYear();
+  const currentYear = appNow().getFullYear();
 
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [tastingMode, setTastingMode] = useState<TastingMode>("purist");

@@ -17,6 +17,7 @@
 
 import webpush from "npm:web-push@3";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dayClose, pickLateSipper, type Rating } from "./pick.ts";
 
 const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -31,14 +32,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Without a TTL, web-push defaults to 4 weeks. An award is stale after a day.
 const PUSH_OPTIONS = { TTL: 24 * 60 * 60, urgency: "normal" as const };
-
-// Midnight Central (CST, UTC−6) at the end of a day. Must match
-// dayCloseTime() in src/utils/tastingWindow.ts.
-const DAY_CLOSE_UTC_HOUR = 6;
-const dayClose = (year: number, dayNumber: number) =>
-  Date.UTC(year, 11, dayNumber + 1, DAY_CLOSE_UTC_HOUR);
-
-type Rating = { id: number; user_id: string; whiskey_day_id: number; rated_at: string };
 
 Deno.serve(async () => {
   const now = Date.now();
@@ -79,17 +72,15 @@ Deno.serve(async () => {
   const results: { day: number; awarded?: true; skipped?: string; pushed?: number }[] = [];
 
   for (const day of pending) {
-    const close = dayClose(year, day.day_number);
-    const onTime = ((ratings ?? []) as Rating[])
-      .filter((r) => r.whiskey_day_id === day.id && Date.parse(r.rated_at) < close)
-      .sort((a, b) => Date.parse(a.rated_at) - Date.parse(b.rated_at) || a.id - b.id);
-
-    if (onTime.length < 2) {
+    const winner = pickLateSipper(
+      ((ratings ?? []) as Rating[]).filter((r) => r.whiskey_day_id === day.id),
+      dayClose(year, day.day_number)
+    );
+    if (!winner) {
       results.push({ day: day.day_number, skipped: "fewer than two on-time ratings" });
       continue;
     }
 
-    const winner = onTime[onTime.length - 1].user_id;
     const whiskeyName = day.name ?? `Day ${day.day_number}`;
     const body = `You were the last to pour Day ${day.day_number}: ${whiskeyName} before the door closed.`;
 

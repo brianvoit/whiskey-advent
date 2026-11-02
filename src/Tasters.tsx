@@ -9,6 +9,7 @@ import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import UserAvatar from "./components/UserAvatar";
 import { getTastersForYear, type TasterSummary } from "./api/tasters";
 import { toSlug } from "./utils/slug";
+import { appNow } from "./utils/clock";
 
 type TastersProps = {
   currentYear: number;
@@ -26,7 +27,7 @@ export default function Tasters({ currentYear, currentUserId }: TastersProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const navigate = useNavigate();
-  const isCurrentYear = currentYear === new Date().getFullYear();
+  const isCurrentYear = currentYear === appNow().getFullYear();
 
   const [tasters, setTasters] = useState<TasterSummary[]>([]);
   const [loading, setLoading] = useState(true);

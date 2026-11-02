@@ -41,7 +41,8 @@ import BalanceRoundedIcon from "@mui/icons-material/BalanceRounded";
 import FlavorTagPicker from "./components/FlavorTagPicker";
 import CelebrationOverlay, { type CelebrationType } from "./components/CelebrationOverlay";
 import { calculateStreak, getStreakMilestone } from "./utils/streak";
-import { dayCloseTime, FIRST_SEASON_WITH_RATING_TIMES, groupIntoSittings } from "./utils/tastingWindow";
+import { dayCloseTime, FIRST_SEASON_WITH_RATING_TIMES, isNewDoublePour, toRatingTimes } from "./utils/tastingWindow";
+import { appNow } from "./utils/clock";
 
 const TASTING_PLACEHOLDERS = [
   "Tasted like a library that owns horses.",
@@ -417,7 +418,7 @@ function DayDetail({ userId }: DayDetailProps) {
     }
 
     // Streak and season-end celebrations only apply during active December
-    const now = new Date();
+    const now = appNow();
     if (now.getMonth() !== 11) return;
 
     const allDays = await getWhiskeysForSeason(seasonId) as { id: number; day_number: number }[];
@@ -459,7 +460,7 @@ function DayDetail({ userId }: DayDetailProps) {
     if (!seasonId || !whiskey || !year) return false;
     const seasonYear = parseInt(year, 10);
     if (seasonYear < FIRST_SEASON_WITH_RATING_TIMES) return false;
-    if (Date.now() < dayCloseTime(seasonYear, whiskey.day_number).getTime()) return false;
+    if (appNow().getTime() < dayCloseTime(seasonYear, whiskey.day_number).getTime()) return false;
 
     const allDays = await getWhiskeysForSeason(seasonId) as { id: number; day_number: number }[];
     const dayNumberById = new Map(allDays.map((d) => [d.id, d.day_number]));
@@ -470,12 +471,7 @@ function DayDetail({ userId }: DayDetailProps) {
       .in("whiskey_day_id", allDays.map((d) => d.id))
       .not("rated_at", "is", null);
 
-    const catchUpTimes = (rated ?? [])
-      .map((t) => ({ at: Date.parse(t.rated_at as string), day: dayNumberById.get(t.whiskey_day_id) }))
-      .filter((t) => t.day != null && t.at >= dayCloseTime(seasonYear, t.day).getTime())
-      .map((t) => t.at);
-    const sittings = groupIntoSittings(catchUpTimes);
-    return sittings[sittings.length - 1]?.length === 2;
+    return isNewDoublePour(seasonYear, toRatingTimes(rated ?? [], dayNumberById));
   };
 
   const handleReveal = async () => {

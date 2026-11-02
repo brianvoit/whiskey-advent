@@ -12,6 +12,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { alpha, useTheme } from "@mui/material/styles";
+import { appNow } from "../utils/clock";
 
 export type StatsChartDay = {
   whiskey_day_id: number;
@@ -157,7 +158,7 @@ const StatsChart: FC<StatsChartProps> = ({
 }) => {
   const theme    = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const nowYear  = new Date().getFullYear();
+  const nowYear  = appNow().getFullYear();
   const isCurrentSeason = currentYear === nowYear;
 
   const primaryStroke = theme.palette.primary.main;

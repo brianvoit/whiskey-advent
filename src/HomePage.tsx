@@ -1,5 +1,7 @@
 import { useState, type MouseEvent } from "react";
 import { useBodyBackground } from "./hooks/useBodyBackground";
+import { appNow } from "./utils/clock";
+import { doorState, getTodayDoor } from "./utils/heroCalendar";
 import "./HomePage.css";
 
 type HomePageProps = {
@@ -12,21 +14,11 @@ const STREAK_EXAMPLE_DAYS = 7;
 const STREAK_MILESTONES = [3, 5, 10, 15, 20, 24];
 const DAYS = Array.from({ length: 24 }, (_, i) => i + 1);
 
-/**
- * Which hero-calendar door is today's. Outside December it's an example day
- * (random per visit); in December it's the visitor's real day of the month,
- * and 25 from Christmas Day on (every door open, none lit).
- */
-function getTodayDoor(now: Date, exampleDay: number): number {
-  if (now.getMonth() !== 11) return exampleDay;
-  return Math.min(now.getDate(), 25);
-}
-
-function doorClass(n: number, todayDoor: number): string {
-  if (n === todayDoor) return "hp-door hp-door-today";
-  if (n < todayDoor) return "hp-door hp-door-past";
-  return "hp-door";
-}
+const DOOR_CLASS = {
+  today: "hp-door hp-door-today",
+  past: "hp-door hp-door-past",
+  closed: "hp-door",
+} as const;
 
 function GlassIcon({ size = 28, color = "currentColor", strokeWidth = 1.6 }: { size?: number; color?: string; strokeWidth?: number }) {
   return (
@@ -46,7 +38,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
   useBodyBackground("#120C08");
 
   const [exampleDay] = useState(() => 1 + Math.floor(Math.random() * 24));
-  const todayDoor = getTodayDoor(new Date(), exampleDay);
+  const todayDoor = getTodayDoor(appNow(), exampleDay);
 
   const handleLogin = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -89,7 +81,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
           </div>
           <div className="hp-doors" aria-hidden="true">
             {DAYS.map((n) => (
-              <div key={n} className={doorClass(n, todayDoor)}>
+              <div key={n} className={DOOR_CLASS[doorState(n, todayDoor)]}>
                 {n}
               </div>
             ))}

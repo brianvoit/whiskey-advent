@@ -1,6 +1,7 @@
 import { supabase } from "../supabaseClient";
 import { getSeasonByYear, getWhiskeysForSeason } from "./whiskeys";
 import { calculateStreak } from "../utils/streak";
+import { appNow } from "../utils/clock";
 
 export type TasterSummary = {
   id: string;
@@ -63,7 +64,7 @@ export async function getTastersForYear(year: number): Promise<TasterSummary[]> 
     userTastings.set(t.user_id, arr);
   }
 
-  const now = new Date();
+  const now = appNow();
   const isActiveDecember = now.getFullYear() === year && now.getMonth() === 11;
   const currentDayOfMonth = now.getDate();
 

@@ -17,6 +17,7 @@
 
 import webpush from "npm:web-push@3";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { inAdventWindowUTC, reminderDay } from "./schedule.ts";
 
 const SUPABASE_URL             = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -28,37 +29,21 @@ webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-const TARGET_HOUR = 17; // 5:00 pm
-
 // Push delivery options. Without a TTL, web-push defaults to 4 weeks, so a
 // phone that was offline could receive "Day 3" days later. A reminder sent at
 // 5 pm is only useful that evening. High urgency stops Android's battery
 // saving (Doze) from holding it until its next maintenance window.
 const PUSH_OPTIONS = { TTL: 6 * 60 * 60, urgency: "high" as const };
 
-/** Month, day and hour of `instant` as seen in `timeZone`. */
-function localParts(instant: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    month: "numeric",
-    day: "numeric",
-    hour: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(instant);
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
-  return { month: get("month"), day: get("day"), hour: get("hour") };
-}
-
 Deno.serve(async (req) => {
   if (req.method !== "GET" && req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
 
-  // Coarse UTC guard only. Real offsets run UTC−12…UTC+14, so 5 pm on any
-  // local Dec 1–24 falls between Dec 1 and Dec 25 in UTC. The actual advent
-  // day is decided per user, in their own timezone, below.
+  // Coarse UTC guard; the actual advent day is decided per user, in their own
+  // timezone, below.
   const now = new Date();
-  if (now.getUTCMonth() + 1 !== 12 || now.getUTCDate() > 25) {
+  if (!inAdventWindowUTC(now)) {
     return new Response(
       JSON.stringify({ skipped: true, reason: "Outside advent window" }),
       { headers: { "Content-Type": "application/json" } }
@@ -85,13 +70,8 @@ Deno.serve(async (req) => {
     const tz = (sub.profiles as { timezone?: string | null } | null)?.timezone;
     if (!tz) return []; // timezone is recorded on the user's next app load
 
-    try {
-      const local = localParts(now, tz);
-      const inAdvent = local.month === 12 && local.day >= 1 && local.day <= 24;
-      return inAdvent && local.hour === TARGET_HOUR ? [{ sub, day: local.day }] : [];
-    } catch {
-      return []; // invalid timezone string — skip rather than crash
-    }
+    const day = reminderDay(now, tz); // null for an invalid timezone string too
+    return day ? [{ sub, day }] : [];
   });
 
   if (targets.length === 0) {

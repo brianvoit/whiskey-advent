@@ -6,6 +6,7 @@ import SeasonManager from "./admin/SeasonManager";
 import WhiskeyDayEditor from "./admin/WhiskeyDayEditor";
 import UserManager from "./admin/UserManager";
 import { supabase } from "./supabaseClient";
+import { appNow, getRehearsalDate, setRehearsalDate } from "./utils/clock";
 
 type AdminScreenProps = {
   userId: string;
@@ -29,6 +30,7 @@ export default function AdminScreen({ userId }: AdminScreenProps) {
   const [testPushBusy, setTestPushBusy] = useState(false);
   const [testPushResult, setTestPushResult] = useState<TestPushResult | null>(null);
   const [testPushError, setTestPushError] = useState<string | null>(null);
+  const [rehearsalInput, setRehearsalInput] = useState(getRehearsalDate() ?? `${appNow().getFullYear()}-12-07`);
 
   const handleSendTestPush = async () => {
     setTestPushBusy(true);
@@ -99,6 +101,51 @@ export default function AdminScreen({ userId }: AdminScreenProps) {
         };
         return (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3, maxWidth: 400 }}>
+          <Box>
+            <Box sx={{ fontWeight: 700, mb: 0.5 }}>Rehearsal Mode</Box>
+            <Box sx={{ fontSize: "0.85rem", color: "text.secondary", mb: 1.5 }}>
+              Pretend it's another date on this device to walk through the season early: doors
+              unlock, streaks count, celebrations fire. Ratings you save are real and go into that
+              season — clear them before December 1. The 5 pm reminder and Late Sipper still run
+              on real dates.
+            </Box>
+            <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+              <label style={{ fontSize: "0.85rem" }}>
+                Pretend date{" "}
+                <input
+                  type="date"
+                  value={rehearsalInput}
+                  onChange={(e) => setRehearsalInput(e.target.value)}
+                  style={{
+                    padding: "6px 8px",
+                    borderRadius: 8,
+                    border: `1px solid ${theme.palette.divider}`,
+                    background: theme.palette.background.paper,
+                    color: theme.palette.text.primary,
+                    font: "inherit",
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!rehearsalInput}
+                onClick={() => { setRehearsalDate(rehearsalInput); window.location.reload(); }}
+                style={{ ...debugBtnStyle, cursor: rehearsalInput ? "pointer" : "default", opacity: rehearsalInput ? 1 : 0.6 }}
+              >
+                {getRehearsalDate() ? "Change date" : "Start rehearsal"}
+              </button>
+              {getRehearsalDate() && (
+                <button
+                  type="button"
+                  onClick={() => { setRehearsalDate(null); window.location.reload(); }}
+                  style={debugBtnStyle}
+                >
+                  Turn off
+                </button>
+              )}
+            </Box>
+          </Box>
+
           <Box>
             <Box sx={{ fontWeight: 700, mb: 0.5 }}>Test Notifications</Box>
             <Box sx={{ fontSize: "0.85rem", color: "text.secondary", mb: 1.5 }}>
