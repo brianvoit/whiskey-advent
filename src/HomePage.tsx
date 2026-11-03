@@ -71,7 +71,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
           <div className="hp-wrap">
             <p className="hp-invited">
               You're invited to this year's season.{" "}
-              <a href="/login" onClick={handleLogin}>Log in with Google</a> to join.
+              <a href="/login" onClick={handleLogin}>Log in or create an account</a> to join.
             </p>
           </div>
         )}

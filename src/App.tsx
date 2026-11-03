@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -21,6 +21,7 @@ import Onboarding from "./Onboarding";
 import AwaitingApproval from "./AwaitingApproval";
 import HomePage from "./HomePage";
 import LoginPage from "./LoginPage";
+import SetPasswordPage from "./SetPasswordPage";
 import AdminScreen from "./AdminScreen";
 import AdminUserDetail from "./admin/AdminUserDetail";
 import Tasters from "./Tasters";
@@ -78,9 +79,8 @@ function App() {
     }
   }, [profile]);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [recoveringPassword, setRecoveringPassword] = useState(false);
 
   // Signed-out visitors: "/" is the public homepage, every other path (e.g.
   // /login, or a deep link to a day) is the sign-in screen. There's no router
@@ -140,7 +140,8 @@ function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === "PASSWORD_RECOVERY") setRecoveringPassword(true);
       setSession(newSession ?? null);
       if (newSession?.user) {
         loadProfile(newSession.user.id, newSession);
@@ -293,24 +294,6 @@ function App() {
     }
   };
 
-  const handleEmailPasswordSignIn = async (e: FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      console.error(error);
-      setAuthError(error.message);
-      return;
-    }
-
-    setSession(data.session ?? null);
-  };
-
   if (loading) {
     return (
       <div
@@ -338,16 +321,17 @@ function App() {
   if (!session) {
     return (
       <LoginPage
-        email={email}
-        password={password}
-        error={authError}
-        onEmailChange={setEmail}
-        onPasswordChange={setPassword}
+        googleError={authError}
         onGoogleSignIn={handleGoogleSignIn}
-        onEmailSignIn={handleEmailPasswordSignIn}
         onHome={() => goToSignedOutPath("/")}
       />
     );
+  }
+
+  // Opened a password-reset link: it signed them in; ask for the new password
+  // before anything else.
+  if (recoveringPassword) {
+    return <SetPasswordPage onDone={() => setRecoveringPassword(false)} />;
   }
 
   // ---------------------------------------------------------

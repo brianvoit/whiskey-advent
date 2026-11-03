@@ -122,7 +122,7 @@ export default function InviteDialog({
                 error={contact.length > 0 && !valid}
                 helperText={
                   contactType === "email"
-                    ? "Signing up with this address also accepts the invite, even without the link."
+                    ? "Signing up with this address also accepts the invite, even without the link, once they confirm it."
                     : "Include the area code."
                 }
                 fullWidth

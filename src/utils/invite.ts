@@ -61,7 +61,7 @@ export function inviteMessage(link: string, firstName: string | null, returning:
     ? "Whiskey Advent is back for another December, and you're invited. Your ratings from past seasons will be waiting."
     : "You're invited to Whiskey Advent, our private whiskey advent calendar: a pour a day, December 1 to 24.";
   return `${hello} ${invite}\n\nJoin here: ${link}\n\n` +
-    "Sign in with Google. On iPhone, open the link in Safari, then tap Share and Add to Home Screen.";
+    "Sign in with Google, or create an account with your email. On iPhone, open the link in Safari, then tap Share and Add to Home Screen.";
 }
 
 /** A mailto: or sms: link that opens the sender's own app with the invite filled in. */
