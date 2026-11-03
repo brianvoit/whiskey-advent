@@ -1,19 +1,88 @@
 <!doctype html>
 <html lang="en">
-<body style="margin:0;padding:0;background:#F4EFE8;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4EFE8;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#120C08;border-radius:16px;">
-        <tr><td style="padding:36px 32px 8px;font-family:Georgia,'Times New Roman',serif;color:#D08A4A;font-size:15px;letter-spacing:2px;text-transform:uppercase;">Whiskey Advent</td></tr>
-        <tr><td style="padding:8px 32px 0;font-family:Georgia,'Times New Roman',serif;color:#F3E9DC;font-size:30px;line-height:1.2;">Confirm your email</td></tr>
-        <tr><td style="padding:16px 32px 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#CDBBA6;font-size:16px;line-height:1.6;">Thanks for joining Whiskey Advent. Tap below to confirm this is your email address and finish creating your account.</td></tr>
-        <tr><td style="padding:28px 32px 8px;">
-          <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#D08A4A;color:#120C08;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;text-decoration:none;padding:14px 28px;border-radius:999px;">Confirm my email</a>
-        </td></tr>
-        <tr><td style="padding:20px 32px 36px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#A8957F;font-size:13px;line-height:1.6;">Didn't create an account? You can ignore this email and nothing will happen.</td></tr>
-      </table>
-      <p style="font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;color:#8A7A6A;font-size:12px;margin:16px 0 0;">Whiskey Advent · whiskey-advent.com · Please drink responsibly.</p>
-    </td></tr>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
+<title>Confirm your email</title>
+<!-- Fraunces where the mail app allows web fonts (Apple Mail, iOS); Georgia elsewhere (Gmail). -->
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&display=swap" rel="stylesheet">
+<style>
+  a { color: #E3A06A; }
+  @media (max-width: 520px) {
+    .card-pad { padding: 32px 24px !important; }
+    .title { font-size: 30px !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#0D0805;">
+  <!-- Inbox preview text -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#0D0805;">Confirm your email to finish joining Whiskey Advent.</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0D0805" style="background:#0D0805;">
+    <tr>
+      <td align="center" style="padding:36px 12px 40px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
+
+          <!-- Brand row, like the site's header -->
+          <tr>
+            <td style="padding:0 8px 22px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="vertical-align:middle;padding-right:10px;">
+                    <img src="https://whiskey-advent.com/email/glass.png" width="28" height="28" alt="" style="display:block;border:0;">
+                  </td>
+                  <td style="vertical-align:middle;font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:21px;font-weight:600;color:#F3E9DC;letter-spacing:0.01em;">
+                    Whiskey Advent
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Card, like the sign-in card -->
+          <tr>
+            <td class="card-pad" bgcolor="#1C140E" style="background:#1C140E;border:1px solid #3A2B20;border-radius:22px;padding:44px 40px;">
+              <p style="margin:0 0 16px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;letter-spacing:0.22em;text-transform:uppercase;color:#E3A06A;">One more step</p>
+              <h1 class="title" style="margin:0;font-family:Fraunces,Georgia,'Times New Roman',serif;font-weight:400;font-size:38px;line-height:1.08;letter-spacing:-0.01em;color:#F3E9DC;">Confirm your <em style="font-style:italic;color:#E3A06A;">email.</em></h1>
+              <p style="margin:18px 0 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#CDBBA6;">Thanks for signing up for Whiskey Advent. Tap below to confirm this is your email address and finish creating your account.</p>
+
+              <!-- Button (a table cell, so Outlook draws it too) -->
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:32px 0 0;">
+                <tr>
+                  <td bgcolor="#D08A4A" style="background:#D08A4A;border-radius:999px;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:15px 30px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:#120C08;text-decoration:none;border-radius:999px;">Confirm my email</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:28px 0 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#A8957F;">
+                Button not working? Paste this link into your browser:<br>
+                <a href="{{ .ConfirmationURL }}" style="color:#E3A06A;word-break:break-all;">{{ .ConfirmationURL }}</a>
+              </p>
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 0;">
+                <tr><td style="border-top:1px solid #3A2B20;font-size:0;line-height:0;">&nbsp;</td></tr>
+              </table>
+              <p style="margin:20px 0 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#A8957F;">Didn't sign up? You can ignore this email. Nothing happens unless the link is used.</p>
+            </td>
+          </tr>
+
+          <!-- Footer, like the site's -->
+          <tr>
+            <td align="center" style="padding:26px 8px 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.8;color:#A8957F;">
+              <span style="font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:15px;color:#F3E9DC;">Whiskey Advent</span>
+              &nbsp;·&nbsp; Please drink responsibly.<br>
+              <a href="https://whiskey-advent.com" style="color:#CDBBA6;">whiskey-advent.com</a>
+              &nbsp;·&nbsp; <a href="https://whiskey-advent.com/privacy" style="color:#CDBBA6;">Privacy</a>
+              &nbsp;·&nbsp; <a href="https://whiskey-advent.com/terms" style="color:#CDBBA6;">Terms</a>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>
