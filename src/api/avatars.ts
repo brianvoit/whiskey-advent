@@ -40,5 +40,44 @@ export async function uploadAvatar(
 
   if (updateError) throw updateError;
 
+  // Tidy up earlier uploads so a replaced photo doesn't linger in storage.
+  // The new photo is already saved, so a failure here isn't worth an error.
+  await removeStoredAvatars(userId, path).catch((err) =>
+    console.warn("Couldn't remove old avatar files", err)
+  );
+
   return publicUrl;
+}
+
+const PUBLIC_PREFIX = `/storage/v1/object/public/${BUCKET}/`;
+
+/** True for a picture someone uploaded here, as opposed to their Google photo. */
+export function isUploadedAvatar(url: string | null | undefined): boolean {
+  return Boolean(url && url.includes(PUBLIC_PREFIX));
+}
+
+/** Deletes every stored file in the person's avatar folder except `keep`. */
+async function removeStoredAvatars(userId: string, keep?: string): Promise<void> {
+  const { data, error } = await supabase.storage.from(BUCKET).list(userId);
+  if (error) throw error;
+  const paths = (data ?? [])
+    .map((f) => `${userId}/${f.name}`)
+    .filter((p) => p !== keep);
+  if (paths.length === 0) return;
+  const { error: removeError } = await supabase.storage.from(BUCKET).remove(paths);
+  if (removeError) throw removeError;
+}
+
+/**
+ * Admin moderation: deletes someone's uploaded profile picture and clears it
+ * from their profile. People who sign in with Google get their Google photo
+ * back the next time they sign in; everyone else shows their initials.
+ */
+export async function removeAvatar(userId: string): Promise<void> {
+  await removeStoredAvatars(userId);
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar_url: null })
+    .eq("id", userId);
+  if (error) throw error;
 }

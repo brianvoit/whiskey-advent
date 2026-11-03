@@ -34,6 +34,7 @@ import { useTheme } from "@mui/material/styles";
 import { modeCopy } from "../modes";
 import { ModeCard } from "../components/ModeCard";
 import UserAvatar from "../components/UserAvatar";
+import { isUploadedAvatar, removeAvatar } from "../api/avatars";
 import {
   getFullProfileById,
   getAllProfiles,
@@ -72,7 +73,8 @@ type ConfirmAction =
   | { kind: "revoke" }
   | { kind: "reactivate" }
   | { kind: "role"; newRole: "user" | "admin" }
-  | { kind: "link"; legacyId: string; legacyName: string };
+  | { kind: "link"; legacyId: string; legacyName: string }
+  | { kind: "removePhoto" };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending", active: "Active", previous: "Previous",
@@ -166,6 +168,12 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
         setProfile(await getFullProfileById(userId));
         setLegacyProfiles((prev) => prev.filter((p) => p.id !== confirm.legacyId));
         setLinkLegacyId("");
+        setConfirm(null);
+        return;
+      }
+      if (confirm.kind === "removePhoto") {
+        await removeAvatar(userId);
+        setProfile((prev) => (prev ? { ...prev, avatar_url: null } : prev));
         setConfirm(null);
         return;
       }
@@ -318,12 +326,13 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
     if (confirm?.kind === "reactivate") return `${name} will regain full access${currentSeasonYear ? ` and be added to the ${currentSeasonYear} season if not already` : ""}.`;
     if (confirm?.kind === "role" && confirm.newRole === "admin") return `${name} will gain full admin access.`;
     if (confirm?.kind === "role" && confirm.newRole === "user")  return `${name} will lose admin access.`;
+    if (confirm?.kind === "removePhoto") return `${name}'s profile picture will be deleted. They'll show their initials (or their Google photo, if they sign in with Google) until they upload a new one.`;
     if (confirm?.kind === "link") return `${confirm.legacyName}'s past ratings, comments and reactions will move to this account, and the old profile will be deleted. ${name} will be approved and given the seasons ${confirm.legacyName} took part in${currentSeasonYear ? `, plus ${currentSeasonYear}` : ""}. This can't be undone.`;
     return "";
   };
 
   const confirmColor = (): "error" | "warning" | "success" | "primary" => {
-    if (confirm?.kind === "block" || confirm?.kind === "deny") return "error";
+    if (confirm?.kind === "block" || confirm?.kind === "deny" || confirm?.kind === "removePhoto") return "error";
     if (confirm?.kind === "revoke") return "warning";
     if (confirm?.kind === "approve" || confirm?.kind === "reactivate" || confirm?.kind === "unblock") return "success";
     if (confirm?.kind === "role" && confirm.newRole === "user") return "error";
@@ -378,12 +387,24 @@ export default function AdminUserDetail({ currentUserId, resolvedUserId }: Admin
       {/* ── Identity ── */}
       <Paper variant="outlined" sx={{ p: 3, boxShadow: "0 2px 8px rgba(0,0,0,0.10)" }}>
         <Stack direction="row" spacing={2.5} alignItems="flex-start">
-          <UserAvatar
-            firstName={profile.first_name}
-            lastName={profile.last_name}
-            avatarUrl={profile.avatar_url}
-            size="lg"
-          />
+          <Stack spacing={0.5} alignItems="center" sx={{ flexShrink: 0 }}>
+            <UserAvatar
+              firstName={profile.first_name}
+              lastName={profile.last_name}
+              avatarUrl={profile.avatar_url}
+              size="lg"
+            />
+            {isUploadedAvatar(profile.avatar_url) && (
+              <Button
+                size="small"
+                color="error"
+                onClick={() => setConfirm({ kind: "removePhoto" })}
+                sx={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.65rem", minWidth: 0, px: 0.5 }}
+              >
+                Remove photo
+              </Button>
+            )}
+          </Stack>
           <Stack spacing={1} sx={{ flex: 1, minWidth: 0 }}>
             {/* Name row */}
             {editingName ? (

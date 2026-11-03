@@ -207,6 +207,7 @@ type CommentThreadProps = {
   replies: CommentWithMeta[];
   allComments: CommentWithMeta[];
   isAdmin: boolean;
+  userId: string;
   replyForId: string | null;
   replyBody: string;
   posting: boolean;
@@ -217,11 +218,21 @@ type CommentThreadProps = {
   onDelete: (commentId: string) => void;
 };
 
+/** Whether anyone other than `userId` replied to this comment, at any depth. */
+function hasOthersReplies(commentId: string, userId: string, all: CommentWithMeta[]): boolean {
+  return all.some(
+    (c) =>
+      c.parent_comment_id === commentId &&
+      (c.user_id !== userId || hasOthersReplies(c.id, userId, all))
+  );
+}
+
 function CommentThread({
   comment,
   replies,
   allComments,
   isAdmin,
+  userId,
   replyForId,
   replyBody,
   posting,
@@ -232,6 +243,11 @@ function CommentThread({
   onDelete,
 }: CommentThreadProps) {
   const theme = useTheme();
+
+  // Deleting a comment also deletes its replies, so people can delete their
+  // own only while nobody else has replied; admins can delete anything.
+  const canDelete = (c: CommentWithMeta) =>
+    isAdmin || (c.user_id === userId && !hasOthersReplies(c.id, userId, allComments));
 
   const author = comment.author;
   const displayName = formatDisplayName(author?.first_name, author?.last_name);
@@ -340,7 +356,7 @@ function CommentThread({
               >
                 Reply
               </Button>
-              {isAdmin && (
+              {canDelete(reply) && (
                 <Button
                   size="small"
                   variant="text"
@@ -468,7 +484,7 @@ function CommentThread({
               >
                 Reply
               </Button>
-              {isAdmin && (
+              {canDelete(comment) && (
                 <Button
                   size="small"
                   variant="text"
@@ -763,6 +779,7 @@ export default function CommentsSection({
               replies={getReplies(comment.id)}
               allComments={enrichedComments}
               isAdmin={isAdmin}
+              userId={userId}
               replyForId={replyForId}
               replyBody={replyBody}
               posting={posting}
