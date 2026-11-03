@@ -43,9 +43,8 @@ export function setRehearsalDate(date: string | null): void {
   }
 }
 
-/** Now, as the app should see it: the real time, on the pretend date if set. */
-export function appNow(): Date {
-  const real = new Date();
+/** `real` moved onto the pretend date, keeping its time of day; unchanged when off. */
+function onPretendDate(real: Date): Date {
   const pretend = getRehearsalDate();
   const parts = pretend ? parseDate(pretend) : null;
   if (!parts) return real;
@@ -55,6 +54,11 @@ export function appNow(): Date {
   );
 }
 
+/** Now, as the app should see it: the real time, on the pretend date if set. */
+export function appNow(): Date {
+  return onPretendDate(new Date());
+}
+
 /**
  * Shifts a real timestamp (e.g. a database rating time) onto the app clock, so
  * rehearsal mode can tell late ratings from on-time ones. 0 shift outside
@@ -62,5 +66,7 @@ export function appNow(): Date {
  * offset, so they're only approximately placed.
  */
 export function toAppTime(realMs: number): number {
-  return realMs + (appNow().getTime() - Date.now());
+  // One clock reading: reading it twice could differ by a millisecond.
+  const real = new Date();
+  return realMs + (onPretendDate(real).getTime() - real.getTime());
 }

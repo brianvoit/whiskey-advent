@@ -1,5 +1,6 @@
 import type { FormEvent, MouseEvent } from "react";
 import { useBodyBackground } from "./hooks/useBodyBackground";
+import { getStoredInvite } from "./utils/invite";
 import "./HomePage.css";
 
 type LoginPageProps = {
@@ -29,6 +30,7 @@ export default function LoginPage({
   onHome,
 }: LoginPageProps) {
   useBodyBackground("#120C08");
+  const invited = getStoredInvite() !== null;
 
   const handleHome = (e: MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
@@ -55,7 +57,9 @@ export default function LoginPage({
           <p className="hp-eyebrow">By invitation</p>
           <h1 className="hp-login-title">Sign <em>in.</em></h1>
           <p className="hp-login-intro">
-            New here? Sign in with the account you were invited with, and an admin will let you in.
+            {invited
+              ? "You've been invited. Continue with Google and you'll go straight in."
+              : "New here? Sign in with the account you were invited with, and an admin will let you in."}
           </p>
 
           <button type="button" onClick={onGoogleSignIn} className="hp-login-google">

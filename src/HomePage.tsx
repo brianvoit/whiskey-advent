@@ -2,6 +2,7 @@ import { useState, type MouseEvent } from "react";
 import { useBodyBackground } from "./hooks/useBodyBackground";
 import { appNow } from "./utils/clock";
 import { doorState, getTodayDoor } from "./utils/heroCalendar";
+import { getStoredInvite } from "./utils/invite";
 import "./HomePage.css";
 
 type HomePageProps = {
@@ -36,6 +37,7 @@ function GlassIcon({ size = 28, color = "currentColor", strokeWidth = 1.6 }: { s
  */
 export default function HomePage({ onLogin }: HomePageProps) {
   useBodyBackground("#120C08");
+  const invited = getStoredInvite() !== null;
 
   const [exampleDay] = useState(() => 1 + Math.floor(Math.random() * 24));
   const todayDoor = getTodayDoor(appNow(), exampleDay);
@@ -65,6 +67,15 @@ export default function HomePage({ onLogin }: HomePageProps) {
       </header>
 
       <main>
+        {invited && (
+          <div className="hp-wrap">
+            <p className="hp-invited">
+              You're invited to this year's season.{" "}
+              <a href="/login" onClick={handleLogin}>Log in with Google</a> to join.
+            </p>
+          </div>
+        )}
+
         {/* ── Hero ── */}
         <section id="top" className="hp-wrap hp-hero">
           <div className="hp-hero-copy">

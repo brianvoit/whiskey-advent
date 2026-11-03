@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
+  Button,
   Chip,
   CircularProgress,
   Divider,
@@ -13,8 +14,12 @@ import {
 import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import HourglassTopRoundedIcon from "@mui/icons-material/HourglassTopRounded";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import PersonAddRoundedIcon from "@mui/icons-material/PersonAddRounded";
+import MailOutlineRoundedIcon from "@mui/icons-material/MailOutlineRounded";
 import { getAllProfiles, type AdminProfile } from "../api/admin";
+import { cancelInvite, getOpenInvites, type Invite } from "../api/invites";
 import UserAvatar from "../components/UserAvatar";
+import InviteDialog from "./InviteDialog";
 
 type UserManagerProps = {
   currentUserId: string;
@@ -22,17 +27,30 @@ type UserManagerProps = {
 
 export default function UserManager({ currentUserId }: UserManagerProps) {
   const [profiles, setProfiles] = useState<AdminProfile[]>([]);
+  const [invites,  setInvites]  = useState<Invite[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState<string | null>(null);
+  // Open dialog: a new invite (optionally for a previous user), or resending one.
+  const [dialog, setDialog] = useState<{ previous?: AdminProfile; invite?: Invite } | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     setLoading(true);
-    getAllProfiles()
-      .then(setProfiles)
+    Promise.all([getAllProfiles(), getOpenInvites()])
+      .then(([p, i]) => { setProfiles(p); setInvites(i); })
       .catch((e: unknown) => setError((e as Error)?.message ?? "Failed to load users."))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleCancelInvite = async (invite: Invite) => {
+    if (!window.confirm(`Cancel the invite to ${invite.contact}? Its link will stop working.`)) return;
+    try {
+      await cancelInvite(invite.id);
+      setInvites((prev) => prev.filter((i) => i.id !== invite.id));
+    } catch (e) {
+      setError((e as Error)?.message ?? "Couldn't cancel the invite.");
+    }
+  };
 
   if (loading) return <CircularProgress size={24} />;
 
@@ -48,11 +66,21 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
   const blocked  = profiles.filter((p) => p.status === "blocked");
   const legacy   = profiles.filter((p) => p.is_legacy && p.status === "pending");
 
-  const renderRow = (profile: AdminProfile, i: number) => {
+  const profileName = (id: string | null) => {
+    const p = id ? profiles.find((x) => x.id === id) : undefined;
+    return p ? displayName(p) : null;
+  };
+  const inviteName = (invite: Invite) =>
+    [invite.first_name, invite.last_name].filter(Boolean).join(" ") ||
+    profileName(invite.legacy_profile_id) ||
+    invite.contact;
+
+  // `action` sits beside the row's own button (a button can't contain another).
+  const renderRow = (profile: AdminProfile, i: number, action?: ReactNode) => {
     const isSelf  = profile.id === currentUserId;
     const isAdmin = profile.role === "admin";
 
-    return (
+    const row = (
       <Box
         key={profile.id}
         component="button"
@@ -64,10 +92,11 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
           display: "flex", alignItems: "center", gap: 2,
           px: 2, py: 1.5, width: "100%", textAlign: "left",
           border: "none", background: "transparent", cursor: "pointer",
-          borderTop: i === 0 ? "none" : "1px solid",
+          borderTop: i === 0 || action ? "none" : "1px solid",
           borderColor: "divider",
           "&:hover": { bgcolor: "action.hover" },
           transition: "background-color 0.1s",
+          minWidth: 0,
         }}
       >
         <UserAvatar
@@ -103,7 +132,66 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
         <ChevronRightRoundedIcon sx={{ color: "text.disabled", fontSize: 20, flexShrink: 0 }} />
       </Box>
     );
+
+    if (!action) return row;
+    return (
+      <Box
+        key={profile.id}
+        sx={{
+          display: "flex", alignItems: "center", pr: 1.5,
+          borderTop: i === 0 ? "none" : "1px solid", borderColor: "divider",
+        }}
+      >
+        <Box sx={{ flex: 1, minWidth: 0 }}>{row}</Box>
+        {action}
+      </Box>
+    );
   };
+
+  // Previous users get an Invite button, or Resend if they already have one.
+  const previousAction = (profile: AdminProfile) => {
+    const open = invites.find((inv) => inv.legacy_profile_id === profile.id);
+    return open ? (
+      <Button size="small" startIcon={<MailOutlineRoundedIcon />} onClick={() => setDialog({ invite: open })}>
+        Resend
+      </Button>
+    ) : (
+      <Button size="small" variant="outlined" startIcon={<PersonAddRoundedIcon />} onClick={() => setDialog({ previous: profile })}>
+        Invite
+      </Button>
+    );
+  };
+
+  const renderInviteRow = (invite: Invite, i: number) => (
+    <Box
+      key={invite.id}
+      sx={{
+        display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap",
+        px: 2, py: 1.5,
+        borderTop: i === 0 ? "none" : "1px solid", borderColor: "divider",
+      }}
+    >
+      <UserAvatar firstName={invite.first_name} lastName={invite.last_name} avatarUrl={null} size="sm" />
+      <Box sx={{ flex: 1, minWidth: 160 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          <Typography variant="body2" fontWeight={600} noWrap>{inviteName(invite)}</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+            <MailOutlineRoundedIcon sx={{ fontSize: 13, color: "warning.main" }} />
+            <Typography variant="caption" color="warning.main">
+              Invited{invite.legacy_profile_id ? " back" : ""}
+            </Typography>
+          </Box>
+        </Box>
+        <Typography variant="caption" color="text.secondary">
+          {invite.contact} · {new Date(invite.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        </Typography>
+      </Box>
+      <Box sx={{ display: "flex", gap: 0.5 }}>
+        <Button size="small" onClick={() => setDialog({ invite })}>Resend</Button>
+        <Button size="small" color="error" onClick={() => void handleCancelInvite(invite)}>Cancel</Button>
+      </Box>
+    </Box>
+  );
 
   const SectionHeader = ({
     label, count, color,
@@ -120,11 +208,18 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
     <Stack spacing={3}>
       {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
-      {pending.length > 0 && (
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button variant="contained" startIcon={<PersonAddRoundedIcon />} onClick={() => setDialog({})}>
+          Invite
+        </Button>
+      </Box>
+
+      {(pending.length > 0 || invites.length > 0) && (
         <Stack spacing={1}>
-          <SectionHeader label="Pending Approval" count={pending.length} color="warning" />
+          <SectionHeader label="Pending" count={pending.length + invites.length} color="warning" />
           <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-            {pending.map((p, i) => renderRow(p, i))}
+            {invites.map((inv, i) => renderInviteRow(inv, i))}
+            {pending.map((p, i) => renderRow(p, invites.length + i))}
           </Paper>
         </Stack>
       )}
@@ -147,7 +242,7 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
         <Stack spacing={1}>
           <SectionHeader label="Previous Users" count={previous.length} />
           <Paper variant="outlined" sx={{ overflow: "hidden" }}>
-            {previous.map((p, i) => renderRow(p, i))}
+            {previous.map((p, i) => renderRow(p, i, previousAction(p)))}
           </Paper>
         </Stack>
       )}
@@ -200,6 +295,18 @@ export default function UserManager({ currentUserId }: UserManagerProps) {
         </Stack>
       )}
 
+      {dialog && (
+        <InviteDialog
+          // Fresh form state for each invite opened.
+          key={dialog.invite?.id ?? dialog.previous?.id ?? "new"}
+          open
+          onClose={() => setDialog(null)}
+          currentUserId={currentUserId}
+          previousProfile={dialog.previous ?? null}
+          existingInvite={dialog.invite ?? null}
+          onCreated={(created) => setInvites((prev) => [created, ...prev])}
+        />
+      )}
     </Stack>
   );
 }

@@ -80,6 +80,17 @@
 .hp-navlinks a:hover { color: var(--hp-text); }
 .hp-nav-login { margin-left: auto; padding: 11px 22px; font-size: 15px; }
 
+/* Shown when the page was opened from an invite link. */
+.hp-invited {
+  margin-top: 24px;
+  padding: 14px 18px;
+  border: 1px solid var(--hp-accent);
+  border-radius: 14px;
+  background: #2A1C12;
+  font-size: 16px;
+}
+.hp-invited a { color: var(--hp-accent-text); font-weight: 600; text-decoration: underline; }
+
 /* ── Hero ────────────────────────────────────────────────────────────────── */
 .hp-hero {
   display: flex;

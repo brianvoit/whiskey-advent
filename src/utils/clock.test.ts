@@ -46,6 +46,11 @@ describe("rehearsal clock", () => {
     expect(toAppTime(Date.now() - 60_000)).toBe(appNow().getTime() - 60_000);
   });
 
+  it("doesn't shift timestamps at all with rehearsal off, even as the real clock ticks", () => {
+    vi.useRealTimers();
+    for (let i = 0; i < 2000; i++) expect(toAppTime(1_000_000)).toBe(1_000_000);
+  });
+
   it("turns off with null", () => {
     setRehearsalDate("2026-12-07");
     setRehearsalDate(null);

@@ -42,6 +42,8 @@ import type { Profile, TastingMode } from "./api/profiles";
 import { appNow, getRehearsalDate, setRehearsalDate } from "./utils/clock";
 import RehearsalBanner from "./components/RehearsalBanner";
 import { endRehearsal } from "./api/rehearsal";
+import { redeemInvite } from "./api/invites";
+import { clearStoredInvite, getStoredInvite } from "./utils/invite";
 
 // Computed tasting preferences passed to child components
 type TastingPrefs = {
@@ -159,6 +161,19 @@ function App() {
 
   const loadProfile = async (userId: string, oauthSession?: Session | null) => {
     setProfileError(null);
+
+    // Opened from an invite link: accept it before loading the profile, so an
+    // invited person goes straight in instead of to "awaiting approval". Kept
+    // for the next load if the request itself fails.
+    const inviteToken = getStoredInvite();
+    if (inviteToken) {
+      try {
+        await redeemInvite(inviteToken);
+        clearStoredInvite();
+      } catch (e) {
+        console.error("Invite redeem failed", e);
+      }
+    }
 
     // Load profile + accessible seasons in parallel
     // select("*") is intentional — tolerates columns added via migrations
