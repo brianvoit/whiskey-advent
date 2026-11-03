@@ -1,10 +1,12 @@
 import { supabase } from "../supabaseClient";
+import { compressImage } from "../utils/compressImage";
+import type { SquareCrop } from "../utils/squareCrop";
 
 const BUCKET = "avatars";
-const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
- * Uploads an image file to Supabase Storage under avatars/{userId}/{timestamp}.{ext}
+ * Crops the photo to a 512px WebP square (JPEG on Safari) and uploads it to Supabase
+ * Storage under avatars/{userId}/{timestamp}.{ext},
  * and updates the user's profile row with the new public URL.
  *
  * Requires a Supabase Storage bucket named "avatars" with:
@@ -13,22 +15,17 @@ const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
  *
  * @returns The new public avatar URL
  */
-export async function uploadAvatar(userId: string, file: File): Promise<string> {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("File must be an image.");
-  }
-  if (file.size > MAX_SIZE_BYTES) {
-    throw new Error("Image must be smaller than 5 MB.");
-  }
-
-  const ext = file.name.includes(".")
-    ? file.name.split(".").pop()!
-    : "jpg";
+export async function uploadAvatar(
+  userId: string,
+  file: File,
+  crop: SquareCrop | "center" = "center"
+): Promise<string> {
+  const { blob, ext } = await compressImage(file, { maxSide: 512, crop });
   const path = `${userId}/${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, blob, { upsert: true, contentType: blob.type });
 
   if (uploadError) throw uploadError;
 

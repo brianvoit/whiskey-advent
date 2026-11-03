@@ -754,7 +754,7 @@ function WhiskeyDetail({ userId, isAdmin, tastingMode, avatarUrl, firstName, las
         <div
           style={{
             width: "100%",
-            aspectRatio: "4/3",
+            aspectRatio: "1",
             borderRadius: theme.shape.borderRadius,
             overflow: "hidden",
             boxShadow: "0 2px 6px rgba(0,0,0,0.10)",

@@ -12,7 +12,7 @@ npx tsc -b --noEmit  # Type-check only (run after edits to catch TS6133 unused-v
 npm test             # Vitest: date/season rules (TZ pinned to America/Chicago)
 ```
 
-Tests cover pure logic only: `src/utils/*.test.ts` (streaks, door close times, Angel's Share / Double Pour, hero calendar, rehearsal clock) and the edge functions' rule files (`supabase/functions/*/pick.ts`, `schedule.ts`). Keep date and award rules in those pure modules so they stay testable.
+Tests cover pure logic only: `src/utils/*.test.ts` (streaks, door close times, Angel's Share / Double Pour, hero calendar, rehearsal clock, photo crop/resize maths) and the edge functions' rule files (`supabase/functions/*/pick.ts`, `schedule.ts`). Keep date and award rules in those pure modules so they stay testable.
 
 Season code must read "today" from `appNow()` in `src/utils/clock.ts`, not `new Date()`, so Admin → Debug → Rehearsal Mode can pretend it's another date on one device.
 
@@ -101,5 +101,6 @@ Mode controls visibility in both `Home` (calendar cards) and `DayDetail`/`Whiske
 - **`hasCelebrationRef`** (useRef) coordinates async celebration + navigation: set to `true` synchronously before any `setCelebration()` call; after save, check it to decide whether to navigate immediately or wait for overlay dismissal.
 - **`celebratedMilestones`** (useRef Set) prevents streak milestone celebrations from re-firing within a session.
 - **Safe area insets** — `env(safe-area-inset-top/bottom)` used in header padding and bottom nav for Dynamic Island/notch support.
+- **Photo uploads** go through `ImageCropDialog` (drag/pinch a square) and `compressImage` (square, WebP; JPEG on Safari, which can't encode WebP) before Storage: 1200px for whiskeys, 512px for avatars.
 - **PWA service worker** (`src/sw.ts`) uses `injectManifest` strategy. Supabase API calls are `NetworkOnly` — never cached.
 - **Supabase realtime** — `postgres_changes` subscriptions keep notification counts and pending-user badges live without polling.

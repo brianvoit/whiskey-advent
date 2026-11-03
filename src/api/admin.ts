@@ -1,4 +1,6 @@
 import { supabase } from "../supabaseClient";
+import { compressImage } from "../utils/compressImage";
+import type { SquareCrop } from "../utils/squareCrop";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -125,17 +127,17 @@ const WHISKEY_BUCKET = "whiskey-images";
 export async function uploadWhiskeyImage(
   seasonId: number,
   dayNumber: number,
-  file: File
+  file: File,
+  crop: SquareCrop | "center" = "center"
 ): Promise<string> {
-  if (!file.type.startsWith("image/")) throw new Error("File must be an image.");
-  if (file.size > 10 * 1024 * 1024) throw new Error("Image must be smaller than 10 MB.");
-
-  const ext = file.name.includes(".") ? file.name.split(".").pop()! : "jpg";
+  // Cropped to a 1200px square, WebP (JPEG on Safari), so every pour's photo
+  // has the same shape and the calendar stays quick on cell data.
+  const { blob, ext } = await compressImage(file, { maxSide: 1200, crop });
   const path = `season-${seasonId}/day-${dayNumber}-${Date.now()}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
     .from(WHISKEY_BUCKET)
-    .upload(path, file, { upsert: true, contentType: file.type });
+    .upload(path, blob, { upsert: true, contentType: blob.type });
   if (uploadError) throw uploadError;
 
   const { data } = supabase.storage.from(WHISKEY_BUCKET).getPublicUrl(path);

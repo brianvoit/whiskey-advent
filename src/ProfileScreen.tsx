@@ -143,6 +143,8 @@ function WouldBuyRow({
   );
 }
 import { usePageMeta } from "./hooks/usePageMeta";
+import ImageCropDialog from "./components/ImageCropDialog";
+import type { SquareCrop } from "./utils/squareCrop";
 
 type ProfileScreenProps = {
   profile: Profile;
@@ -206,19 +208,27 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
     profile.avatar_url ?? null
   );
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   const handleAvatarClick = () => {
     if (!uploading) fileInputRef.current?.click();
   };
 
-  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
+  // A chosen photo goes to the cropper first; it uploads once positioned.
+  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
     e.target.value = "";
+    if (file) setCropFile(file);
+  };
+
+  const handleCropConfirm = async (crop: SquareCrop) => {
+    const file = cropFile;
+    setCropFile(null);
+    if (!file) return;
     setUploading(true);
     setAvatarError(null);
     try {
-      const newUrl = await uploadAvatar(profile.id, file);
+      const newUrl = await uploadAvatar(profile.id, file, crop);
       setCurrentAvatarUrl(newUrl);
       onProfileUpdated({ ...profile, avatar_url: newUrl });
     } catch (err: any) {
@@ -409,6 +419,12 @@ function ProfileScreen({ profile, userId, userEmail, hasEmailAuth = false, onPro
             </Stack>
           </Stack>
 
+          <ImageCropDialog
+            file={cropFile}
+            round
+            onCancel={() => setCropFile(null)}
+            onConfirm={handleCropConfirm}
+          />
           {avatarError && (
             <Alert severity="error" sx={{ py: 0.5 }}>{avatarError}</Alert>
           )}

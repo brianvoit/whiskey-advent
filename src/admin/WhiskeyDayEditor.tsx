@@ -37,6 +37,8 @@ import {
 } from "../api/admin";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import ImageCropDialog from "../components/ImageCropDialog";
+import type { SquareCrop } from "../utils/squareCrop";
 
 const WHISKEY_TYPES = [
   "Single Malt", "Blended Malt", "Blended", "Single Grain", "Pot Still",
@@ -103,6 +105,7 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
   const [saveError, setSaveError] = useState<string | null>(null);
   const [nameError, setNameError] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [imgFailed, setImgFailed] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -225,17 +228,25 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
     setImgFailed(false);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // A chosen photo goes to the cropper first; it uploads once positioned.
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !selectedSeasonId) return;
     e.target.value = "";
+    if (file && selectedSeasonId) setCropFile(file);
+  };
+
+  const handleCropConfirm = async (crop: SquareCrop) => {
+    const file = cropFile;
+    setCropFile(null);
+    if (!file || !selectedSeasonId) return;
     setUploadingImage(true);
     setSaveError(null);
     try {
       const url = await uploadWhiskeyImage(
         selectedSeasonId as number,
         form.day_number,
-        file
+        file,
+        crop
       );
       setImgFailed(false);
       setForm((prev) => ({ ...prev, image_url: url }));
@@ -647,6 +658,12 @@ export default function WhiskeyDayEditor({ initialSeasonId }: WhiskeyDayEditorPr
           </Stack>
         </DialogActions>
       </Dialog>
+
+      <ImageCropDialog
+        file={cropFile}
+        onCancel={() => setCropFile(null)}
+        onConfirm={handleCropConfirm}
+      />
     </Stack>
   );
 }
