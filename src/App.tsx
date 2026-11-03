@@ -91,10 +91,11 @@ function App() {
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
+  // `path` may carry a #section; the homepage scrolls to it when it mounts.
   const goToSignedOutPath = (path: string) => {
     window.history.pushState(null, "", path);
-    setSignedOutPath(path);
-    window.scrollTo(0, 0);
+    setSignedOutPath(new URL(path, window.location.origin).pathname);
+    if (!path.includes("#")) window.scrollTo(0, 0);
   };
 
   const isAdmin = profile?.role === "admin";
@@ -323,7 +324,7 @@ function App() {
       <LoginPage
         googleError={authError}
         onGoogleSignIn={handleGoogleSignIn}
-        onHome={() => goToSignedOutPath("/")}
+        onGoTo={(section) => goToSignedOutPath(section === "top" ? "/" : `/#${section}`)}
       />
     );
   }

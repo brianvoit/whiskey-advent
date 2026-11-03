@@ -1,8 +1,9 @@
-import { useState, type MouseEvent } from "react";
-import { useBodyBackground } from "./hooks/useBodyBackground";
+import { useEffect, useState, type MouseEvent } from "react";
+import { useSiteTheme } from "./hooks/useSiteTheme";
 import { appNow } from "./utils/clock";
-import { doorState, getTodayDoor } from "./utils/heroCalendar";
+import { getTodayDoor } from "./utils/heroCalendar";
 import { getStoredInvite } from "./utils/invite";
+import { GlassIcon, HeroDoors, SiteFooter, SiteHeader } from "./SiteChrome";
 import "./HomePage.css";
 
 type HomePageProps = {
@@ -15,29 +16,20 @@ const STREAK_EXAMPLE_DAYS = 7;
 const STREAK_MILESTONES = [3, 5, 10, 15, 20, 24];
 const DAYS = Array.from({ length: 24 }, (_, i) => i + 1);
 
-const DOOR_CLASS = {
-  today: "hp-door hp-door-today",
-  past: "hp-door hp-door-past",
-  closed: "hp-door",
-} as const;
-
-function GlassIcon({ size = 28, color = "currentColor", strokeWidth = 1.6 }: { size?: number; color?: string; strokeWidth?: number }) {
-  return (
-    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 28 28" fill="none" stroke={color} strokeWidth={strokeWidth}>
-      <path d="M5 6h18l-2 17H7L5 6z" />
-      <path d="M6.2 15h15.6" />
-    </svg>
-  );
-}
-
 /**
  * Public homepage shown at "/" to signed-out visitors. Also serves as the app's
  * public description for Google's OAuth verification, so it must stay
  * reachable without signing in and keep its Privacy Policy link.
  */
 export default function HomePage({ onLogin }: HomePageProps) {
-  useBodyBackground("#120C08");
+  const theme = useSiteTheme();
   const invited = getStoredInvite() !== null;
+
+  // Opened as /#section from another page (e.g. the sign-in page's links).
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView();
+  }, []);
 
   const [exampleDay] = useState(() => 1 + Math.floor(Math.random() * 24));
   const todayDoor = getTodayDoor(appNow(), exampleDay);
@@ -48,23 +40,8 @@ export default function HomePage({ onLogin }: HomePageProps) {
   };
 
   return (
-    <div className="hp">
-      {/* ── Nav ── */}
-      <header className="hp-header">
-        <nav aria-label="Main" className="hp-wrap hp-nav">
-          <a href="#top" className="hp-brand">
-            <GlassIcon color="#D08A4A" />
-            <span className="hp-brand-name">Whiskey Advent</span>
-          </a>
-          <div className="hp-navlinks">
-            <a href="#modes">Tasting modes</a>
-            <a href="#how">How it works</a>
-            <a href="#season">The season</a>
-            <a href="#faq">FAQ</a>
-          </div>
-          <a href="/login" onClick={handleLogin} className="hp-btn hp-btn-primary hp-nav-login">Log in</a>
-        </nav>
-      </header>
+    <div className="hp" data-theme={theme}>
+      <SiteHeader page="home" onGoTo={() => undefined} onLogin={onLogin} />
 
       <main>
         {invited && (
@@ -90,13 +67,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
               <a href="#modes" className="hp-btn hp-btn-ghost">Choose how you taste</a>
             </div>
           </div>
-          <div className="hp-doors" aria-hidden="true">
-            {DAYS.map((n) => (
-              <div key={n} className={DOOR_CLASS[doorState(n, todayDoor)]}>
-                {n}
-              </div>
-            ))}
-          </div>
+          <HeroDoors todayDoor={todayDoor} />
         </section>
 
         {/* ── Tasting modes: the same door, three ways ── */}
@@ -113,7 +84,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
                 <div className="hp-mode-card" aria-hidden="true">
                   <div className="hp-mode-card-top">
                     <span className="hp-mode-day">Day 7</span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A38D76" strokeWidth="1.6"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="hp-icon-muted" strokeWidth="1.6"><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
                   </div>
                   <div className="hp-redact hp-redact-name" />
                   <div className="hp-redact hp-redact-sub" />
@@ -133,7 +104,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
                 <div className="hp-mode-card hp-mode-card-featured" aria-hidden="true">
                   <div className="hp-mode-card-top">
                     <span className="hp-mode-day">Day 7</span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E3A06A" strokeWidth="1.6"><circle cx="12" cy="12" r="8" /><path d="M14.8 9.2l-1.6 4-4 1.6 1.6-4 4-1.6z" /></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="hp-icon-accent" strokeWidth="1.6"><circle cx="12" cy="12" r="8" /><path d="M14.8 9.2l-1.6 4-4 1.6 1.6-4 4-1.6z" /></svg>
                   </div>
                   <div className="hp-redact hp-redact-name" />
                   <div className="hp-redact hp-redact-sub" />
@@ -153,7 +124,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
                 <div className="hp-mode-card" aria-hidden="true">
                   <div className="hp-mode-card-top">
                     <span className="hp-mode-day">Day 7</span>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E3A06A" strokeWidth="1.6"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="hp-icon-accent" strokeWidth="1.6"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
                   </div>
                   <p className="hp-mode-name">Ardbeg Uigeadail</p>
                   <p className="hp-mode-sub">Ardbeg Distillery · NAS</p>
@@ -245,7 +216,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
               </div>
 
               <div className="hp-tile hp-tile-awards">
-                <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E3A06A" strokeWidth="1.5"><path d="M7 4h10v4a5 5 0 0 1-10 0V4z" /><path d="M12 13v4M8 21h8M9 17h6" /></svg>
+                <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="hp-icon-accent" strokeWidth="1.5"><path d="M7 4h10v4a5 5 0 0 1-10 0V4z" /><path d="M12 13v4M8 21h8M9 17h6" /></svg>
                 <h3>Awards</h3>
                 <p>Be the First Taster of a day — or the Late Sipper who pours last.</p>
               </div>
@@ -268,7 +239,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
                   <p>An optional reminder each December evening, in your own time zone. Turn it on or off in your profile.</p>
                 </div>
                 <div className="hp-notif" aria-hidden="true">
-                  <span className="hp-notif-icon"><GlassIcon size={22} color="#120C08" strokeWidth={2} /></span>
+                  <span className="hp-notif-icon"><GlassIcon size={22} strokeWidth={2} /></span>
                   <span className="hp-notif-text">
                     <strong>Whiskey Advent</strong>
                     <span>Today's door is open. Time to taste.</span>
@@ -327,17 +298,7 @@ export default function HomePage({ onLogin }: HomePageProps) {
         </section>
       </main>
 
-      {/* ── Footer ── */}
-      <footer className="hp-footer">
-        <div className="hp-wrap">
-          <span className="hp-footer-name">Whiskey Advent</span>
-          <span>Please drink responsibly.</span>
-          <span className="hp-footer-links">
-            <a href="/privacy">Privacy</a>
-            <a href="/terms">Terms</a>
-          </span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

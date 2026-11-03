@@ -1,6 +1,7 @@
 import React, {
   createContext,
   useContext,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -237,7 +238,22 @@ const darkTheme = createTheme({
 type ThemeContextValue = {
   mode: ThemeMode;
   setMode: (mode: ThemeMode) => void;
+  /** What's actually showing: `mode`, with "system" resolved. */
+  resolvedMode: "light" | "dark";
 };
+
+// The choice is remembered on the device too, so the public site (signed out)
+// and the app share it. A signed-in profile's theme_mode still wins on load.
+const STORAGE_KEY = "whiskey-advent:theme";
+
+function storedMode(): ThemeMode {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY);
+    return v === "light" || v === "dark" || v === "system" ? v : "system";
+  } catch {
+    return "system";
+  }
+}
 
 const ThemeModeContext = createContext<ThemeContextValue | undefined>(
   undefined
@@ -245,7 +261,15 @@ const ThemeModeContext = createContext<ThemeContextValue | undefined>(
 
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   // Default to system — follows OS preference until the user explicitly overrides.
-  const [mode, setMode] = useState<ThemeMode>("system");
+  const [mode, setModeState] = useState<ThemeMode>(storedMode);
+  const setMode = useCallback((next: ThemeMode) => {
+    setModeState(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, next);
+    } catch {
+      // storage blocked: the choice lasts for this visit only
+    }
+  }, []);
   const [systemPrefersDark, setSystemPrefersDark] = useState(false);
 
   useEffect(() => {
@@ -271,8 +295,8 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   );
 
   const contextValue = useMemo(
-    () => ({ mode, setMode }),
-    [mode]
+    () => ({ mode, setMode, resolvedMode }),
+    [mode, setMode, resolvedMode]
   );
 
   return (

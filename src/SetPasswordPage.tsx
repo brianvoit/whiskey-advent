@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useBodyBackground } from "./hooks/useBodyBackground";
+import { useSiteTheme } from "./hooks/useSiteTheme";
 import { MIN_PASSWORD_LENGTH, setNewPassword } from "./api/auth";
 import "./HomePage.css";
 
@@ -9,7 +9,7 @@ import "./HomePage.css";
  * before the app continues.
  */
 export default function SetPasswordPage({ onDone }: { onDone: () => void }) {
-  useBodyBackground("#120C08");
+  const theme = useSiteTheme();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -37,8 +37,8 @@ export default function SetPasswordPage({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <div className="hp hp-login">
-      <main className="hp-login-main">
+    <div className="hp hp-login" data-theme={theme}>
+      <main className="hp-wrap hp-login-main hp-login-main-single">
         <div className="hp-login-card">
           <p className="hp-eyebrow">Whiskey Advent</p>
           <h1 className="hp-login-title">Choose a new <em>password.</em></h1>

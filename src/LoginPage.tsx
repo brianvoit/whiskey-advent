@@ -1,15 +1,18 @@
 import { useState, type FormEvent, type MouseEvent } from "react";
-import { useBodyBackground } from "./hooks/useBodyBackground";
+import { useSiteTheme } from "./hooks/useSiteTheme";
+import { appNow } from "./utils/clock";
+import { getTodayDoor } from "./utils/heroCalendar";
 import { getStoredInvite } from "./utils/invite";
 import { MIN_PASSWORD_LENGTH, sendPasswordReset, signInWithEmail, signUpWithEmail } from "./api/auth";
+import { HeroDoors, SiteFooter, SiteHeader } from "./SiteChrome";
 import "./HomePage.css";
 
 type LoginPageProps = {
   /** Error from the Google sign-in, which App starts. */
   googleError: string | null;
   onGoogleSignIn: () => void;
-  /** Back to the public homepage without a full page load. */
-  onHome: () => void;
+  /** To the public homepage (a section of it, or "top"), without a full page load. */
+  onGoTo: (sectionId: string) => void;
 };
 
 type Mode = "signin" | "signup" | "forgot" | "confirm-sent" | "reset-sent";
@@ -20,9 +23,13 @@ type Mode = "signin" | "signup" | "forgot" | "confirm-sent" | "reset-sent";
  * to match the homepage (shares HomePage.css), not the app's theme. A
  * successful email sign-in is picked up by App's auth listener.
  */
-export default function LoginPage({ googleError, onGoogleSignIn, onHome }: LoginPageProps) {
-  useBodyBackground("#120C08");
+export default function LoginPage({ googleError, onGoogleSignIn, onGoTo }: LoginPageProps) {
+  const theme = useSiteTheme();
   const invited = getStoredInvite() !== null;
+  const [exampleDay] = useState(() => 1 + Math.floor(Math.random() * 24));
+  const now = appNow();
+  const todayDoor = getTodayDoor(now, exampleDay);
+  const inSeason = now.getMonth() === 11 && now.getDate() <= 24;
 
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
@@ -30,11 +37,6 @@ export default function LoginPage({ googleError, onGoogleSignIn, onHome }: Login
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const handleHome = (e: MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    onHome();
-  };
 
   const switchTo = (next: Mode) => (e?: MouseEvent) => {
     e?.preventDefault();
@@ -85,21 +87,22 @@ export default function LoginPage({ googleError, onGoogleSignIn, onHome }: Login
   const sent = mode === "confirm-sent" || mode === "reset-sent";
 
   return (
-    <div className="hp hp-login">
-      <header className="hp-header">
-        <nav aria-label="Main" className="hp-wrap hp-nav">
-          <a href="/" onClick={handleHome} className="hp-brand">
-            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#D08A4A" strokeWidth="1.6">
-              <path d="M5 6h18l-2 17H7L5 6z" />
-              <path d="M6.2 15h15.6" />
-            </svg>
-            <span className="hp-brand-name">Whiskey Advent</span>
-          </a>
-          <a href="/" onClick={handleHome} className="hp-login-back">Back to home</a>
-        </nav>
-      </header>
+    <div className="hp hp-login" data-theme={theme}>
+      <SiteHeader page="login" onGoTo={onGoTo} />
 
-      <main className="hp-login-main">
+      <main className="hp-wrap hp-login-main">
+        <section className="hp-login-aside" aria-label="About Whiskey Advent">
+          <p className="hp-eyebrow">By invitation · December 1–24</p>
+          <h2 className="hp-login-aside-title">
+            {inSeason ? <>Day {now.getDate()} is <em>waiting.</em></> : <>Your door is <em>waiting.</em></>}
+          </h2>
+          <p className="hp-login-aside-lede">
+            Twenty-four pours, one a day. Rate each one, keep your tasting notes, and see how your
+            palate compares with the group.
+          </p>
+          <HeroDoors todayDoor={todayDoor} compact />
+        </section>
+
         <div className="hp-login-card">
           <p className="hp-eyebrow">By invitation</p>
           <h1 className="hp-login-title">{title}</h1>
@@ -195,16 +198,11 @@ export default function LoginPage({ googleError, onGoogleSignIn, onHome }: Login
           )}
         </div>
 
-        {/* Google's OAuth verification requires the privacy policy to be
-            reachable from the sign-in screen. */}
-        <p className="hp-login-links">
-          <a href="/" onClick={handleHome}>Home</a>
-          <span aria-hidden="true"> · </span>
-          <a href="/privacy">Privacy</a>
-          <span aria-hidden="true"> · </span>
-          <a href="/terms">Terms</a>
-        </p>
       </main>
+
+      {/* Includes the Privacy link, which Google's OAuth verification requires
+          on the sign-in screen. */}
+      <SiteFooter />
     </div>
   );
 }
